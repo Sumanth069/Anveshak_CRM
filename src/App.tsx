@@ -477,31 +477,47 @@ export default function App() {
       const phoneMatch = text.match(phoneRegex);
       const phone = phoneMatch ? phoneMatch[0] : '';
 
-      // Classify text lines to identify Name and Company
-      let name = '';
+      // Clean lines first by removing layout junk and piping symbols
+      const cleanLines = lines.map(line => {
+        return line.replace(/[|\\_/*~:;•[\]()]/g, '').trim();
+      }).filter(line => line.length > 2);
+
+      // Identify Company Name
       let company = '';
-      const textLines = lines.filter(line => {
-        const hasEmail = line.includes('@');
-        const hasPhone = /[0-9]{5,}/.test(line.replace(/[\s-()]/g, ''));
-        const isAddress = /street|road|floor|building|block|nagar|layout|sector|india|karnataka|bangalore|bengaluru/i.test(line);
-        return !hasEmail && !hasPhone && !isAddress && line.length > 2;
+      const companyKeywords = ['ltd', 'pvt', 'limited', 'solutions', 'agro', 'systems', 'exports', 'builders', 'hub', 'steel', 'group', 'corp', 'inc', 'tech', 'software', 'automotive', 'industries', 'engineering', 'foundation'];
+      
+      const companyIdx = cleanLines.findIndex(line => 
+        companyKeywords.some(keyword => line.toLowerCase().includes(keyword))
+      );
+      if (companyIdx !== -1) {
+        company = cleanLines[companyIdx];
+      } else {
+        // Fallback: look for lines that are long or look like a business entity name
+        company = cleanLines.find(line => line.length > 15) || 'Extracted Company';
+      }
+
+      // Identify Person's Name
+      let name = '';
+      const titleKeywords = ['chief', 'executive', 'officer', 'manager', 'director', 'founder', 'president', 'partner', 'associate', 'developer', 'engineer', 'consultant', 'ceo', 'cto', 'coo', 'vp', 'analyst', 'lead', 'head'];
+      
+      const nameCandidates = cleanLines.filter(line => {
+        const isCompanyLine = line === company;
+        const hasJobTitle = titleKeywords.some(keyword => 
+          new RegExp(`\\b${keyword}\\b`, 'i').test(line)
+        );
+        const hasNumbers = /[0-9]/.test(line);
+        const isAddress = /street|road|floor|building|block|nagar|layout|sector|india|karnataka|bangalore|bengaluru|campus|kudlugate/i.test(line);
+        
+        // Names are rarely more than 4 words or 35 characters. Exclude long logo/brand strings.
+        const hasWeirdJunk = line.length > 35 || line.split(' ').filter(Boolean).length > 4;
+        
+        return !isCompanyLine && !hasJobTitle && !hasNumbers && !isAddress && !hasWeirdJunk;
       });
 
-      if (textLines.length > 0) {
-        const companyKeywords = ['ltd', 'pvt', 'limited', 'solutions', 'agro', 'systems', 'exports', 'builders', 'hub', 'steel', 'group', 'corp', 'inc', 'tech', 'software', 'automotive', 'industries', 'engineering', 'foundation'];
-        
-        // Find if any line contains company keywords
-        const companyIdx = textLines.findIndex(line => companyKeywords.some(keyword => line.toLowerCase().includes(keyword)));
-        
-        if (companyIdx !== -1) {
-          company = textLines[companyIdx];
-          // Take the first line that is NOT the company as the name
-          const nameLine = textLines.find((_, idx) => idx !== companyIdx);
-          name = nameLine || 'Extracted Contact';
-        } else {
-          name = textLines[0];
-          company = textLines[1] || 'Extracted Company';
-        }
+      if (nameCandidates.length > 0) {
+        name = nameCandidates[0];
+      } else {
+        name = cleanLines.find(line => line !== company && line.length > 3) || 'Extracted Contact';
       }
 
       setNewLead({
