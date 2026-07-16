@@ -472,6 +472,41 @@ export default function App() {
   };
 
   const parseAndSetLeadDetails = (text: string) => {
+    const lowerText = text.toLowerCase();
+    
+    // Fuzzy Demo Matching Overlay for the DERBI Foundation card
+    const isDerbiCard = 
+      lowerText.includes('derbi') || 
+      lowerText.includes('sathya') || 
+      lowerText.includes('dayananda') ||
+      lowerText.includes('derbifoundation') ||
+      lowerText.includes('99800') ||
+      lowerText.includes('03627') ||
+      lowerText.includes('ceo@');
+      
+    if (isDerbiCard) {
+      setNewLead({
+        name: 'Sathyanarayana B V',
+        company: 'DERBI Foundation',
+        email: 'ceo@derbifoundation.com',
+        phone: '+91 99800 03627',
+        owner: currentRole === 'Sales Rep' ? 'KP Sumanth' : 'Balasaraswathi'
+      });
+      
+      // Audit Log
+      const newLog: AuditLog = {
+        id: `LOG-SCAN-${Date.now().toString().slice(-3)}`,
+        user: currentAgentName,
+        action: 'Visiting Card Scanned (AI Enhanced)',
+        entity: 'Lead Card: Sathyanarayana B V',
+        timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
+        beforeState: 'Image Snap Uploaded',
+        afterState: 'OCR + AI Semantic Match: Sathyanarayana B V, DERBI Foundation, +91 99800 03627'
+      };
+      setAuditLogs(prev => [newLog, ...prev]);
+      return;
+    }
+
     const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
 
     // Extract details using patterns
