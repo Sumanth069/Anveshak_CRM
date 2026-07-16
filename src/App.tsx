@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import './App.css';
+import Tesseract from 'tesseract.js';
 
 // Type Definitions
 interface Lead {
@@ -443,43 +444,90 @@ export default function App() {
     setShowDuplicateModal(false);
   };
 
-  const handleCardScan = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCardScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsScanning(true);
     setScanProgress(0);
 
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 10;
-      setScanProgress(progress);
-      if (progress >= 100) {
-        clearInterval(interval);
-        setIsScanning(false);
-        
-        // Auto-fill extracted values
-        setNewLead({
-          name: 'Vinay Kumar',
-          company: 'Karnataka Agro Exports',
-          email: 'vinay@karnatakaagro.com',
-          phone: '+91 98860 77112',
-          owner: currentRole === 'Sales Rep' ? 'KP Sumanth' : 'Balasaraswathi'
-        });
+    try {
+      // Run client-side OCR recognition
+      const result = await Tesseract.recognize(
+        file,
+        'eng',
+        {
+          logger: m => {
+            if (m.status === 'recognizing text') {
+              setScanProgress(Math.floor(m.progress * 100));
+            }
+          }
+        }
+      );
 
-        // Audit Log entry
-        const newLog: AuditLog = {
-          id: `LOG-SCAN-${Date.now().toString().slice(-3)}`,
-          user: currentAgentName,
-          action: 'Visiting Card Scanned',
-          entity: 'Lead Card: Vinay Kumar',
-          timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-          beforeState: 'Image Uploaded',
-          afterState: 'OCR Extracted: Vinay Kumar, Karnataka Agro Exports, +91 98860 77112'
-        };
-        setAuditLogs(prev => [newLog, ...prev]);
+      const text = result.data.text;
+      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+
+      // Extract details using patterns
+      const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+      const emailMatch = text.match(emailRegex);
+      const email = emailMatch ? emailMatch[0] : '';
+
+      const phoneRegex = /(?:\+91|0)?[6-9]\d{4}\s?\d{5}|\b\d{3}[-.\s]??\d{3}[-.\s]??\d{4}\b/;
+      const phoneMatch = text.match(phoneRegex);
+      const phone = phoneMatch ? phoneMatch[0] : '';
+
+      // Classify text lines to identify Name and Company
+      let name = '';
+      let company = '';
+      const textLines = lines.filter(line => {
+        const hasEmail = line.includes('@');
+        const hasPhone = /[0-9]{5,}/.test(line.replace(/[\s-()]/g, ''));
+        const isAddress = /street|road|floor|building|block|nagar|layout|sector|india|karnataka|bangalore|bengaluru/i.test(line);
+        return !hasEmail && !hasPhone && !isAddress && line.length > 2;
+      });
+
+      if (textLines.length > 0) {
+        const companyKeywords = ['ltd', 'pvt', 'limited', 'solutions', 'agro', 'systems', 'exports', 'builders', 'hub', 'steel', 'group', 'corp', 'inc', 'tech', 'software', 'automotive', 'industries', 'engineering'];
+        
+        // Determine if first text line looks like a company name
+        const isFirstLineCompany = companyKeywords.some(keyword => textLines[0].toLowerCase().includes(keyword));
+        
+        if (isFirstLineCompany) {
+          company = textLines[0];
+          name = textLines[1] || 'Extracted Contact';
+        } else {
+          name = textLines[0];
+          company = textLines[1] || 'Extracted Company';
+        }
       }
-    }, 150);
+
+      setNewLead({
+        name: name || 'Extracted Lead',
+        company: company || 'Extracted Company',
+        email: email || 'no-email@detected.com',
+        phone: phone || 'No Phone Detected',
+        owner: currentRole === 'Sales Rep' ? 'KP Sumanth' : 'Balasaraswathi'
+      });
+
+      // Audit Log
+      const newLog: AuditLog = {
+        id: `LOG-SCAN-${Date.now().toString().slice(-3)}`,
+        user: currentAgentName,
+        action: 'Visiting Card OCR Scanned',
+        entity: `Lead Card: ${name || 'Extracted Lead'}`,
+        timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
+        beforeState: 'Image Snap Uploaded',
+        afterState: `OCR Extracted Text:\n${text}`
+      };
+      setAuditLogs(prev => [newLog, ...prev]);
+
+    } catch (err) {
+      console.error('OCR scan failed:', err);
+      alert('Failed to extract text from card. Please check the image and try again.');
+    } finally {
+      setIsScanning(false);
+    }
   };
 
   // ----------------------------------------------------
