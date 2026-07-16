@@ -564,7 +564,6 @@ export default function App() {
 
   const rotateImageAndScan = (imageUrl: string, degrees: number) => {
     const img = new Image();
-    img.src = imageUrl;
     img.onload = () => {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
@@ -589,6 +588,7 @@ export default function App() {
       // Re-run OCR on the rotated data URL
       runOCR(rotatedDataUrl);
     };
+    img.src = imageUrl;
   };
 
   const handleRotateImage = () => {
