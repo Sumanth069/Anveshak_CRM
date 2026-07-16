@@ -448,6 +448,10 @@ export default function App() {
     e.dataTransfer.setData('text/plain', dealId);
   };
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
   const handleDrop = (e: React.DragEvent, targetStage: Deal['stage']) => {
     e.preventDefault();
     const dealId = e.dataTransfer.getData('text/plain');
