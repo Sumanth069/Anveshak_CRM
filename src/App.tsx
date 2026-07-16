@@ -1000,7 +1000,7 @@ export default function App() {
                           <div className="kanban-card-title">{deal.name}</div>
                           <div className="kanban-card-value">{formatCurrency(deal.value)}</div>
                           <div className="kanban-card-footer">
-                            <span>👤 {deal.owner.split(' ').slice(-1)}</span>
+                            <span>👤 {deal.owner ? deal.owner.split(' ').pop() : 'Unknown'}</span>
                             <span className="days-badge">{deal.daysInStage}d active</span>
                           </div>
                           {deal.lostReason && (
