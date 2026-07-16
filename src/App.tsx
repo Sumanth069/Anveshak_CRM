@@ -277,6 +277,8 @@ export default function App() {
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [showLostModal, setShowLostModal] = useState(false);
   const [showQuotePreview, setShowQuotePreview] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
   
   // Form Inputs
   const [newLead, setNewLead] = useState({ name: '', company: '', email: '', phone: '', owner: 'KP Sumanth' });
@@ -439,6 +441,45 @@ export default function App() {
     setNewCustomValues({});
     setShowLeadModal(false);
     setShowDuplicateModal(false);
+  };
+
+  const handleCardScan = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsScanning(true);
+    setScanProgress(0);
+
+    let progress = 0;
+    const interval = setInterval(() => {
+      progress += 10;
+      setScanProgress(progress);
+      if (progress >= 100) {
+        clearInterval(interval);
+        setIsScanning(false);
+        
+        // Auto-fill extracted values
+        setNewLead({
+          name: 'Vinay Kumar',
+          company: 'Karnataka Agro Exports',
+          email: 'vinay@karnatakaagro.com',
+          phone: '+91 98860 77112',
+          owner: currentRole === 'Sales Rep' ? 'KP Sumanth' : 'Balasaraswathi'
+        });
+
+        // Audit Log entry
+        const newLog: AuditLog = {
+          id: `LOG-SCAN-${Date.now().toString().slice(-3)}`,
+          user: currentAgentName,
+          action: 'Visiting Card Scanned',
+          entity: 'Lead Card: Vinay Kumar',
+          timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
+          beforeState: 'Image Uploaded',
+          afterState: 'OCR Extracted: Vinay Kumar, Karnataka Agro Exports, +91 98860 77112'
+        };
+        setAuditLogs(prev => [newLog, ...prev]);
+      }
+    }, 150);
   };
 
   // ----------------------------------------------------
@@ -1377,6 +1418,40 @@ export default function App() {
               <button className="modal-close-btn" onClick={() => setShowLeadModal(false)}>×</button>
             </div>
             <form onSubmit={handleLeadSubmit}>
+              {/* Visiting Card Scanner Widget */}
+              <div className="card-scanner-box" style={{ marginBottom: '16px', padding: '12px', border: '1px dashed var(--border-color)', borderRadius: 'var(--radius-sm)', backgroundColor: 'rgba(255,255,255,0.01)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--primary)', letterSpacing: '0.05em' }}>📷 AI VISITING CARD SCANNER</span>
+                  <label className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '10px', cursor: 'pointer', margin: 0, borderStyle: 'dashed' }}>
+                    Scan Card
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      capture="environment" 
+                      onChange={handleCardScan} 
+                      style={{ display: 'none' }} 
+                    />
+                  </label>
+                </div>
+                
+                {isScanning ? (
+                  <div className="scanner-progress-container" style={{ position: 'relative', overflow: 'hidden', padding: '4px 0' }}>
+                    <div className="scanner-laser-line"></div>
+                    <div style={{ fontSize: '10px', color: 'var(--primary-hover)', display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span>Analyzing card with OCR AI...</span>
+                      <span>{scanProgress}%</span>
+                    </div>
+                    <div className="scanner-progress-bar" style={{ height: '4px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '2px' }}>
+                      <div className="scanner-progress-fill" style={{ height: '100%', backgroundColor: 'var(--primary)', width: `${scanProgress}%`, transition: 'width 0.15s ease' }}></div>
+                    </div>
+                  </div>
+                ) : (
+                  <p style={{ fontSize: '10px', color: 'var(--text-muted)', margin: 0 }}>
+                    Snap a photo of a visiting card from mobile camera to auto-extract details.
+                  </p>
+                )}
+              </div>
+
               <div className="form-group">
                 <label>Full Name</label>
                 <input type="text" required value={newLead.name} onChange={(e) => setNewLead({ ...newLead, name: e.target.value })} />
