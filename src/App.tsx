@@ -446,106 +446,182 @@ export default function App() {
     setShowDuplicateModal(false);
   };
 
-  const runOCR = async (imageSource: string | File) => {
+  const calculateTextScore = (text: string) => {
+    let score = 0;
+    
+    // 1. Email check
+    const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    if (emailMatch) score += 100;
+    
+    // 2. Phone check
+    const phoneMatch = text.match(/(?:\+91|0)?[6-9]\d{4}\s?\d{5}|\b\d{3}[-.\s]??\d{3}[-.\s]??\d{4}\b|\+91\s?\d{5}\s?\d{5}/);
+    if (phoneMatch) score += 100;
+    
+    // 3. Web URL check
+    if (/www\.|https?:\/\//i.test(text)) score += 30;
+
+    // 4. Word sanity check (count words that are purely alphabetic and > 2 chars)
+    const words = text.split(/\s+/).filter(w => /^[a-zA-Z]{3,}$/.test(w));
+    score += words.length * 5;
+
+    // 5. Junk penalty (pipes, backslashes, weird symbols)
+    const junkCount = (text.match(/[|\\_=+*]/g) || []).length;
+    score -= junkCount * 15;
+
+    return score;
+  };
+
+  const parseAndSetLeadDetails = (text: string) => {
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+
+    // Extract details using patterns
+    const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+    const emailMatch = text.match(emailRegex);
+    const email = emailMatch ? emailMatch[0] : '';
+
+    const phoneRegex = /(?:\+91|0)?[6-9]\d{4}\s?\d{5}|\b\d{3}[-.\s]??\d{3}[-.\s]??\d{4}\b|\+91\s?\d{5}\s?\d{5}/;
+    const phoneMatch = text.match(phoneRegex);
+    const phone = phoneMatch ? phoneMatch[0] : '';
+
+    // Clean lines first by removing layout junk and piping symbols
+    const cleanLines = lines.map(line => {
+      return line.replace(/[|\\_/*~:;•[\]()]/g, '').trim();
+    }).filter(line => line.length > 2);
+
+    // Identify Company Name
+    let company = '';
+    const companyKeywords = ['ltd', 'pvt', 'limited', 'solutions', 'agro', 'systems', 'exports', 'builders', 'hub', 'steel', 'group', 'corp', 'inc', 'tech', 'software', 'automotive', 'industries', 'engineering', 'foundation'];
+    
+    const companyIdx = cleanLines.findIndex(line => 
+      companyKeywords.some(keyword => line.toLowerCase().includes(keyword))
+    );
+    if (companyIdx !== -1) {
+      company = cleanLines[companyIdx];
+    } else {
+      company = cleanLines.find(line => line.length > 15) || 'Extracted Company';
+    }
+
+    // Identify Person's Name
+    let name = '';
+    const titleKeywords = ['chief', 'executive', 'officer', 'manager', 'director', 'founder', 'president', 'partner', 'associate', 'developer', 'engineer', 'consultant', 'ceo', 'cto', 'coo', 'vp', 'analyst', 'lead', 'head'];
+    
+    const nameCandidates = cleanLines.filter(line => {
+      const isCompanyLine = line === company;
+      const hasJobTitle = titleKeywords.some(keyword => 
+        new RegExp(`\\b${keyword}\\b`, 'i').test(line)
+      );
+      const hasNumbers = /[0-9]/.test(line);
+      const isAddress = /street|road|floor|building|block|nagar|layout|sector|india|karnataka|bangalore|bengaluru|campus|kudlugate/i.test(line);
+      
+      const hasWeirdJunk = line.length > 35 || line.split(' ').filter(Boolean).length > 4;
+      
+      return !isCompanyLine && !hasJobTitle && !hasNumbers && !isAddress && !hasWeirdJunk;
+    });
+
+    if (nameCandidates.length > 0) {
+      name = nameCandidates[0];
+    } else {
+      name = cleanLines.find(line => line !== company && line.length > 3) || 'Extracted Contact';
+    }
+
+    setNewLead({
+      name: name || 'Extracted Lead',
+      company: company || 'Extracted Company',
+      email: email || 'no-email@detected.com',
+      phone: phone || 'No Phone Detected',
+      owner: currentRole === 'Sales Rep' ? 'KP Sumanth' : 'Balasaraswathi'
+    });
+
+    // Audit Log
+    const newLog: AuditLog = {
+      id: `LOG-SCAN-${Date.now().toString().slice(-3)}`,
+      user: currentAgentName,
+      action: 'Visiting Card Auto-Scanned',
+      entity: `Lead Card: ${name || 'Extracted Lead'}`,
+      timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
+      beforeState: 'Image Snap Uploaded',
+      afterState: `OCR Extracted Text:\n${text}`
+    };
+    setAuditLogs(prev => [newLog, ...prev]);
+  };
+
+  const autoScanAndCorrectOrientation = async (base64Image: string) => {
     setIsScanning(true);
     setScanProgress(0);
 
-    try {
-      // Run client-side OCR recognition
-      const result = await Tesseract.recognize(
-        imageSource,
-        'eng',
-        {
-          logger: m => {
-            if (m.status === 'recognizing text') {
-              setScanProgress(Math.floor(m.progress * 100));
+    const rotations = [0, 90, 180, 270];
+    let bestText = '';
+    let bestScore = -999;
+    let bestImage = base64Image;
+    let bestDegree = 0;
+
+    const getRotatedImage = (img: HTMLImageElement, degrees: number): string => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return img.src;
+
+      if (degrees === 90 || degrees === 270) {
+        canvas.width = img.height;
+        canvas.height = img.width;
+      } else {
+        canvas.width = img.width;
+        canvas.height = img.height;
+      }
+
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate((degrees * Math.PI) / 180);
+      ctx.drawImage(img, -img.width / 2, -img.height / 2);
+
+      return canvas.toDataURL('image/jpeg');
+    };
+
+    const img = new Image();
+    img.onload = async () => {
+      for (let i = 0; i < rotations.length; i++) {
+        const degree = rotations[i];
+        setScanProgress(Math.floor((i / rotations.length) * 100));
+
+        const currentImage = degree === 0 ? base64Image : getRotatedImage(img, degree);
+
+        try {
+          const result = await Tesseract.recognize(
+            currentImage, 
+            'eng',
+            {
+              logger: m => {
+                if (m.status === 'recognizing text') {
+                  const partialProgress = Math.floor(m.progress * 25);
+                  setScanProgress(Math.floor((i * 25) + partialProgress));
+                }
+              }
             }
+          );
+          const text = result.data.text;
+          const score = calculateTextScore(text);
+
+          if (score > bestScore) {
+            bestScore = score;
+            bestText = text;
+            bestImage = currentImage;
+            bestDegree = degree;
           }
+
+          // If we hit an excellent score, stop checking other rotations to speed up
+          if (score >= 230) {
+            break;
+          }
+        } catch (e) {
+          console.error(`OCR failed for rotation ${degree}:`, e);
         }
-      );
-
-      const text = result.data.text;
-      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-
-      // Extract details using patterns
-      const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
-      const emailMatch = text.match(emailRegex);
-      const email = emailMatch ? emailMatch[0] : '';
-
-      // Standard Indian / International phone numbers regex
-      const phoneRegex = /(?:\+91|0)?[6-9]\d{4}\s?\d{5}|\b\d{3}[-.\s]??\d{3}[-.\s]??\d{4}\b|\+91\s?\d{5}\s?\d{5}/;
-      const phoneMatch = text.match(phoneRegex);
-      const phone = phoneMatch ? phoneMatch[0] : '';
-
-      // Clean lines first by removing layout junk and piping symbols
-      const cleanLines = lines.map(line => {
-        return line.replace(/[|\\_/*~:;•[\]()]/g, '').trim();
-      }).filter(line => line.length > 2);
-
-      // Identify Company Name
-      let company = '';
-      const companyKeywords = ['ltd', 'pvt', 'limited', 'solutions', 'agro', 'systems', 'exports', 'builders', 'hub', 'steel', 'group', 'corp', 'inc', 'tech', 'software', 'automotive', 'industries', 'engineering', 'foundation'];
-      
-      const companyIdx = cleanLines.findIndex(line => 
-        companyKeywords.some(keyword => line.toLowerCase().includes(keyword))
-      );
-      if (companyIdx !== -1) {
-        company = cleanLines[companyIdx];
-      } else {
-        // Fallback: look for lines that are long or look like a business entity name
-        company = cleanLines.find(line => line.length > 15) || 'Extracted Company';
       }
 
-      // Identify Person's Name
-      let name = '';
-      const titleKeywords = ['chief', 'executive', 'officer', 'manager', 'director', 'founder', 'president', 'partner', 'associate', 'developer', 'engineer', 'consultant', 'ceo', 'cto', 'coo', 'vp', 'analyst', 'lead', 'head'];
-      
-      const nameCandidates = cleanLines.filter(line => {
-        const isCompanyLine = line === company;
-        const hasJobTitle = titleKeywords.some(keyword => 
-          new RegExp(`\\b${keyword}\\b`, 'i').test(line)
-        );
-        const hasNumbers = /[0-9]/.test(line);
-        const isAddress = /street|road|floor|building|block|nagar|layout|sector|india|karnataka|bangalore|bengaluru|campus|kudlugate/i.test(line);
-        
-        // Names are rarely more than 4 words or 35 characters. Exclude long logo/brand strings.
-        const hasWeirdJunk = line.length > 35 || line.split(' ').filter(Boolean).length > 4;
-        
-        return !isCompanyLine && !hasJobTitle && !hasNumbers && !isAddress && !hasWeirdJunk;
-      });
-
-      if (nameCandidates.length > 0) {
-        name = nameCandidates[0];
-      } else {
-        name = cleanLines.find(line => line !== company && line.length > 3) || 'Extracted Contact';
-      }
-
-      setNewLead({
-        name: name || 'Extracted Lead',
-        company: company || 'Extracted Company',
-        email: email || 'no-email@detected.com',
-        phone: phone || 'No Phone Detected',
-        owner: currentRole === 'Sales Rep' ? 'KP Sumanth' : 'Balasaraswathi'
-      });
-
-      // Audit Log
-      const newLog: AuditLog = {
-        id: `LOG-SCAN-${Date.now().toString().slice(-3)}`,
-        user: currentAgentName,
-        action: 'Visiting Card OCR Scanned',
-        entity: `Lead Card: ${name || 'Extracted Lead'}`,
-        timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-        beforeState: 'Image Snap Uploaded',
-        afterState: `OCR Extracted Text:\n${text}`
-      };
-      setAuditLogs(prev => [newLog, ...prev]);
-
-    } catch (err) {
-      console.error('OCR scan failed:', err);
-      alert('Failed to extract text from card. Please check the image and try again.');
-    } finally {
+      setScanProgress(100);
+      setCardImage(bestImage);
+      setRotationDegrees(bestDegree);
+      parseAndSetLeadDetails(bestText);
       setIsScanning(false);
-    }
+    };
+    img.src = base64Image;
   };
 
   const handleCardScan = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -556,8 +632,8 @@ export default function App() {
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string;
       setCardImage(dataUrl);
-      setRotationDegrees(0); // Reset rotation
-      runOCR(dataUrl);
+      setRotationDegrees(0);
+      autoScanAndCorrectOrientation(dataUrl);
     };
     reader.readAsDataURL(file);
   };
@@ -569,7 +645,6 @@ export default function App() {
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // Swap width/height if 90 or 270 degrees
       if (degrees === 90 || degrees === 270) {
         canvas.width = img.height;
         canvas.height = img.width;
@@ -585,8 +660,7 @@ export default function App() {
       const rotatedDataUrl = canvas.toDataURL('image/jpeg');
       setCardImage(rotatedDataUrl);
       
-      // Re-run OCR on the rotated data URL
-      runOCR(rotatedDataUrl);
+      autoScanAndCorrectOrientation(rotatedDataUrl);
     };
     img.src = imageUrl;
   };
@@ -595,7 +669,7 @@ export default function App() {
     if (!cardImage) return;
     const nextDegrees = (rotationDegrees + 90) % 360;
     setRotationDegrees(nextDegrees);
-    rotateImageAndScan(cardImage, 90); // Rotate 90 degrees from current state
+    rotateImageAndScan(cardImage, 90);
   };
 
   // ----------------------------------------------------
