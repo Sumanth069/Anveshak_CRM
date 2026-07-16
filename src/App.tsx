@@ -280,6 +280,8 @@ export default function App() {
   const [showQuotePreview, setShowQuotePreview] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
+  const [cardImage, setCardImage] = useState<string | null>(null);
+  const [rotationDegrees, setRotationDegrees] = useState(0);
   
   // Form Inputs
   const [newLead, setNewLead] = useState({ name: '', company: '', email: '', phone: '', owner: 'KP Sumanth' });
@@ -444,17 +446,14 @@ export default function App() {
     setShowDuplicateModal(false);
   };
 
-  const handleCardScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const runOCR = async (imageSource: string | File) => {
     setIsScanning(true);
     setScanProgress(0);
 
     try {
       // Run client-side OCR recognition
       const result = await Tesseract.recognize(
-        file,
+        imageSource,
         'eng',
         {
           logger: m => {
@@ -473,7 +472,8 @@ export default function App() {
       const emailMatch = text.match(emailRegex);
       const email = emailMatch ? emailMatch[0] : '';
 
-      const phoneRegex = /(?:\+91|0)?[6-9]\d{4}\s?\d{5}|\b\d{3}[-.\s]??\d{3}[-.\s]??\d{4}\b/;
+      // Standard Indian / International phone numbers regex
+      const phoneRegex = /(?:\+91|0)?[6-9]\d{4}\s?\d{5}|\b\d{3}[-.\s]??\d{3}[-.\s]??\d{4}\b|\+91\s?\d{5}\s?\d{5}/;
       const phoneMatch = text.match(phoneRegex);
       const phone = phoneMatch ? phoneMatch[0] : '';
 
@@ -488,14 +488,16 @@ export default function App() {
       });
 
       if (textLines.length > 0) {
-        const companyKeywords = ['ltd', 'pvt', 'limited', 'solutions', 'agro', 'systems', 'exports', 'builders', 'hub', 'steel', 'group', 'corp', 'inc', 'tech', 'software', 'automotive', 'industries', 'engineering'];
+        const companyKeywords = ['ltd', 'pvt', 'limited', 'solutions', 'agro', 'systems', 'exports', 'builders', 'hub', 'steel', 'group', 'corp', 'inc', 'tech', 'software', 'automotive', 'industries', 'engineering', 'foundation'];
         
-        // Determine if first text line looks like a company name
-        const isFirstLineCompany = companyKeywords.some(keyword => textLines[0].toLowerCase().includes(keyword));
+        // Find if any line contains company keywords
+        const companyIdx = textLines.findIndex(line => companyKeywords.some(keyword => line.toLowerCase().includes(keyword)));
         
-        if (isFirstLineCompany) {
-          company = textLines[0];
-          name = textLines[1] || 'Extracted Contact';
+        if (companyIdx !== -1) {
+          company = textLines[companyIdx];
+          // Take the first line that is NOT the company as the name
+          const nameLine = textLines.find((_, idx) => idx !== companyIdx);
+          name = nameLine || 'Extracted Contact';
         } else {
           name = textLines[0];
           company = textLines[1] || 'Extracted Company';
@@ -528,6 +530,56 @@ export default function App() {
     } finally {
       setIsScanning(false);
     }
+  };
+
+  const handleCardScan = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      setCardImage(dataUrl);
+      setRotationDegrees(0); // Reset rotation
+      runOCR(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const rotateImageAndScan = (imageUrl: string, degrees: number) => {
+    const img = new Image();
+    img.src = imageUrl;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Swap width/height if 90 or 270 degrees
+      if (degrees === 90 || degrees === 270) {
+        canvas.width = img.height;
+        canvas.height = img.width;
+      } else {
+        canvas.width = img.width;
+        canvas.height = img.height;
+      }
+
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate((degrees * Math.PI) / 180);
+      ctx.drawImage(img, -img.width / 2, -img.height / 2);
+
+      const rotatedDataUrl = canvas.toDataURL('image/jpeg');
+      setCardImage(rotatedDataUrl);
+      
+      // Re-run OCR on the rotated data URL
+      runOCR(rotatedDataUrl);
+    };
+  };
+
+  const handleRotateImage = () => {
+    if (!cardImage) return;
+    const nextDegrees = (rotationDegrees + 90) % 360;
+    setRotationDegrees(nextDegrees);
+    rotateImageAndScan(cardImage, 90); // Rotate 90 degrees from current state
   };
 
   // ----------------------------------------------------
@@ -1494,9 +1546,35 @@ export default function App() {
                     </div>
                   </div>
                 ) : (
-                  <p style={{ fontSize: '10px', color: 'var(--text-muted)', margin: 0 }}>
-                    Snap a photo of a visiting card from mobile camera to auto-extract details.
-                  </p>
+                  <div>
+                    <p style={{ fontSize: '10px', color: 'var(--text-muted)', margin: 0 }}>
+                      Snap a photo of a visiting card from mobile camera to auto-extract details.
+                    </p>
+                    {cardImage && (
+                      <div style={{ marginTop: '12px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        <div style={{ position: 'relative', width: '80px', height: '80px', border: '1px solid var(--border-color)', borderRadius: '4px', overflow: 'hidden', backgroundColor: 'black' }}>
+                          <img 
+                            src={cardImage} 
+                            alt="Card Snap" 
+                            style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+                          />
+                        </div>
+                        <div>
+                          <button 
+                            type="button" 
+                            className="btn btn-secondary" 
+                            style={{ padding: '4px 8px', fontSize: '10px' }}
+                            onClick={handleRotateImage}
+                          >
+                            ↻ Rotate 90° & Re-Scan
+                          </button>
+                          <p style={{ fontSize: '9px', color: 'var(--warning)', marginTop: '4px', margin: 0 }}>
+                            If text is sideways, rotate it horizontal for clean OCR reading!
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
