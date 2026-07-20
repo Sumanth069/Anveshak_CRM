@@ -821,3 +821,166 @@
   color: var(--success);
   border-left: 2px solid var(--success);
 }
+
+/* Wireframe Mode Style Overrides (Interactive Architecture Blueprint) */
+.wireframe-mode {
+  --bg-base: #f3f4f6 !important;
+  --bg-surface: #ffffff !important;
+  --bg-card: #ffffff !important;
+  --bg-input: #ffffff !important;
+  --border-color: #7f8c8d !important; /* Thick, clear wireframe borders */
+  --primary: #111827 !important; /* Black instead of Indigo */
+  --primary-hover: #1f2937 !important;
+  --primary-glow: rgba(0, 0, 0, 0.05) !important;
+  --accent-gradient: linear-gradient(135deg, #111827 0%, #1f2937 100%) !important;
+  font-family: 'Courier New', Courier, monospace !important;
+}
+
+.wireframe-mode h1, 
+.wireframe-mode h2, 
+.wireframe-mode h3, 
+.wireframe-mode h4, 
+.wireframe-mode h5, 
+.wireframe-mode h6,
+.wireframe-mode span,
+.wireframe-mode p,
+.wireframe-mode div,
+.wireframe-mode button,
+.wireframe-mode td,
+.wireframe-mode th {
+  font-family: 'Courier New', Courier, monospace !important;
+}
+
+.wireframe-mode .nav-logo {
+  background: #ffffff !important;
+  color: #111827 !important;
+  border: 2px solid #111827 !important;
+  box-shadow: none !important;
+  border-radius: 0px !important;
+}
+
+.wireframe-mode .nav-links {
+  background-color: transparent !important;
+  border: 1px solid #111827 !important;
+  border-radius: 0px !important;
+}
+
+.wireframe-mode .nav-link {
+  border-radius: 0px !important;
+}
+
+.wireframe-mode .nav-link.active {
+  background-color: #111827 !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+.wireframe-mode .btn {
+  border: 2px solid #111827 !important;
+  background: #ffffff !important;
+  color: #111827 !important;
+  box-shadow: none !important;
+  border-radius: 0px !important; /* Blocky wireframe style */
+}
+
+.wireframe-mode .btn-primary {
+  background: #111827 !important;
+  color: #ffffff !important;
+}
+
+.wireframe-mode .metric-card {
+  border: 2px solid #111827 !important;
+  border-radius: 0px !important;
+  box-shadow: none !important;
+  background: #ffffff !important;
+}
+
+.wireframe-mode .metric-card::before {
+  display: none !important;
+}
+
+.wireframe-mode .panel-card {
+  border: 2px solid #111827 !important;
+  border-radius: 0px !important;
+  box-shadow: none !important;
+  background: #ffffff !important;
+}
+
+.wireframe-mode .nav-avatar,
+.wireframe-mode .user-avatar {
+  border-radius: 0px !important;
+  border: 2px solid #111827 !important;
+  background: #ffffff !important;
+  color: #111827 !important;
+}
+
+.wireframe-mode .badge {
+  border-radius: 0px !important;
+  border: 1px solid #111827 !important;
+  background: #ffffff !important;
+  color: #111827 !important;
+}
+
+.wireframe-mode .kanban-col {
+  border: 2px solid #111827 !important;
+  background-color: #ffffff !important;
+  border-radius: 0px !important;
+}
+
+.wireframe-mode .kanban-col-header {
+  background-color: #f3f4f6 !important;
+  border-bottom: 2px solid #111827 !important;
+  border-radius: 0px !important;
+}
+
+.wireframe-mode .kanban-card {
+  border: 1px solid #111827 !important;
+  background-color: #ffffff !important;
+  border-radius: 0px !important;
+  box-shadow: none !important;
+}
+
+.wireframe-mode .kanban-card:hover {
+  transform: none !important;
+  border: 2px solid #111827 !important;
+}
+
+.wireframe-mode .funnel-bar-container {
+  border: 1px solid #111827 !important;
+  border-radius: 0px !important;
+  background: #ffffff !important;
+}
+
+.wireframe-mode .funnel-bar {
+  background: #f3f4f6 !important;
+  border-right: 2px solid #111827 !important;
+  color: #111827 !important;
+}
+
+.wireframe-mode .calendar-day {
+  border: 1px solid #111827 !important;
+  border-radius: 0px !important;
+  background: #ffffff !important;
+}
+
+.wireframe-mode .calendar-day:hover {
+  background: #f3f4f6 !important;
+}
+
+.wireframe-mode input,
+.wireframe-mode select,
+.wireframe-mode textarea {
+  border: 2px solid #111827 !important;
+  border-radius: 0px !important;
+  box-shadow: none !important;
+  background: #ffffff !important;
+  color: #111827 !important;
+}
+
+.wireframe-mode .modal-content {
+  border: 3px solid #111827 !important;
+  border-radius: 0px !important;
+  box-shadow: none !important;
+  background: #ffffff !important;
+}
+

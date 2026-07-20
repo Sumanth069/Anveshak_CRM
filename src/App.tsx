@@ -260,6 +260,7 @@ export default function App() {
   // Navigation & Simulation Roles
   const [activeTab, setActiveTab] = useState<'dashboard' | 'leads' | 'kanban' | 'tasks' | 'calendar' | 'scoring' | 'quote' | 'audit'>('dashboard');
   const [currentRole, setCurrentRole] = useState<'Admin' | 'Manager' | 'Sales Rep'>('Admin');
+  const [isWireframeMode, setIsWireframeMode] = useState(false);
   
   // Data States
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
@@ -927,7 +928,7 @@ export default function App() {
   const openTasksCount = filteredTasks.filter(t => t.status === 'Open').length;
 
   return (
-    <div className="app-container">
+    <div className={`app-container ${isWireframeMode ? 'wireframe-mode' : ''}`}>
       {/* Top Navbar (Innovative horizontal utility dock navigation) */}
       <header className="top-navbar">
         <div className="nav-brand">
@@ -987,6 +988,14 @@ export default function App() {
               <option value="Sales Rep">Sales Rep</option>
             </select>
           </div>
+
+          <button 
+            className="btn btn-secondary" 
+            onClick={() => setIsWireframeMode(!isWireframeMode)}
+            style={{ fontWeight: 'bold' }}
+          >
+            {isWireframeMode ? '🎨 Design View' : '📐 Wireframe View'}
+          </button>
 
           <button className="btn btn-secondary" onClick={() => setShowActivityModal(true)}>
             + Log Activity
