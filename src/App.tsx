@@ -928,136 +928,112 @@ export default function App() {
 
   return (
     <div className="app-container">
-      {/* Sidebar Controls */}
-      <aside className="sidebar">
-        <div className="sidebar-brand">
-          <div className="sidebar-logo-icon">A</div>
-          <div className="sidebar-brand-name">
+      {/* Top Navbar (Innovative horizontal utility dock navigation) */}
+      <header className="top-navbar">
+        <div className="nav-brand">
+          <div className="nav-logo">A</div>
+          <div className="nav-title">
             <h1>Anveshak CRM</h1>
-            <span>Version 2.0 (V2)</span>
+            <span>VERSION 2.0 (V2)</span>
           </div>
         </div>
 
-        {/* Auth Role Simulator Widget */}
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.1)' }}>
-          <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
-            SIMULATE IDENTITY ROLE
-          </label>
-          <select 
-            value={currentRole} 
-            onChange={(e) => {
-              setCurrentRole(e.target.value as any);
-              setActiveTab('dashboard'); // Reset tab view
-            }}
-            style={{ width: '100%', padding: '6px 10px', fontSize: '12px' }}
-          >
-            <option value="Admin">Admin (Full Control)</option>
-            <option value="Manager">Manager (Balu)</option>
-            <option value="Sales Rep">Sales Rep (Sumanth)</option>
-          </select>
-        </div>
-        
-        <ul className="sidebar-menu">
-          <li className={`menu-item ${activeTab === 'dashboard' ? 'active' : ''}`}>
-            <button onClick={() => setActiveTab('dashboard')}>
-              Dashboard
-            </button>
-          </li>
-          <li className={`menu-item ${activeTab === 'leads' ? 'active' : ''}`}>
-            <button onClick={() => setActiveTab('leads')}>
-              Leads & Contacts
-            </button>
-          </li>
-          <li className={`menu-item ${activeTab === 'kanban' ? 'active' : ''}`}>
-            <button onClick={() => setActiveTab('kanban')}>
-              Kanban Board
-            </button>
-          </li>
-          <li className={`menu-item ${activeTab === 'tasks' ? 'active' : ''}`}>
-            <button onClick={() => setActiveTab('tasks')}>
-              Tasks Queue ({openTasksCount})
-            </button>
-          </li>
-          <li className={`menu-item ${activeTab === 'calendar' ? 'active' : ''}`}>
-            <button onClick={() => setActiveTab('calendar')}>
-              Calendar Scheduler
-            </button>
-          </li>
-          <li className={`menu-item ${activeTab === 'quote' ? 'active' : ''}`}>
-            <button onClick={() => setActiveTab('quote')}>
-              GST Quote Generator
-            </button>
-          </li>
-          
-          {/* Admin / Manager Protected Tabs */}
+        {/* Center menu links */}
+        <nav className="nav-links">
+          <button className={`nav-link ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
+            Dashboard
+          </button>
+          <button className={`nav-link ${activeTab === 'leads' ? 'active' : ''}`} onClick={() => setActiveTab('leads')}>
+            Leads
+          </button>
+          <button className={`nav-link ${activeTab === 'kanban' ? 'active' : ''}`} onClick={() => setActiveTab('kanban')}>
+            Kanban
+          </button>
+          <button className={`nav-link ${activeTab === 'tasks' ? 'active' : ''}`} onClick={() => setActiveTab('tasks')}>
+            Tasks ({openTasksCount})
+          </button>
+          <button className={`nav-link ${activeTab === 'calendar' ? 'active' : ''}`} onClick={() => setActiveTab('calendar')}>
+            Calendar
+          </button>
+          <button className={`nav-link ${activeTab === 'quote' ? 'active' : ''}`} onClick={() => setActiveTab('quote')}>
+            Quote
+          </button>
           {!isViewRestricted('scoring') && (
-            <li className={`menu-item ${activeTab === 'scoring' ? 'active' : ''}`}>
-              <button onClick={() => setActiveTab('scoring')}>
-                Scoring Config
-              </button>
-            </li>
+            <button className={`nav-link ${activeTab === 'scoring' ? 'active' : ''}`} onClick={() => setActiveTab('scoring')}>
+              Scoring
+            </button>
           )}
           {!isViewRestricted('audit') && (
-            <li className={`menu-item ${activeTab === 'audit' ? 'active' : ''}`}>
-              <button onClick={() => setActiveTab('audit')}>
-                Audit Registry
-              </button>
-            </li>
+            <button className={`nav-link ${activeTab === 'audit' ? 'active' : ''}`} onClick={() => setActiveTab('audit')}>
+              Audits
+            </button>
           )}
-        </ul>
+        </nav>
 
-        <div className="sidebar-footer">
-          <div className="sidebar-user">
-            <div className="user-avatar" style={{ backgroundColor: currentRole === 'Sales Rep' ? 'var(--primary)' : 'var(--border-color)' }}>
+        {/* Right actions */}
+        <div className="nav-actions">
+          {/* Identity role selector */}
+          <div className="role-simulator">
+            <select 
+              value={currentRole} 
+              onChange={(e) => {
+                setCurrentRole(e.target.value as any);
+                setActiveTab('dashboard');
+              }}
+              className="role-select"
+            >
+              <option value="Admin">Admin</option>
+              <option value="Manager">Manager</option>
+              <option value="Sales Rep">Sales Rep</option>
+            </select>
+          </div>
+
+          <button className="btn btn-secondary" onClick={() => setShowActivityModal(true)}>
+            + Log Activity
+          </button>
+          
+          <div className="nav-profile" title={`${currentAgentName} (${currentRole})`}>
+            <div className="nav-avatar" style={{ backgroundColor: currentRole === 'Sales Rep' ? 'var(--primary)' : '#e2e8f0', color: currentRole === 'Sales Rep' ? '#ffffff' : 'var(--text-label)' }}>
               {currentRole === 'Sales Rep' ? 'KS' : currentRole === 'Manager' ? 'BS' : 'AD'}
-            </div>
-            <div className="user-info">
-              <h4>{currentAgentName}</h4>
-              <p>{currentRole} Session</p>
             </div>
           </div>
         </div>
-      </aside>
+      </header>
 
-      {/* Main Panel */}
-      <main className="main-content">
-        <header className="top-bar">
-          <div className="page-title">
-            <h2>
-              {activeTab === 'dashboard' && 'CRM Executive Dashboard'}
-              {activeTab === 'leads' && 'Priority Lead Queue'}
-              {activeTab === 'kanban' && 'Pipeline board'}
-              {activeTab === 'tasks' && 'My Tasks Checklist'}
-              {activeTab === 'calendar' && 'Operational Calendar'}
-              {activeTab === 'quote' && 'GST Quotation Builder'}
-              {activeTab === 'scoring' && 'Scoring Config Panel'}
-              {activeTab === 'audit' && 'System Access logs'}
-            </h2>
-          </div>
-          
-          <div className="top-bar-actions">
-            {activeTab === 'leads' && (
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button className="btn btn-secondary" onClick={() => handleCSVExport('Leads')}>
-                  Export CSV
-                </button>
-                <button className="btn btn-primary" onClick={() => setShowLeadModal(true)}>
-                  + Add Lead
-                </button>
-              </div>
-            )}
-            {activeTab === 'tasks' && (
-              <button className="btn btn-primary" onClick={() => setShowTaskModal(true)}>
-                + New Task
+      {/* Sub Header for Page Actions */}
+      <div className="sub-header">
+        <div className="page-heading">
+          <h2>
+            {activeTab === 'dashboard' && 'Executive Dashboard'}
+            {activeTab === 'leads' && 'Leads & Contacts Database'}
+            {activeTab === 'kanban' && 'Pipeline Kanban Board'}
+            {activeTab === 'tasks' && 'Work Tasks Checklist'}
+            {activeTab === 'calendar' && 'Operational Scheduler'}
+            {activeTab === 'quote' && 'GST Quotation Builder'}
+            {activeTab === 'scoring' && 'Lead Scoring Point Configurations'}
+            {activeTab === 'audit' && 'System Access Governance Log'}
+          </h2>
+        </div>
+        <div className="page-actions">
+          {activeTab === 'leads' && (
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button className="btn btn-secondary" onClick={() => handleCSVExport('Leads')}>
+                Export CSV
               </button>
-            )}
-            <button className="btn btn-secondary" onClick={() => setShowActivityModal(true)}>
-              + Log Activity
+              <button className="btn btn-primary" onClick={() => setShowLeadModal(true)}>
+                + Add Lead
+              </button>
+            </div>
+          )}
+          {activeTab === 'tasks' && (
+            <button className="btn btn-primary" onClick={() => setShowTaskModal(true)}>
+              + New Task
             </button>
-          </div>
-        </header>
+          )}
+        </div>
+      </div>
 
-        <div className="content-body">
+      <div className="content-body">
           {/* TAB 1: EXECUTIVE DASHBOARD */}
           {activeTab === 'dashboard' && (
             <div className="animate-fade">
@@ -1632,7 +1608,6 @@ export default function App() {
             </div>
           )}
         </div>
-      </main>
 
       {/* MODAL 1: ADD LEAD (WITH DYNAMIC CUSTOM FIELDS) */}
       {showLeadModal && (
