@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anveshak CRM: Draft Wireframe Mockup</title>
+  <link rel="stylesheet" href="wireframe.css">
+</head>
+<body>
+
+  <div class="wireframe-container">
+    <!-- Header Navigation Tab Dock -->
+    <header>
+      <div class="brand-section">
+        <div class="logo-placeholder">A</div>
+        <div>
+          <h1 style="font-size: 14px; font-weight: bold;">Anveshak CRM (WIP)</h1>
+          <span style="font-size: 9px; color: var(--placeholder-color);">Draft Layout v1.0</span>
+        </div>
+      </div>
+
+      <nav class="nav-links">
+        <button class="nav-tab active" onclick="switchTab('dashboard')">Dashboard</button>
+        <button class="nav-tab" onclick="switchTab('leads')">Leads Queue</button>
+        <button class="nav-tab" onclick="switchTab('kanban')">Kanban Board</button>
+      </nav>
+
+      <div style="font-size: 11px; font-weight: bold;">
+        [ Simulation User: Sales Rep ]
+      </div>
+    </header>
+
+    <!-- Context subheader -->
+    <div class="sub-header">
+      <h2 id="page-title">Executive Dashboard</h2>
+      <div>
+        <button class="w-btn" onclick="alert('Wireframe Placeholder: Log Activity modal trigger (Draft)')">+ Log Activity</button>
+      </div>
+    </div>
+
+    <!-- Active Workspace View -->
+    <main class="workspace">
+
+      <!-- VIEW 1: DASHBOARD -->
+      <div id="view-dashboard" class="view-panel active">
+        <!-- 4 Metric Cards -->
+        <section class="dashboard-grid">
+          <div class="metric-placeholder">
+            <h4>Pipeline Value</h4>
+            <p>₹[Calculated Value]</p>
+          </div>
+          <div class="metric-placeholder">
+            <h4>Active Deals</h4>
+            <p>[Count]</p>
+          </div>
+          <div class="metric-placeholder">
+            <h4>Hot Prospects</h4>
+            <p>[Count]</p>
+          </div>
+          <div class="metric-placeholder">
+            <h4>Tasks Reminders</h4>
+            <p>[Count]</p>
+          </div>
+        </section>
+
+        <!-- Lower Grid -->
+        <section class="split-container">
+          <div class="panel-box">
+            <span class="panel-label">Recent Prospects Queue</span>
+            <table class="wireframe-table">
+              <thead>
+                <tr>
+                  <th>Lead Name</th>
+                  <th>Company</th>
+                  <th>Status</th>
+                  <th>Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Ramesh Gowda</td>
+                  <td>Mysore Agro Products</td>
+                  <td>[New]</td>
+                  <td>[65 pts]</td>
+                </tr>
+                <tr>
+                  <td>Anjali Sharma</td>
+                  <td>Bangalore Smart Solutions</td>
+                  <td>[Contacted]</td>
+                  <td>[45 pts]</td>
+                </tr>
+                <tr>
+                  <td>Vikas Rao</td>
+                  <td>Vikas Builders Hubli</td>
+                  <td>[Won]</td>
+                  <td>[90 pts]</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="panel-box">
+            <span class="panel-label">Pipeline Funnel</span>
+            <div class="chart-placeholder-box" style="margin-top: 10px;">
+              [ Lead Funnel Chart Visualizer WIP ]
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- VIEW 2: LEADS QUEUE -->
+      <div id="view-leads" class="view-panel">
+        <div style="margin-bottom: 15px; text-align: right;">
+          <button class="w-btn" onclick="alert('Wireframe Placeholder: Import CSV Mock')">Import CSV</button>
+          <button class="w-btn" onclick="alert('Wireframe Placeholder: Add Lead Form (WIP)')">+ Add Lead</button>
+        </div>
+
+        <div class="panel-box" style="min-height: 300px;">
+          <span class="panel-label">Leads Records (Draft View)</span>
+          <table class="wireframe-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Company</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>L-101</td>
+                <td>Ramesh Gowda</td>
+                <td>Mysore Agro Products</td>
+                <td>ramesh@mysoreagro.in</td>
+                <td>+91 98450 12345</td>
+                <td>65</td>
+              </tr>
+              <tr>
+                <td>L-102</td>
+                <td>Anjali Sharma</td>
+                <td>Bangalore Smart Solutions</td>
+                <td>anjali@smartsolutions.com</td>
+                <td>+91 99001 88776</td>
+                <td>45</td>
+              </tr>
+              <tr>
+                <td>L-103</td>
+                <td>Vikas Rao</td>
+                <td>Vikas Builders Hubli</td>
+                <td>vikas@buildershubli.com</td>
+                <td>+91 94480 55443</td>
+                <td>90</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- VIEW 3: KANBAN BOARD -->
+      <div id="view-kanban" class="view-panel">
+        <section class="kanban-cols">
+          <!-- Col 1 -->
+          <div class="kanban-column">
+            <div class="column-header">New Leads</div>
+            <div class="column-cards">
+              <div class="wireframe-card">
+                <h4>Mysore Agro Products</h4>
+                <p>Value: ₹[Draft Value]</p>
+                <p>Owner: Rep Sumanth</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Col 2 -->
+          <div class="kanban-column">
+            <div class="column-header">Contacted</div>
+            <div class="column-cards">
+              <div class="wireframe-card">
+                <h4>Bangalore Smart Solutions</h4>
+                <p>Value: ₹[Draft Value]</p>
+                <p>Owner: Rep Balu</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Col 3 -->
+          <div class="kanban-column">
+            <div class="column-header">Closed / Won</div>
+            <div class="column-cards">
+              <div class="wireframe-card">
+                <h4>Vikas Builders Hubli</h4>
+                <p>Value: ₹[Draft Value]</p>
+                <p>Owner: Rep Sumanth</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Vanilla Tab Switching Logic -->
+  <script>
+    function switchTab(tabId) {
+      // 1. Remove active state from all tabs
+      const tabs = document.querySelectorAll('.nav-tab');
+      tabs.forEach(t => t.classList.remove('active'));
+
+      // 2. Hide all panels
+      const panels = document.querySelectorAll('.view-panel');
+      panels.forEach(p => p.classList.remove('active'));
+
+      // 3. Set target tab active
+      const clickedBtn = Array.from(tabs).find(t => t.textContent.toLowerCase().includes(tabId));
+      if (clickedBtn) clickedBtn.classList.add('active');
+
+      // 4. Show active panel
+      const targetPanel = document.getElementById('view-' + tabId);
+      if (targetPanel) targetPanel.classList.add('active');
+
+      // 5. Update header page title
+      const titleEl = document.getElementById('page-title');
+      if (tabId === 'dashboard') titleEl.textContent = 'Executive Dashboard';
+      if (tabId === 'leads') titleEl.textContent = 'Leads Queue';
+      if (tabId === 'kanban') titleEl.textContent = 'Kanban Board';
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,269 @@
+/* Low-Fidelity Sketchy Wireframe Styling */
+:root {
+  --border-color: #7f8c8d;
+  --bg-color: #f5f6fa;
+  --panel-bg: #ffffff;
+  --text-color: #2c3e50;
+  --placeholder-color: #95a5a6;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  padding: 20px;
+}
+
+.wireframe-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  background: var(--panel-bg);
+  border: 3px solid var(--text-color);
+  min-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header Navbar */
+header {
+  border-bottom: 3px solid var(--text-color);
+  padding: 15px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.brand-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-placeholder {
+  width: 30px;
+  height: 30px;
+  border: 2px solid var(--text-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+.nav-links {
+  display: flex;
+  gap: 5px;
+}
+
+.nav-tab {
+  padding: 8px 15px;
+  background: none;
+  border: 2px solid var(--text-color);
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.nav-tab.active {
+  background-color: var(--text-color);
+  color: #ffffff;
+}
+
+.nav-tab:hover {
+  background-color: #f0f0f0;
+  color: var(--text-color);
+}
+
+.nav-tab.active:hover {
+  background-color: var(--text-color);
+  color: #ffffff;
+}
+
+/* Sub-Header Area */
+.sub-header {
+  border-bottom: 2px solid var(--text-color);
+  padding: 15px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #fafafa;
+}
+
+.sub-header h2 {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+/* Workspace Views */
+.workspace {
+  padding: 20px;
+  flex-grow: 1;
+}
+
+.view-panel {
+  display: none;
+}
+
+.view-panel.active {
+  display: block;
+}
+
+/* Grid layout for Dashboard */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.metric-placeholder {
+  border: 2px solid var(--text-color);
+  padding: 15px;
+  text-align: center;
+}
+
+.metric-placeholder h4 {
+  font-size: 11px;
+  color: var(--placeholder-color);
+  margin-bottom: 5px;
+  text-transform: uppercase;
+}
+
+.metric-placeholder p {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+/* Main Split Panel */
+.split-container {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+}
+
+.panel-box {
+  border: 2px solid var(--text-color);
+  padding: 20px;
+  min-height: 250px;
+  position: relative;
+}
+
+.panel-label {
+  position: absolute;
+  top: -10px;
+  left: 15px;
+  background: #ffffff;
+  padding: 0 5px;
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+/* Tables */
+.wireframe-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.wireframe-table th, .wireframe-table td {
+  border: 1px solid var(--border-color);
+  padding: 10px;
+  text-align: left;
+  font-size: 12px;
+}
+
+.wireframe-table th {
+  background-color: #fafafa;
+}
+
+/* Chart Placeholder boxes */
+.chart-placeholder-box {
+  border: 2px dashed var(--placeholder-color);
+  height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--placeholder-color);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* Kanban Board Columns */
+.kanban-cols {
+  display: flex;
+  gap: 15px;
+  min-height: 350px;
+}
+
+.kanban-column {
+  flex: 1;
+  border: 2px solid var(--text-color);
+  background-color: #fafafa;
+  display: flex;
+  flex-direction: column;
+}
+
+.column-header {
+  border-bottom: 2px solid var(--text-color);
+  padding: 10px;
+  font-weight: bold;
+  text-align: center;
+  background-color: #eaeaea;
+}
+
+.column-cards {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-grow: 1;
+}
+
+.wireframe-card {
+  border: 1px solid var(--text-color);
+  background: #ffffff;
+  padding: 10px;
+  font-size: 11px;
+}
+
+.wireframe-card h4 {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+/* Utility buttons */
+.w-btn {
+  padding: 8px 15px;
+  background: #ffffff;
+  border: 2px solid var(--text-color);
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.w-btn:hover {
+  background-color: #eaeaea;
+}
+
+/* Form Styles */
+.w-form-group {
+  margin-bottom: 15px;
+}
+
+.w-form-group label {
+  display: block;
+  font-size: 11px;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.w-form-group input, .w-form-group select {
+  width: 100%;
+  padding: 8px;
+  border: 2px solid var(--text-color);
+  outline: none;
+}
