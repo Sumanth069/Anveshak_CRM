@@ -1762,6 +1762,7 @@ export default function App() {
             </div>
           )}
         </div>
+      </main>
 
       {/* MODAL 1: ADD LEAD (WITH DYNAMIC CUSTOM FIELDS) */}
       {showLeadModal && (
