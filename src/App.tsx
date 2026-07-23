@@ -924,161 +924,275 @@ export default function App() {
   const totalPipeline = filteredDeals.reduce((acc, curr) => curr.stage !== 'Lost' ? acc + curr.value : acc, 0);
   const activeDealsCount = filteredDeals.filter(d => d.stage !== 'Won' && d.stage !== 'Lost').length;
   const hotLeadsCount = filteredLeads.filter(l => l.score >= 60 && l.status !== 'Disqualified').length;
-  const openTasksCount = filteredTasks.filter(t => t.status === 'Open').length;
-
-  return (
+  const openTasksCount = filteredTasks.filter(t => t.status === 'Open').length;  return (
     <div className="app-container">
-      {/* Top Navbar (Innovative horizontal utility dock navigation) */}
-      <header className="top-navbar">
-        <div className="nav-brand">
-          <div className="nav-logo">A</div>
-          <div className="nav-title">
-            <h1>Anveshak CRM</h1>
+      {/* Left Sidebar Layout (Figma Dark Navy) */}
+      <aside className="sidebar">
+        <div className="sidebar-brand">
+          <div className="sidebar-logo-icon">A</div>
+          <div className="sidebar-brand-name">
+            <h1>Anveshak</h1>
             <span>VERSION 2.0 (V2)</span>
           </div>
         </div>
 
-        {/* Center menu links */}
-        <nav className="nav-links">
-          <button className={`nav-link ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
-            Dashboard
+        {/* Primary Sidebar CTA Button */}
+        <div className="sidebar-action-box">
+          <button className="btn-sidebar-cta" onClick={() => setShowLeadModal(true)}>
+            + New Lead / Deal
           </button>
-          <button className={`nav-link ${activeTab === 'leads' ? 'active' : ''}`} onClick={() => setActiveTab('leads')}>
-            Leads
-          </button>
-          <button className={`nav-link ${activeTab === 'kanban' ? 'active' : ''}`} onClick={() => setActiveTab('kanban')}>
-            Kanban
-          </button>
-          <button className={`nav-link ${activeTab === 'tasks' ? 'active' : ''}`} onClick={() => setActiveTab('tasks')}>
-            Tasks ({openTasksCount})
-          </button>
-          <button className={`nav-link ${activeTab === 'calendar' ? 'active' : ''}`} onClick={() => setActiveTab('calendar')}>
-            Calendar
-          </button>
-          <button className={`nav-link ${activeTab === 'quote' ? 'active' : ''}`} onClick={() => setActiveTab('quote')}>
-            Quote
-          </button>
-          {!isViewRestricted('scoring') && (
-            <button className={`nav-link ${activeTab === 'scoring' ? 'active' : ''}`} onClick={() => setActiveTab('scoring')}>
-              Scoring
+        </div>
+
+        {/* Auth Role Simulator Widget */}
+        <div className="role-simulator">
+          <label>SIMULATE IDENTITY ROLE</label>
+          <select 
+            value={currentRole} 
+            onChange={(e) => {
+              setCurrentRole(e.target.value as any);
+              setActiveTab('dashboard');
+            }}
+            className="role-select"
+          >
+            <option value="Admin">Admin (Full Control)</option>
+            <option value="Manager">Manager (Balu)</option>
+            <option value="Sales Rep">Sales Rep (Sumanth)</option>
+          </select>
+        </div>
+
+        {/* Sidebar Menu Items */}
+        <ul className="sidebar-menu">
+          <li className={`menu-item ${activeTab === 'dashboard' ? 'active' : ''}`}>
+            <button onClick={() => setActiveTab('dashboard')}>
+              <span>📊</span> Dashboard
             </button>
+          </li>
+          <li className={`menu-item ${activeTab === 'kanban' ? 'active' : ''}`}>
+            <button onClick={() => setActiveTab('kanban')}>
+              <span>🎯</span> Deals & Pipeline
+            </button>
+          </li>
+          <li className={`menu-item ${activeTab === 'leads' ? 'active' : ''}`}>
+            <button onClick={() => setActiveTab('leads')}>
+              <span>👥</span> Contacts Directory
+            </button>
+          </li>
+          <li className={`menu-item ${activeTab === 'tasks' ? 'active' : ''}`}>
+            <button onClick={() => setActiveTab('tasks')}>
+              <span>Checkmark</span> Tasks Queue
+              {openTasksCount > 0 && <span className="menu-badge">{openTasksCount}</span>}
+            </button>
+          </li>
+          <li className={`menu-item ${activeTab === 'calendar' ? 'active' : ''}`}>
+            <button onClick={() => setActiveTab('calendar')}>
+              <span>📅</span> Calendar Scheduler
+            </button>
+          </li>
+          <li className={`menu-item ${activeTab === 'quote' ? 'active' : ''}`}>
+            <button onClick={() => setActiveTab('quote')}>
+              <span>📄</span> GST Quote Builder
+            </button>
+          </li>
+          
+          {!isViewRestricted('scoring') && (
+            <li className={`menu-item ${activeTab === 'scoring' ? 'active' : ''}`}>
+              <button onClick={() => setActiveTab('scoring')}>
+                <span>⚡</span> Lead Scoring Rules
+              </button>
+            </li>
           )}
           {!isViewRestricted('audit') && (
-            <button className={`nav-link ${activeTab === 'audit' ? 'active' : ''}`} onClick={() => setActiveTab('audit')}>
-              Audits
-            </button>
+            <li className={`menu-item ${activeTab === 'audit' ? 'active' : ''}`}>
+              <button onClick={() => setActiveTab('audit')}>
+                <span>🛡️</span> Audit Registry
+              </button>
+            </li>
           )}
-        </nav>
+        </ul>
 
-        {/* Right actions */}
-        <div className="nav-actions">
-          {/* Identity role selector */}
-          <div className="role-simulator">
-            <select 
-              value={currentRole} 
-              onChange={(e) => {
-                setCurrentRole(e.target.value as any);
-                setActiveTab('dashboard');
-              }}
-              className="role-select"
-            >
-              <option value="Admin">Admin</option>
-              <option value="Manager">Manager</option>
-              <option value="Sales Rep">Sales Rep</option>
-            </select>
-          </div>
-
-          <button className="btn btn-secondary" onClick={() => setShowActivityModal(true)}>
-            + Log Activity
-          </button>
-          
-          <div className="nav-profile" title={`${currentAgentName} (${currentRole})`}>
-            <div className="nav-avatar" style={{ backgroundColor: currentRole === 'Sales Rep' ? 'var(--primary)' : '#e2e8f0', color: currentRole === 'Sales Rep' ? '#ffffff' : 'var(--text-label)' }}>
+        {/* Sidebar User Footer */}
+        <div className="sidebar-footer">
+          <div className="sidebar-user">
+            <div className="user-avatar" style={{ backgroundColor: currentRole === 'Sales Rep' ? '#1e40af' : '#d97706' }}>
               {currentRole === 'Sales Rep' ? 'KS' : currentRole === 'Manager' ? 'BS' : 'AD'}
             </div>
+            <div className="user-info">
+              <h4>{currentAgentName}</h4>
+              <p>{currentRole} Session</p>
+            </div>
           </div>
         </div>
-      </header>
+      </aside>
 
-      {/* Sub Header for Page Actions */}
-      <div className="sub-header">
-        <div className="page-heading">
-          <h2>
-            {activeTab === 'dashboard' && 'Executive Dashboard'}
-            {activeTab === 'leads' && 'Leads & Contacts Database'}
-            {activeTab === 'kanban' && 'Pipeline Kanban Board'}
-            {activeTab === 'tasks' && 'Work Tasks Checklist'}
-            {activeTab === 'calendar' && 'Operational Scheduler'}
-            {activeTab === 'quote' && 'GST Quotation Builder'}
-            {activeTab === 'scoring' && 'Lead Scoring Point Configurations'}
-            {activeTab === 'audit' && 'System Access Governance Log'}
-          </h2>
-        </div>
-        <div className="page-actions">
-          {activeTab === 'leads' && (
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button className="btn btn-secondary" onClick={() => handleCSVExport('Leads')}>
-                Export CSV
-              </button>
-              <button className="btn btn-primary" onClick={() => setShowLeadModal(true)}>
-                + Add Lead
-              </button>
-            </div>
-          )}
-          {activeTab === 'tasks' && (
-            <button className="btn btn-primary" onClick={() => setShowTaskModal(true)}>
-              + New Task
+      {/* Main Viewport Content */}
+      <main className="main-content">
+        {/* Top Navbar Header */}
+        <header className="top-bar">
+          <div className="search-container">
+            <input 
+              type="text" 
+              className="search-input" 
+              placeholder="Search in Anveshak CRM (leads, deals, contacts...)" 
+            />
+          </div>
+
+          <div className="top-bar-actions">
+            <button className="btn btn-secondary" onClick={() => setShowActivityModal(true)}>
+              + Log Activity
             </button>
-          )}
-        </div>
-      </div>
+            <button className="btn btn-secondary" onClick={() => handleCSVExport('Leads')}>
+              Export CSV
+            </button>
+            <div className="nav-avatar" style={{ backgroundColor: '#f1f5f9', color: '#475569', cursor: 'pointer' }} title="Notifications">
+              🔔
+            </div>
+          </div>
+        </header>
 
-      <div className="content-body">
-          {/* TAB 1: EXECUTIVE DASHBOARD */}
+        {/* Main Body */}
+        <div className="content-body">
+          {/* TAB 1: EXECUTIVE DASHBOARD & PERFORMANCE ANALYTICS */}
           {activeTab === 'dashboard' && (
             <div className="animate-fade">
+              {/* Header Title */}
+              <div className="page-header-row">
+                <div className="page-title-text">
+                  <h2>Performance Analytics</h2>
+                  <p>Real-time pipeline metrics, revenue forecasts, and lead engagement</p>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button className="btn btn-secondary" style={{ fontSize: '11px' }}>📅 Oct 1, 2026 - Oct 31, 2026</button>
+                  <button className="btn btn-primary" onClick={() => setShowLeadModal(true)}>+ Create Lead</button>
+                </div>
+              </div>
+
+              {/* 4 Metric KPI Cards */}
               <section className="metric-grid">
                 <div className="metric-card">
                   <div className="metric-header">
                     <span>TOTAL PIPELINE VALUE</span>
+                    <span className="trend-badge up">↑ +12.4%</span>
                   </div>
                   <div className="metric-val">{formatCurrency(totalPipeline)}</div>
-                  <div className="metric-sub">Across all active stages</div>
+                  <div className="metric-sub">Across active pipeline deals</div>
                 </div>
 
                 <div className="metric-card">
                   <div className="metric-header">
-                    <span>OPEN DEALS IN FLIGHT</span>
+                    <span>ACTIVE DEALS</span>
+                    <span className="trend-badge up">↑ +4</span>
                   </div>
                   <div className="metric-val">{activeDealsCount} Deals</div>
-                  <div className="metric-sub">Excludes Won/Lost</div>
+                  <div className="metric-sub">In qualification & proposal</div>
                 </div>
 
                 <div className="metric-card">
                   <div className="metric-header">
                     <span>HOT LEADS (SCORE &gt; 60)</span>
+                    <span className="trend-badge up">↑ +18%</span>
                   </div>
-                  <div className="metric-val">{hotLeadsCount} Leads</div>
+                  <div className="metric-val">{hotLeadsCount} Prospects</div>
                   <div className="metric-sub">Prioritized for callbacks</div>
                 </div>
 
                 <div className="metric-card">
                   <div className="metric-header">
                     <span>TASKS TO RESOLVE</span>
+                    <span className="trend-badge down">↓ 2 Due</span>
                   </div>
-                  <div className="metric-val" style={{ color: openTasksCount > 0 ? 'var(--warning)' : '' }}>
+                  <div className="metric-val" style={{ color: openTasksCount > 0 ? '#d97706' : '' }}>
                     {openTasksCount} Tasks
                   </div>
                   <div className="metric-sub">Open checklist items</div>
                 </div>
               </section>
 
-              <div className="dashboard-split">
-                {/* Hot Leads Table */}
+              {/* Analytics SVG Charts Row */}
+              <div className="analytics-grid">
+                {/* Revenue over Time SVG Area Line Chart */}
                 <div className="panel-card">
                   <div className="panel-title">
-                    <h3>Hot Prospects Queue</h3>
-                    <button className="btn btn-secondary" onClick={() => setActiveTab('leads')}>View All</button>
+                    <h3>Revenue over Time</h3>
+                    <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                      <span><span style={{ color: '#1e40af', fontWeight: 'bold' }}>●</span> Actual</span>
+                      <span><span style={{ color: '#94a3b8', fontWeight: 'bold' }}>●</span> Forecast</span>
+                    </div>
+                  </div>
+                  <div className="chart-container">
+                    <svg className="chart-svg" viewBox="0 0 500 150">
+                      <defs>
+                        <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#1e40af" stopOpacity="0.25" />
+                          <stop offset="100%" stopColor="#1e40af" stopOpacity="0.0" />
+                        </linearGradient>
+                      </defs>
+                      {/* Grid Lines */}
+                      <line x1="0" y1="30" x2="500" y2="30" stroke="#f1f5f9" strokeDasharray="3 3" />
+                      <line x1="0" y1="75" x2="500" y2="75" stroke="#f1f5f9" strokeDasharray="3 3" />
+                      <line x1="0" y1="120" x2="500" y2="120" stroke="#f1f5f9" strokeDasharray="3 3" />
+                      
+                      {/* Gradient Area Fill */}
+                      <path d="M 0,120 Q 100,90 200,60 T 400,30 T 500,20 L 500,150 L 0,150 Z" fill="url(#chartGrad)" />
+                      
+                      {/* Line Curve */}
+                      <path d="M 0,120 Q 100,90 200,60 T 400,30 T 500,20" fill="none" stroke="#1e40af" strokeWidth="3" />
+                      
+                      {/* Data Points */}
+                      <circle cx="0" cy="120" r="4" fill="#1e40af" />
+                      <circle cx="125" cy="85" r="4" fill="#1e40af" />
+                      <circle cx="250" cy="50" r="4" fill="#1e40af" />
+                      <circle cx="375" cy="35" r="4" fill="#1e40af" />
+                      <circle cx="500" cy="20" r="4" fill="#1e40af" />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Lead Sources SVG Doughnut Chart */}
+                <div className="panel-card">
+                  <div className="panel-title">
+                    <h3>Lead Sources</h3>
+                  </div>
+                  <div className="doughnut-wrapper">
+                    <div className="doughnut-chart">
+                      <svg width="120" height="120" viewBox="0 0 42 42">
+                        <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#e2e8f0" strokeWidth="4"></circle>
+                        {/* Segment 1: Inbound (45%) */}
+                        <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#1e40af" strokeWidth="4.5" strokeDasharray="45 55" strokeDashoffset="25"></circle>
+                        {/* Segment 2: Organic Search (35%) */}
+                        <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#0284c7" strokeWidth="4.5" strokeDasharray="35 65" strokeDashoffset="80"></circle>
+                        {/* Segment 3: Referrals (20%) */}
+                        <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#fbbf24" strokeWidth="4.5" strokeDasharray="20 80" strokeDashoffset="45"></circle>
+                      </svg>
+                      <div className="doughnut-center-text">
+                        <div className="val">1,245</div>
+                        <div className="lbl">Total Leads</div>
+                      </div>
+                    </div>
+                    <div className="legend-list">
+                      <div className="legend-item">
+                        <span><span className="legend-dot" style={{ backgroundColor: '#1e40af' }}></span> Inbound Leads</span>
+                        <span style={{ fontWeight: 'bold' }}>45%</span>
+                      </div>
+                      <div className="legend-item">
+                        <span><span className="legend-dot" style={{ backgroundColor: '#0284c7' }}></span> Organic Search</span>
+                        <span style={{ fontWeight: 'bold' }}>35%</span>
+                      </div>
+                      <div className="legend-item">
+                        <span><span className="legend-dot" style={{ backgroundColor: '#fbbf24' }}></span> Referrals</span>
+                        <span style={{ fontWeight: 'bold' }}>20%</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Tables Split */}
+              <div className="analytics-grid">
+                {/* Hot Prospects Table */}
+                <div className="panel-card">
+                  <div className="panel-title">
+                    <h3>Priority Hot Prospects Queue</h3>
+                    <button className="btn btn-secondary" style={{ fontSize: '11px' }} onClick={() => setActiveTab('leads')}>View All Leads</button>
                   </div>
                   
                   <div className="custom-table-container">
@@ -1098,14 +1212,14 @@ export default function App() {
                           .slice(0, 3)
                           .map(lead => (
                             <tr key={lead.id}>
-                              <td>{lead.name}</td>
+                              <td style={{ fontWeight: '600' }}>{lead.name}</td>
                               <td>{lead.company}</td>
                               <td>
                                 <span className={`badge ${lead.score >= 60 ? 'badge-hot' : 'badge-warm'}`}>
                                   {lead.status}
                                 </span>
                               </td>
-                              <td style={{ fontWeight: 'bold' }}>{lead.score} pts</td>
+                              <td style={{ fontWeight: 'bold', color: '#1e40af' }}>{lead.score} pts</td>
                             </tr>
                           ))}
                       </tbody>
@@ -1113,108 +1227,85 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Conversion Funnel */}
+                {/* Audit & Access Registry Summary */}
                 <div className="panel-card">
                   <div className="panel-title">
-                    <h3>Sales Pipeline Funnel</h3>
+                    <h3>System Access Logs & Audits</h3>
+                    <button className="btn btn-secondary" style={{ fontSize: '11px' }} onClick={() => setActiveTab('audit')}>Full Registry</button>
                   </div>
-                  <div className="funnel-container">
-                    <div className="funnel-row">
-                      <span className="funnel-label">Leads</span>
-                      <div className="funnel-bar-container">
-                        <div className="funnel-bar" style={{ width: '100%' }}>100%</div>
-                      </div>
-                      <span className="funnel-val">{filteredLeads.length}</span>
-                    </div>
-                    <div className="funnel-row">
-                      <span className="funnel-label">Deals In Progress</span>
-                      <div className="funnel-bar-container">
-                        <div className="funnel-bar" style={{ width: '60%' }}>60%</div>
-                      </div>
-                      <span className="funnel-val">{filteredDeals.filter(d=>d.stage!=='Won'&&d.stage!=='Lost').length}</span>
-                    </div>
-                    <div className="funnel-row">
-                      <span className="funnel-label">Deals Won</span>
-                      <div className="funnel-bar-container">
-                        <div className="funnel-bar" style={{ width: '30%', backgroundColor: 'var(--success)' }}>30%</div>
-                      </div>
-                      <span className="funnel-val">{filteredDeals.filter(d=>d.stage==='Won').length}</span>
-                    </div>
-                  </div>
+                  <table className="custom-table">
+                    <thead>
+                      <tr>
+                        <th>Time</th>
+                        <th>User</th>
+                        <th>Event</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {auditLogs.slice(0, 3).map(log => (
+                        <tr key={log.id}>
+                          <td style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{log.timestamp.split(' ')[1] || log.timestamp}</td>
+                          <td style={{ fontWeight: '600' }}>{log.user}</td>
+                          <td>
+                            <span className="badge badge-cold" style={{ fontSize: '9px' }}>{log.action}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
           )}
 
-          {/* TAB 2: PRIORITY LEAD LIST */}
+          {/* TAB 2: CONTACTS DIRECTORY */}
           {activeTab === 'leads' && (
-            <div className="panel-card animate-fade">
-              <div className="panel-title">
-                <h3>Leads Database</h3>
+            <div className="animate-fade">
+              <div className="page-header-row">
+                <div className="page-title-text">
+                  <h2>Contacts Directory</h2>
+                  <p>Centralized database of leads, prospects, and organization contacts</p>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button className="btn btn-secondary" onClick={() => handleCSVExport('Leads')}>Export CSV</button>
+                  <button className="btn btn-primary" onClick={() => setShowLeadModal(true)}>+ Add Contact</button>
+                </div>
               </div>
-              
-              <div className="custom-table-container">
-                <table className="custom-table">
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Company</th>
-                      <th>Email / Phone</th>
-                      <th>Status</th>
-                      <th>Score</th>
-                      {customFields.map(f => (
-                        <th key={f.id}>{f.label}</th>
-                      ))}
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredLeads.map(lead => (
-                      <tr key={lead.id}>
-                        <td>
-                          <div style={{ fontWeight: '600' }}>{lead.name}</div>
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{lead.id} ({lead.owner})</span>
-                        </td>
-                        <td>{lead.company}</td>
-                        <td>
-                          <div>{lead.email}</div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{lead.phone}</div>
-                        </td>
-                        <td>
-                          <span className={`badge ${lead.status === 'Disqualified' ? 'badge-cold' : lead.status === 'Qualified' ? 'badge-hot' : 'badge-warm'}`}>
-                            {lead.status}
-                          </span>
-                        </td>
-                        <td style={{ fontWeight: 'bold' }}>{lead.score} pts</td>
-                        {customFields.map(f => (
-                          <td key={f.id}>{lead.customFields?.[f.label] || '—'}</td>
-                        ))}
-                        <td>
-                          {lead.status !== 'Disqualified' && (
-                            <button className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '11px' }} onClick={() => handleConvertLead(lead.id)}>
-                              Convert to Deal
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
 
-          {/* TAB 3: KANBAN DEAL PIPELINE */}
-          {activeTab === 'kanban' && (
-            <div className="kanban-board animate-fade">
-              {(['New', 'Contacted', 'Proposal Sent', 'Negotiation', 'Won', 'Lost'] as const).map(stage => {
-                const stageDeals = filteredDeals.filter(d => d.stage === stage);
-                const stageSum = stageDeals.reduce((acc, curr) => acc + curr.value, 0);
-                
-                let dotColor = 'var(--text-muted)';
-                if (stage === 'Proposal Sent') dotColor = 'var(--info)';
-                else if (stage === 'Negotiation') dotColor = 'var(--warning)';
-                else if (stage === 'Won') dotColor = 'var(--success)';
+              {/* Contact Cards Grid */}
+              <div className="contacts-grid">
+                {filteredLeads.slice(0, 4).map(contact => (
+                  <div key={contact.id} className="contact-card">
+                    <div className="contact-avatar">
+                      {contact.name.split(' ').map(n=>n[0]).join('')}
+                    </div>
+                    <div className="contact-name">{contact.name}</div>
+                    <div className="contact-company">{contact.company}</div>
+                    <div style={{ fontSize: '11px', color: '#1e40af', fontWeight: 'bold', marginTop: '6px' }}>
+                      {contact.score} Lead Score
+                    </div>
+                    <div className="contact-actions">
+                      <button className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '10px' }} onClick={() => alert(`Emailing ${contact.email}...`)}>✉️ Email</button>
+                      <button className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '10px' }} onClick={() => alert(`Calling ${contact.phone}...`)}>📞 Call</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="panel-card">
+                <div className="panel-title">
+                  <h3>All Registered Contacts</h3>
+                </div>
+                <div className="custom-table-container">
+                  <table className="custom-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Company</th>
+                        <th>Email / Phone</th>
+                        <th>Status</th>
+                        <th>Score</th>
+                        {customFields.map(f => (
                 else if (stage === 'Lost') dotColor = 'var(--danger)';
 
                 return (
