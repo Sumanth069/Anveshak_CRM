@@ -924,7 +924,9 @@ export default function App() {
   const totalPipeline = filteredDeals.reduce((acc, curr) => curr.stage !== 'Lost' ? acc + curr.value : acc, 0);
   const activeDealsCount = filteredDeals.filter(d => d.stage !== 'Won' && d.stage !== 'Lost').length;
   const hotLeadsCount = filteredLeads.filter(l => l.score >= 60 && l.status !== 'Disqualified').length;
-  const openTasksCount = filteredTasks.filter(t => t.status === 'Open').length;  return (
+  const openTasksCount = filteredTasks.filter(t => t.status === 'Open').length;
+
+  return (
     <div className="app-container">
       {/* Left Sidebar Layout (Figma Dark Navy) */}
       <aside className="sidebar">
@@ -979,7 +981,7 @@ export default function App() {
           </li>
           <li className={`menu-item ${activeTab === 'tasks' ? 'active' : ''}`}>
             <button onClick={() => setActiveTab('tasks')}>
-              <span>Checkmark</span> Tasks Queue
+              <span>✓</span> Tasks Queue
               {openTasksCount > 0 && <span className="menu-badge">{openTasksCount}</span>}
             </button>
           </li>
