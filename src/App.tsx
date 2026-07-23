@@ -1306,51 +1306,112 @@ export default function App() {
                         <th>Status</th>
                         <th>Score</th>
                         {customFields.map(f => (
-                else if (stage === 'Lost') dotColor = 'var(--danger)';
+                          <th key={f.id}>{f.label}</th>
+                        ))}
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredLeads.map(lead => (
+                        <tr key={lead.id}>
+                          <td>
+                            <div style={{ fontWeight: '600' }}>{lead.name}</div>
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{lead.id} ({lead.owner})</span>
+                          </td>
+                          <td>{lead.company}</td>
+                          <td>
+                            <div>{lead.email}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{lead.phone}</div>
+                          </td>
+                          <td>
+                            <span className={`badge ${lead.status === 'Disqualified' ? 'badge-cold' : lead.status === 'Qualified' ? 'badge-hot' : 'badge-warm'}`}>
+                              {lead.status}
+                            </span>
+                          </td>
+                          <td style={{ fontWeight: 'bold', color: '#1e40af' }}>{lead.score} pts</td>
+                          {customFields.map(f => (
+                            <td key={f.id}>{lead.customFields?.[f.label] || '—'}</td>
+                          ))}
+                          <td>
+                            {lead.status !== 'Disqualified' && (
+                              <button className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '11px' }} onClick={() => handleConvertLead(lead.id)}>
+                                Convert to Deal
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
 
-                return (
-                  <div 
-                    key={stage} 
-                    className="kanban-col"
-                    onDragOver={handleDragOver}
-                    onDrop={(e) => handleDrop(e, stage)}
-                  >
-                    <div className="kanban-col-header">
-                      <div>
-                        <div className="kanban-col-title">
-                          <span className="kanban-col-dot" style={{ backgroundColor: dotColor }}></span>
-                          {stage}
-                          <span className="kanban-col-count">{stageDeals.length}</span>
-                        </div>
-                        <div className="kanban-col-value">{formatCurrency(stageSum)}</div>
+          {/* TAB 3: DEALS & PIPELINE (KANBAN & VELOCITY) */}
+          {activeTab === 'kanban' && (
+            <div className="animate-fade">
+              <div className="page-header-row">
+                <div className="page-title-text">
+                  <h2>Pipeline Velocity</h2>
+                  <p>Visual stage tracking and sales cycle pipeline velocity</p>
+                </div>
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                  <div style={{ background: '#ffffff', border: '1px solid var(--border-color)', padding: '6px 14px', borderRadius: '8px', fontSize: '12px' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Pipeline Total: </span>
+                    <strong style={{ color: '#1e40af' }}>{formatCurrency(totalPipeline)}</strong>
+                  </div>
+                  <button className="btn btn-primary" onClick={() => setActiveTab('leads')}>+ Add Deal</button>
+                </div>
+              </div>
+
+              <div className="kanban-board">
+                {stages.map(stage => {
+                  const stageDeals = filteredDeals.filter(d => d.stage === stage);
+                  const stageTotal = stageDeals.reduce((sum, d) => sum + d.value, 0);
+
+                  return (
+                    <div 
+                      key={stage} 
+                      className="kanban-col"
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => handleDrop(e, stage)}
+                    >
+                      <div className="kanban-col-header">
+                        <span className="kanban-col-title">{stage}</span>
+                        <span className="kanban-col-count">{stageDeals.length}</span>
+                      </div>
+                      <div style={{ padding: '6px 16px 0', fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>
+                        {formatCurrency(stageTotal)}
+                      </div>
+
+                      <div className="kanban-cards-container">
+                        {stageDeals.map(deal => (
+                          <div 
+                            key={deal.id} 
+                            className="kanban-card"
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, deal.id)}
+                          >
+                            <div className="kanban-card-title">{deal.name}</div>
+                            <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginBottom: '8px' }}>{deal.company}</div>
+                            <div className="kanban-card-value">{formatCurrency(deal.value)}</div>
+                            <div className="kanban-card-footer">
+                              <span>👤 {deal.owner ? deal.owner.split(' ').pop() : 'Rep'}</span>
+                              <span className="days-badge">{deal.daysInStage || 1}d active</span>
+                            </div>
+                            {deal.lostReason && (
+                              <div style={{ fontSize: '10px', color: 'var(--danger)', marginTop: '8px', borderTop: '1px solid var(--border-color)', paddingTop: '4px' }}>
+                                Reason: {deal.lostReason}
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     </div>
-                    
-                    <div className="kanban-cards-container">
-                      {stageDeals.map(deal => (
-                        <div 
-                          key={deal.id} 
-                          className="kanban-card" 
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, deal.id)}
-                        >
-                          <div className="kanban-card-title">{deal.name}</div>
-                          <div className="kanban-card-value">{formatCurrency(deal.value)}</div>
-                          <div className="kanban-card-footer">
-                            <span>👤 {deal.owner ? deal.owner.split(' ').pop() : 'Unknown'}</span>
-                            <span className="days-badge">{deal.daysInStage}d active</span>
-                          </div>
-                          {deal.lostReason && (
-                            <div style={{ fontSize: '10px', color: 'var(--danger)', marginTop: '8px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '6px' }}>
-                              Reason: {deal.lostReason}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           )}
 
