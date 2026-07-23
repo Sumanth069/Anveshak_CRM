@@ -69,6 +69,37 @@ interface CustomField {
   type: 'text' | 'number';
 }
 
+// Global Constants & SVG Vector Icons
+const stages = ['New', 'Contacted', 'Proposal Sent', 'Negotiation', 'Won', 'Lost'] as const;
+
+const DashboardIcon = () => (
+  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+);
+const PipelineIcon = () => (
+  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+);
+const ContactsIcon = () => (
+  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5 5 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+);
+const TasksIcon = () => (
+  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+);
+const CalendarIcon = () => (
+  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+);
+const QuoteIcon = () => (
+  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+);
+const ScoringIcon = () => (
+  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+);
+const AuditIcon = () => (
+  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+);
+const BellIcon = () => (
+  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+);
+
 // Initial Data Seed
 const initialLeads: Lead[] = [
   {
@@ -908,11 +939,10 @@ export default function App() {
     setAuditLogs([newLog, ...auditLogs]);
   };
 
-  // Mock Calendar Calculations
-  // Let's create a mockup 35-day grid for July 2026 (July 1st is Wednesday, starts at index 3 in a grid)
+  // Calendar Grid Calculations (July 2026: July 1st is Wednesday -> Sun=0, Mon=1, Tue=2, Wed=3 offset)
   const daysInJuly = 31;
   const gridCells = Array.from({ length: 35 }, (_, idx) => {
-    const dayNumber = idx - 2; // Offset for starting cell
+    const dayNumber = idx - 2; // Index 3 maps to July 1st (Wednesday)
     return dayNumber > 0 && dayNumber <= daysInJuly ? dayNumber : null;
   });
 
@@ -966,47 +996,47 @@ export default function App() {
         <ul className="sidebar-menu">
           <li className={`menu-item ${activeTab === 'dashboard' ? 'active' : ''}`}>
             <button onClick={() => setActiveTab('dashboard')}>
-              <span>📊</span> Dashboard
+              <DashboardIcon /> Dashboard
             </button>
           </li>
           <li className={`menu-item ${activeTab === 'kanban' ? 'active' : ''}`}>
             <button onClick={() => setActiveTab('kanban')}>
-              <span>🎯</span> Deals & Pipeline
+              <PipelineIcon /> Deals & Pipeline
             </button>
           </li>
           <li className={`menu-item ${activeTab === 'leads' ? 'active' : ''}`}>
             <button onClick={() => setActiveTab('leads')}>
-              <span>👥</span> Contacts Directory
+              <ContactsIcon /> Contacts Directory
             </button>
           </li>
           <li className={`menu-item ${activeTab === 'tasks' ? 'active' : ''}`}>
             <button onClick={() => setActiveTab('tasks')}>
-              <span>✓</span> Tasks Queue
+              <TasksIcon /> Tasks Queue
               {openTasksCount > 0 && <span className="menu-badge">{openTasksCount}</span>}
             </button>
           </li>
           <li className={`menu-item ${activeTab === 'calendar' ? 'active' : ''}`}>
             <button onClick={() => setActiveTab('calendar')}>
-              <span>📅</span> Calendar Scheduler
+              <CalendarIcon /> Calendar Scheduler
             </button>
           </li>
           <li className={`menu-item ${activeTab === 'quote' ? 'active' : ''}`}>
             <button onClick={() => setActiveTab('quote')}>
-              <span>📄</span> GST Quote Builder
+              <QuoteIcon /> GST Quote Builder
             </button>
           </li>
           
           {!isViewRestricted('scoring') && (
             <li className={`menu-item ${activeTab === 'scoring' ? 'active' : ''}`}>
               <button onClick={() => setActiveTab('scoring')}>
-                <span>⚡</span> Lead Scoring Rules
+                <ScoringIcon /> Lead Scoring Rules
               </button>
             </li>
           )}
           {!isViewRestricted('audit') && (
             <li className={`menu-item ${activeTab === 'audit' ? 'active' : ''}`}>
               <button onClick={() => setActiveTab('audit')}>
-                <span>🛡️</span> Audit Registry
+                <AuditIcon /> Audit Registry
               </button>
             </li>
           )}
@@ -1045,8 +1075,8 @@ export default function App() {
             <button className="btn btn-secondary" onClick={() => handleCSVExport('Leads')}>
               Export CSV
             </button>
-            <div className="nav-avatar" style={{ backgroundColor: '#f1f5f9', color: '#475569', cursor: 'pointer' }} title="Notifications">
-              🔔
+            <div className="nav-avatar" style={{ backgroundColor: '#f1f5f9', color: '#475569', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Notifications">
+              <BellIcon />
             </div>
           </div>
         </header>
@@ -1477,11 +1507,12 @@ export default function App() {
           {activeTab === 'calendar' && (
             <div className="panel-card animate-fade">
               <div className="panel-title">
-                <h3>July 2026 Calendar</h3>
+                <h3>July 2026 Monthly Schedule</h3>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>31 Days • 5 Events</div>
               </div>
               
               <div className="calendar-grid-header">
-                <div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div><div>Mon</div><div>Tue</div>
+                <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
               </div>
               
               <div className="calendar-grid">
@@ -1489,7 +1520,6 @@ export default function App() {
                   if (!day) return <div key={idx} className="calendar-day empty"></div>;
                   
                   const dateStr = `2026-07-${day < 10 ? '0' + day : day}`;
-                  // Find items on this day
                   const dayTasks = filteredTasks.filter(t => t.dueDate === dateStr);
                   const dayDeals = filteredDeals.filter(d => d.expectedClose === dateStr);
                   const dayActs = activities.filter(a => a.date === dateStr);
@@ -1500,17 +1530,17 @@ export default function App() {
                       <div className="day-events">
                         {dayTasks.map(t => (
                           <div key={t.id} className="calendar-event task" title={t.title}>
-                            ✓ {t.title}
+                            Task: {t.title}
                           </div>
                         ))}
                         {dayDeals.map(d => (
                           <div key={d.id} className="calendar-event deal" title={d.name}>
-                            $ {d.company}
+                            Deal: {d.company}
                           </div>
                         ))}
                         {dayActs.map(a => (
                           <div key={a.id} className="calendar-event activity" title={a.notes}>
-                            ☎ {a.type}
+                            Call: {a.type}
                           </div>
                         ))}
                       </div>
