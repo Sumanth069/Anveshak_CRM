@@ -2569,6 +2569,7 @@ export default function App() {
             </div>
           </div>
         </div>
+      )}
       {/* MODAL: DEAL DETAIL VIEW (PIP-03) */}
       {selectedDealDetail && (
         <div className="modal-overlay">
