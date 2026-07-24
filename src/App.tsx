@@ -69,6 +69,27 @@ interface CustomField {
   type: 'text' | 'number';
 }
 
+interface Company {
+  id: string;
+  name: string;
+  industry: string;
+  website: string;
+  city: string;
+  state: string;
+  address: string;
+  contactsCount: number;
+  totalDealValue: number;
+}
+
+interface SystemUser {
+  id: string;
+  fullName: string;
+  email: string;
+  role: 'ADMIN' | 'MANAGER' | 'SALES_REP';
+  isActive: boolean;
+  assignedCount: number;
+}
+
 // Global Constants & SVG Vector Icons
 const stages = ['New', 'Contacted', 'Proposal Sent', 'Negotiation', 'Won', 'Lost'] as const;
 
@@ -95,6 +116,15 @@ const ScoringIcon = () => (
 );
 const AuditIcon = () => (
   <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+);
+const CompanyIcon = () => (
+  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5m0 0h4m-4 0V11m0 10V11m4 10V11m-4 0h4M7 7h.01M7 11h.01M7 15h.01M17 7h.01M17 11h.01M17 15h.01"/></svg>
+);
+const ReportsIcon = () => (
+  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+);
+const UsersIcon = () => (
+  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
 );
 const BellIcon = () => (
   <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
@@ -287,9 +317,72 @@ const initialAuditLogs: AuditLog[] = [
   }
 ];
 
+const initialCompanies: Company[] = [
+  {
+    id: 'COMP-101',
+    name: 'Mysore Agro Products',
+    industry: 'Agriculture / Manufacturing',
+    website: 'https://mysoreagro.in',
+    city: 'Mysore',
+    state: 'Karnataka',
+    address: 'KRS Road, Industrial Suburb, Mysore - 570016',
+    contactsCount: 2,
+    totalDealValue: 500000
+  },
+  {
+    id: 'COMP-102',
+    name: 'Bangalore Smart Solutions',
+    industry: 'Enterprise Software & IoT',
+    website: 'https://smartsolutions.com',
+    city: 'Bangalore',
+    state: 'Karnataka',
+    address: '100ft Road, Indiranagar, Bangalore - 560038',
+    contactsCount: 1,
+    totalDealValue: 1500000
+  },
+  {
+    id: 'COMP-103',
+    name: 'Vikas Builders Hubli',
+    industry: 'Government Infrastructure',
+    website: 'https://vikasbuilders.in',
+    city: 'Hubli',
+    state: 'Karnataka',
+    address: 'Gokul Road, Hubli - 580030',
+    contactsCount: 1,
+    totalDealValue: 3900000
+  }
+];
+
+const initialUsers: SystemUser[] = [
+  {
+    id: 'USR-01',
+    fullName: 'KP Sumanth',
+    email: 'sumanth@anveshakhub.com',
+    role: 'SALES_REP',
+    isActive: true,
+    assignedCount: 4
+  },
+  {
+    id: 'USR-02',
+    fullName: 'Balasaraswathi',
+    email: 'balu@anveshakhub.com',
+    role: 'MANAGER',
+    isActive: true,
+    assignedCount: 12
+  },
+  {
+    id: 'USR-03',
+    fullName: 'System Administrator',
+    email: 'admin@anveshakhub.com',
+    role: 'ADMIN',
+    isActive: true,
+    assignedCount: 0
+  }
+];
+
 export default function App() {
   // Navigation & Simulation Roles
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'leads' | 'kanban' | 'tasks' | 'calendar' | 'scoring' | 'quote' | 'audit'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'leads' | 'companies' | 'kanban' | 'quote' | 'tasks' | 'calendar' | 'reports' | 'users' | 'scoring' | 'audit'>('dashboard');
   const [currentRole, setCurrentRole] = useState<'Admin' | 'Manager' | 'Sales Rep'>('Admin');
   
   // Data States
@@ -297,18 +390,29 @@ export default function App() {
   const [deals, setDeals] = useState<Deal[]>(initialDeals);
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [activities, setActivities] = useState<ActivityLog[]>(initialActivities);
+  const [companies, setCompanies] = useState<Company[]>(initialCompanies);
+  const [usersList, setUsersList] = useState<SystemUser[]>(initialUsers);
   const [rules, setRules] = useState(initialScoringRules);
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(initialAuditLogs);
   
-  // Form/Modal States
+  // Form/Modal & Detailed Inspection States
+  const [selectedDealDetail, setSelectedDealDetail] = useState<Deal | null>(null);
+  const [selectedLeadDetail, setSelectedLeadDetail] = useState<Lead | null>(null);
+  const [selectedCompanyDetail, setSelectedCompanyDetail] = useState<Company | null>(null);
+  
   const [showLeadModal, setShowLeadModal] = useState(false);
+  const [showCompanyModal, setShowCompanyModal] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [showCustomFieldModal, setShowCustomFieldModal] = useState(false);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [showLostModal, setShowLostModal] = useState(false);
   const [showQuotePreview, setShowQuotePreview] = useState(false);
+  
+  const [reportsSubTab, setReportsSubTab] = useState<'funnel' | 'forecast' | 'leaderboard'>('funnel');
+  
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [cardImage, setCardImage] = useState<string | null>(null);
@@ -316,6 +420,8 @@ export default function App() {
   
   // Form Inputs
   const [newLead, setNewLead] = useState({ name: '', company: '', email: '', phone: '', owner: 'KP Sumanth' });
+  const [newCompany, setNewCompany] = useState({ name: '', industry: 'Manufacturing / B2G', website: '', city: 'Bangalore', state: 'Karnataka', address: '' });
+  const [newUser, setNewUser] = useState({ fullName: '', email: '', role: 'SALES_REP' as SystemUser['role'] });
   const [newCustomValues, setNewCustomValues] = useState<{ [key: string]: string }>({});
   const [duplicateConflictedLead, setDuplicateConflictedLead] = useState<Lead | null>(null);
   
@@ -352,10 +458,13 @@ export default function App() {
   // ROLE SECURITY GUARDS (MOCK MIDDLEWARE)
   // ----------------------------------------------------
   const isViewRestricted = (tab: typeof activeTab) => {
-    if (currentRole === 'Manager') {
-      return tab === 'scoring' || tab === 'audit';
+    if (currentRole === 'Sales Rep') {
+      return tab === 'scoring' || tab === 'audit' || tab === 'users' || tab === 'reports';
     }
-    return false; // Admin and Sales Rep can technically browse, but Sales Rep views are heavily filtered
+    if (currentRole === 'Manager') {
+      return tab === 'scoring' || tab === 'audit' || tab === 'users';
+    }
+    return false;
   };
 
   // Helper: Format Currency (INR)
@@ -992,21 +1101,26 @@ export default function App() {
           </select>
         </div>
 
-        {/* Sidebar Menu Items */}
+        {/* Sidebar Menu Items (Matching PDS Sitemap Order) */}
         <ul className="sidebar-menu">
           <li className={`menu-item ${activeTab === 'dashboard' ? 'active' : ''}`}>
             <button onClick={() => setActiveTab('dashboard')}>
               <DashboardIcon /> Dashboard
             </button>
           </li>
-          <li className={`menu-item ${activeTab === 'kanban' ? 'active' : ''}`}>
-            <button onClick={() => setActiveTab('kanban')}>
-              <PipelineIcon /> Deals & Pipeline
-            </button>
-          </li>
           <li className={`menu-item ${activeTab === 'leads' ? 'active' : ''}`}>
             <button onClick={() => setActiveTab('leads')}>
               <ContactsIcon /> Contacts Directory
+            </button>
+          </li>
+          <li className={`menu-item ${activeTab === 'companies' ? 'active' : ''}`}>
+            <button onClick={() => setActiveTab('companies')}>
+              <CompanyIcon /> Companies & Accounts
+            </button>
+          </li>
+          <li className={`menu-item ${activeTab === 'kanban' ? 'active' : ''}`}>
+            <button onClick={() => setActiveTab('kanban')}>
+              <PipelineIcon /> Deals & Pipeline
             </button>
           </li>
           <li className={`menu-item ${activeTab === 'tasks' ? 'active' : ''}`}>
@@ -1026,6 +1140,20 @@ export default function App() {
             </button>
           </li>
           
+          {!isViewRestricted('reports') && (
+            <li className={`menu-item ${activeTab === 'reports' ? 'active' : ''}`}>
+              <button onClick={() => setActiveTab('reports')}>
+                <ReportsIcon /> Analytics Reports
+              </button>
+            </li>
+          )}
+          {!isViewRestricted('users') && (
+            <li className={`menu-item ${activeTab === 'users' ? 'active' : ''}`}>
+              <button onClick={() => setActiveTab('users')}>
+                <UsersIcon /> User Provisioning
+              </button>
+            </li>
+          )}
           {!isViewRestricted('scoring') && (
             <li className={`menu-item ${activeTab === 'scoring' ? 'active' : ''}`}>
               <button onClick={() => setActiveTab('scoring')}>
@@ -1365,17 +1493,66 @@ export default function App() {
                             <td key={f.id}>{lead.customFields?.[f.label] || '—'}</td>
                           ))}
                           <td>
-                            {lead.status !== 'Disqualified' && (
-                              <button className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '11px' }} onClick={() => handleConvertLead(lead.id)}>
-                                Convert to Deal
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={() => setSelectedLeadDetail(lead)}>
+                                Inspect 360°
                               </button>
-                            )}
+                              {lead.status !== 'Disqualified' && (
+                                <button className="btn btn-primary" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={() => handleConvertLead(lead.id)}>
+                                  Convert to Deal
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: COMPANIES & ACCOUNTS DIRECTORY (CON-04) */}
+          {activeTab === 'companies' && (
+            <div className="animate-fade">
+              <div className="page-header-row">
+                <div className="page-title-text">
+                  <h2>Companies & Accounts Directory</h2>
+                  <p>Corporate and B2G government organizations with consolidated deal roll-ups</p>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button className="btn btn-secondary" onClick={() => handleCSVExport('Leads')}>Export CSV</button>
+                  <button className="btn btn-primary" onClick={() => setShowCompanyModal(true)}>+ Add Company</button>
+                </div>
+              </div>
+
+              {/* Companies Grid */}
+              <div className="contacts-grid">
+                {companies.map(comp => (
+                  <div key={comp.id} className="contact-card" style={{ textAlign: 'left' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                      <div className="contact-avatar" style={{ margin: '0 0 8px 0', backgroundColor: '#eff6ff', color: '#1e40af' }}>
+                        {comp.name.slice(0, 2).toUpperCase()}
+                      </div>
+                      <span className="badge badge-cold" style={{ fontSize: '9px' }}>{comp.state}</span>
+                    </div>
+                    <div className="contact-name">{comp.name}</div>
+                    <div className="contact-company">{comp.industry}</div>
+                    <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '8px' }}>📍 {comp.address}</div>
+                    
+                    <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '12px', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
+                      <span>Affiliated Contacts: <strong>{comp.contactsCount}</strong></span>
+                      <span>Deal Roll-up: <strong style={{ color: '#1e40af' }}>{formatCurrency(comp.totalDealValue)}</strong></span>
+                    </div>
+                    
+                    <div className="contact-actions" style={{ marginTop: '12px' }}>
+                      <button className="btn btn-secondary" style={{ width: '100%', fontSize: '11px' }} onClick={() => setSelectedCompanyDetail(comp)}>
+                        Inspect Account Profile (CON-05)
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -1424,6 +1601,7 @@ export default function App() {
                             className="kanban-card"
                             draggable
                             onDragStart={(e) => handleDragStart(e, deal.id)}
+                            onClick={() => setSelectedDealDetail(deal)}
                           >
                             <div className="kanban-card-title">{deal.name}</div>
                             <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginBottom: '8px' }}>{deal.company}</div>
@@ -1655,7 +1833,192 @@ export default function App() {
             </div>
           )}
 
-          {/* TAB 7: SCORING POINT CONFIG */}
+          {/* TAB 7: ANALYTICS REPORTS (REP-02 to REP-05) */}
+          {activeTab === 'reports' && (
+            <div className="animate-fade">
+              <div className="page-header-row">
+                <div className="page-title-text">
+                  <h2>Analytics & Performance Reports</h2>
+                  <p>Deep analytical insights, conversion pipeline funnels, and revenue forecasts</p>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button className={`btn ${reportsSubTab === 'funnel' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setReportsSubTab('funnel')}>
+                    Conversion Funnel (REP-02)
+                  </button>
+                  <button className={`btn ${reportsSubTab === 'forecast' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setReportsSubTab('forecast')}>
+                    Revenue Forecast (REP-03)
+                  </button>
+                  <button className={`btn ${reportsSubTab === 'leaderboard' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setReportsSubTab('leaderboard')}>
+                    Team Leaderboard (REP-04)
+                  </button>
+                </div>
+              </div>
+
+              {reportsSubTab === 'funnel' && (
+                <div className="panel-card">
+                  <div className="panel-title">
+                    <h3>Lead Conversion Funnel (REP-02)</h3>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '10px 0' }}>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 'bold', marginBottom: '6px' }}>
+                        <span>Total Prospects / Leads</span>
+                        <span>{leads.length} Leads (100%)</span>
+                      </div>
+                      <div style={{ background: '#e2e8f0', height: '24px', borderRadius: '6px', overflow: 'hidden' }}>
+                        <div style={{ background: '#1e40af', width: '100%', height: '100%', display: 'flex', alignItems: 'center', paddingLeft: '10px', color: '#fff', fontSize: '11px', fontWeight: 'bold' }}>100%</div>
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 'bold', marginBottom: '6px' }}>
+                        <span>Qualified Prospects (Score &gt;= 30)</span>
+                        <span>{leads.filter(l => l.score >= 30).length} Leads (66%)</span>
+                      </div>
+                      <div style={{ background: '#e2e8f0', height: '24px', borderRadius: '6px', overflow: 'hidden' }}>
+                        <div style={{ background: '#0284c7', width: '66%', height: '100%', display: 'flex', alignItems: 'center', paddingLeft: '10px', color: '#fff', fontSize: '11px', fontWeight: 'bold' }}>66%</div>
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 'bold', marginBottom: '6px' }}>
+                        <span>Deals In Flight / Proposals</span>
+                        <span>{deals.filter(d => d.stage !== 'Lost').length} Deals (40%)</span>
+                      </div>
+                      <div style={{ background: '#e2e8f0', height: '24px', borderRadius: '6px', overflow: 'hidden' }}>
+                        <div style={{ background: '#f59e0b', width: '40%', height: '100%', display: 'flex', alignItems: 'center', paddingLeft: '10px', color: '#fff', fontSize: '11px', fontWeight: 'bold' }}>40%</div>
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 'bold', marginBottom: '6px' }}>
+                        <span>Deals Closed / Won</span>
+                        <span>{deals.filter(d => d.stage === 'Won').length} Closed Deals (20%)</span>
+                      </div>
+                      <div style={{ background: '#e2e8f0', height: '24px', borderRadius: '6px', overflow: 'hidden' }}>
+                        <div style={{ background: '#10b981', width: '20%', height: '100%', display: 'flex', alignItems: 'center', paddingLeft: '10px', color: '#fff', fontSize: '11px', fontWeight: 'bold' }}>20%</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {reportsSubTab === 'forecast' && (
+                <div className="panel-card">
+                  <div className="panel-title">
+                    <h3>Weighted Pipeline Revenue Forecast (REP-03)</h3>
+                  </div>
+                  <table className="custom-table">
+                    <thead>
+                      <tr>
+                        <th>Deal Name</th>
+                        <th>Company</th>
+                        <th>Stage</th>
+                        <th>Probability</th>
+                        <th>Deal Value</th>
+                        <th>Weighted Forecast Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {deals.map(d => (
+                        <tr key={d.id}>
+                          <td style={{ fontWeight: '600' }}>{d.name}</td>
+                          <td>{d.company}</td>
+                          <td><span className="badge badge-cold">{d.stage}</span></td>
+                          <td>{d.probability}%</td>
+                          <td style={{ fontWeight: 'bold' }}>{formatCurrency(d.value)}</td>
+                          <td style={{ fontWeight: 'bold', color: '#1e40af' }}>
+                            {formatCurrency((d.value * d.probability) / 100)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {reportsSubTab === 'leaderboard' && (
+                <div className="panel-card">
+                  <div className="panel-title">
+                    <h3>Team Sales Leaderboard (REP-04)</h3>
+                  </div>
+                  <div className="contacts-grid">
+                    {usersList.map((usr, idx) => (
+                      <div key={usr.id} className="contact-card">
+                        <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#d97706', marginBottom: '4px' }}>
+                          RANK #{idx + 1}
+                        </div>
+                        <div className="contact-avatar" style={{ backgroundColor: usr.role === 'SALES_REP' ? '#1e40af' : '#d97706' }}>
+                          {usr.fullName.split(' ').map(n=>n[0]).join('')}
+                        </div>
+                        <div className="contact-name">{usr.fullName}</div>
+                        <div className="contact-company">{usr.role}</div>
+                        <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '12px', paddingTop: '8px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                          Assigned Records: <strong>{usr.assignedCount}</strong>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 8: USER PROVISIONING & RBAC MANAGEMENT (ADM-01) */}
+          {activeTab === 'users' && (
+            <div className="animate-fade">
+              <div className="page-header-row">
+                <div className="page-title-text">
+                  <h2>User Management & Provisioning (ADM-01)</h2>
+                  <p>Invite team members, update territory assignments, and manage RBAC role permissions</p>
+                </div>
+                <button className="btn btn-primary" onClick={() => setShowInviteModal(true)}>+ Invite User</button>
+              </div>
+
+              <div className="panel-card">
+                <table className="custom-table">
+                  <thead>
+                    <tr>
+                      <th>User Name</th>
+                      <th>Email Address</th>
+                      <th>RBAC Role</th>
+                      <th>Account Status</th>
+                      <th>Assigned Records</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {usersList.map(usr => (
+                      <tr key={usr.id}>
+                        <td style={{ fontWeight: '600' }}>{usr.fullName}</td>
+                        <td>{usr.email}</td>
+                        <td>
+                          <span className={`badge ${usr.role === 'ADMIN' ? 'badge-hot' : usr.role === 'MANAGER' ? 'badge-warm' : 'badge-cold'}`}>
+                            {usr.role}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`badge ${usr.isActive ? 'badge-cold' : 'badge-hot'}`}>
+                            {usr.isActive ? 'ACTIVE' : 'DEACTIVATED'}
+                          </span>
+                        </td>
+                        <td>{usr.assignedCount} items</td>
+                        <td>
+                          <button 
+                            className="btn btn-secondary" 
+                            style={{ padding: '4px 8px', fontSize: '10px' }}
+                            onClick={() => {
+                              const newRole: SystemUser['role'] = usr.role === 'SALES_REP' ? 'MANAGER' : usr.role === 'MANAGER' ? 'ADMIN' : 'SALES_REP';
+                              setUsersList(usersList.map(u => u.id === usr.id ? { ...u, role: newRole } : u));
+                            }}
+                          >
+                            Cycle Role
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
           {activeTab === 'scoring' && (
             <div className="panel-card animate-fade" style={{ maxWidth: '600px' }}>
               <div className="panel-title">
@@ -2204,6 +2567,266 @@ export default function App() {
                 Print / Export PDF
               </button>
             </div>
+          </div>
+        </div>
+      {/* MODAL: DEAL DETAIL VIEW (PIP-03) */}
+      {selectedDealDetail && (
+        <div className="modal-overlay">
+          <div className="modal-content wide">
+            <div className="modal-header">
+              <div>
+                <h3>{selectedDealDetail.name} (PIP-03)</h3>
+                <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{selectedDealDetail.company} • Owner: {selectedDealDetail.owner}</p>
+              </div>
+              <button className="modal-close-btn" onClick={() => setSelectedDealDetail(null)}>×</button>
+            </div>
+
+            {/* Stage Stepper Bar */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '4px', margin: '16px 0', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
+              {stages.map(stg => {
+                const isActive = stg === selectedDealDetail.stage;
+                return (
+                  <button 
+                    key={stg}
+                    className={`btn ${isActive ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ flex: 1, fontSize: '10px', padding: '6px 2px' }}
+                    onClick={() => {
+                      setSelectedDealDetail({ ...selectedDealDetail, stage: stg });
+                      setDeals(deals.map(d => d.id === selectedDealDetail.id ? { ...d, stage: stg } : d));
+                    }}
+                  >
+                    {stg}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+              <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Total Deal Value:</span>
+                <div style={{ fontSize: '22px', fontWeight: '800', color: '#1e40af' }}>{formatCurrency(selectedDealDetail.value)}</div>
+              </div>
+              <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Win Probability & Forecast Value:</span>
+                <div style={{ fontSize: '18px', fontWeight: '800', color: '#10b981' }}>
+                  {selectedDealDetail.probability}% ({formatCurrency((selectedDealDetail.value * selectedDealDetail.probability) / 100)})
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={() => setSelectedDealDetail(null)}>Close</button>
+              <button 
+                className="btn btn-primary" 
+                onClick={() => {
+                  setQuoteCompany(selectedDealDetail.company);
+                  setSelectedDealDetail(null);
+                  setActiveTab('quote');
+                }}
+              >
+                + Build GST Quote (QTE-01)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: LEAD 360° INSPECTION VIEW (LED-02 / CON-02) */}
+      {selectedLeadDetail && (
+        <div className="modal-overlay">
+          <div className="modal-content wide">
+            <div className="modal-header">
+              <h3>Prospect 360° Profile View (LED-02)</h3>
+              <button className="modal-close-btn" onClick={() => setSelectedLeadDetail(null)}>×</button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '20px' }}>
+              {/* Left Column Summary */}
+              <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <div className="contact-avatar" style={{ margin: '0 0 12px 0' }}>
+                  {selectedLeadDetail.name.split(' ').map(n=>n[0]).join('')}
+                </div>
+                <h4 style={{ fontSize: '15px', fontWeight: 'bold' }}>{selectedLeadDetail.name}</h4>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{selectedLeadDetail.company}</p>
+                <div style={{ fontSize: '18px', fontWeight: '800', color: '#1e40af', margin: '12px 0' }}>
+                  {selectedLeadDetail.score} Score Points
+                </div>
+
+                <div style={{ fontSize: '11px', display: 'flex', flexDirection: 'column', gap: '6px', color: 'var(--text-main)' }}>
+                  <div>📧 {selectedLeadDetail.email}</div>
+                  <div>📞 {selectedLeadDetail.phone}</div>
+                  <div>👤 Assigned: {selectedLeadDetail.owner}</div>
+                </div>
+              </div>
+
+              {/* Right Column Activity Log Feed */}
+              <div>
+                <h4 style={{ fontSize: '13px', fontWeight: 'bold', marginBottom: '10px' }}>Chronological Activity Feed (ACT-02)</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '250px', overflowY: 'auto' }}>
+                  {selectedLeadDetail.activities.map((act, i) => (
+                    <div key={i} style={{ background: '#ffffff', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '11.5px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
+                        <span>{act.action}</span>
+                        <span style={{ color: '#10b981' }}>+{act.points} pts</span>
+                      </div>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '10px', marginTop: '2px' }}>Date: {act.date}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-actions" style={{ marginTop: '20px' }}>
+              <button className="btn btn-secondary" onClick={() => setSelectedLeadDetail(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: COMPANY ACCOUNT PROFILE VIEW (CON-05) */}
+      {selectedCompanyDetail && (
+        <div className="modal-overlay">
+          <div className="modal-content wide">
+            <div className="modal-header">
+              <h3>Company Account Profile (CON-05)</h3>
+              <button className="modal-close-btn" onClick={() => setSelectedCompanyDetail(null)}>×</button>
+            </div>
+
+            <div style={{ padding: '10px 0' }}>
+              <h2>{selectedCompanyDetail.name}</h2>
+              <p style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{selectedCompanyDetail.industry} • 📍 {selectedCompanyDetail.address}</p>
+              
+              <div style={{ margin: '16px 0', padding: '12px', background: '#f8fafc', borderRadius: '8px', display: 'flex', gap: '24px' }}>
+                <div>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>City & State:</span>
+                  <div style={{ fontWeight: 'bold' }}>{selectedCompanyDetail.city}, {selectedCompanyDetail.state}</div>
+                </div>
+                <div>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Website:</span>
+                  <div><a href={selectedCompanyDetail.website} target="_blank" rel="noreferrer" style={{ color: '#1e40af' }}>{selectedCompanyDetail.website}</a></div>
+                </div>
+                <div>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Total B2G Roll-up Value:</span>
+                  <div style={{ fontWeight: 'bold', color: '#10b981' }}>{formatCurrency(selectedCompanyDetail.totalDealValue)}</div>
+                </div>
+              </div>
+
+              <h4 style={{ fontSize: '13px', fontWeight: 'bold', marginBottom: '8px' }}>Affiliated Contacts ({selectedCompanyDetail.contactsCount})</h4>
+              <table className="custom-table">
+                <thead>
+                  <tr>
+                    <th>Contact Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {leads.filter(l => l.company === selectedCompanyDetail.name).map(c => (
+                    <tr key={c.id}>
+                      <td style={{ fontWeight: 'bold' }}>{c.name}</td>
+                      <td>{c.email}</td>
+                      <td>{c.phone}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={() => setSelectedCompanyDetail(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: ADD COMPANY SLIDE-OVER DRAWER (CON-03) */}
+      {showCompanyModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>Create Company Account (CON-03)</h3>
+              <button className="modal-close-btn" onClick={() => setShowCompanyModal(false)}>×</button>
+            </div>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (!newCompany.name) return;
+              const freshComp: Company = {
+                id: `COMP-${Date.now().toString().slice(-3)}`,
+                ...newCompany,
+                contactsCount: 1,
+                totalDealValue: 0
+              };
+              setCompanies([freshComp, ...companies]);
+              setShowCompanyModal(false);
+              setNewCompany({ name: '', industry: 'Manufacturing / B2G', website: '', city: 'Bangalore', state: 'Karnataka', address: '' });
+            }}>
+              <div className="form-group">
+                <label>Company Name *</label>
+                <input type="text" required value={newCompany.name} onChange={(e) => setNewCompany({ ...newCompany, name: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label>Industry Sector</label>
+                <input type="text" value={newCompany.industry} onChange={(e) => setNewCompany({ ...newCompany, industry: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label>City</label>
+                <input type="text" value={newCompany.city} onChange={(e) => setNewCompany({ ...newCompany, city: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label>State</label>
+                <input type="text" value={newCompany.state} onChange={(e) => setNewCompany({ ...newCompany, state: e.target.value })} />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowCompanyModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">Create Company</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: INVITE USER (ADM-01) */}
+      {showInviteModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>Invite Team Member (ADM-01)</h3>
+              <button className="modal-close-btn" onClick={() => setShowInviteModal(false)}>×</button>
+            </div>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (!newUser.fullName || !newUser.email) return;
+              const freshUsr: SystemUser = {
+                id: `USR-${Date.now().toString().slice(-3)}`,
+                ...newUser,
+                isActive: true,
+                assignedCount: 0
+              };
+              setUsersList([...usersList, freshUsr]);
+              setShowInviteModal(false);
+              setNewUser({ fullName: '', email: '', role: 'SALES_REP' });
+            }}>
+              <div className="form-group">
+                <label>Full Name *</label>
+                <input type="text" required value={newUser.fullName} onChange={(e) => setNewUser({ ...newUser, fullName: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label>Email Address *</label>
+                <input type="email" required value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label>Assign RBAC Role</label>
+                <select value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value as any })}>
+                  <option value="SALES_REP">Sales Rep (Operational execution)</option>
+                  <option value="MANAGER">Manager (Team forecasting)</option>
+                  <option value="ADMIN">Admin (Full System Privileges)</option>
+                </select>
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowInviteModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">Send Invite Link</button>
+              </div>
+            </form>
           </div>
         </div>
       )}
