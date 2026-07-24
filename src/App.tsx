@@ -387,8 +387,29 @@ export default function App() {
   const [loginPassword, setLoginPassword] = useState('');
 
   // Navigation & Simulation Roles
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'leads' | 'companies' | 'kanban' | 'quote' | 'tasks' | 'calendar' | 'reports' | 'users' | 'scoring' | 'audit'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'leads' | 'companies' | 'kanban' | 'quote' | 'tasks' | 'calendar' | 'reports' | 'users' | 'scoring' | 'audit' | 'settings'>('dashboard');
   const [currentRole, setCurrentRole] = useState<'Admin' | 'Manager' | 'Sales Rep'>('Admin');
+
+  const [profileSettings, setProfileSettings] = useState({
+    'Admin': { fullName: 'Riya Sharma', email: 'riya@anveshakhub.com', title: 'Regional Director', avatarColor: '#d97706', notify: true },
+    'Manager': { fullName: 'Balasaraswathi', email: 'balu@anveshakhub.com', title: 'Sales Manager', avatarColor: '#b45309', notify: true },
+    'Sales Rep': { fullName: 'KP Sumanth', email: 'sumanth@anveshakhub.com', title: 'Enterprise Rep', avatarColor: '#1e40af', notify: true }
+  });
+
+  useEffect(() => {
+    const savedProfiles = localStorage.getItem('ANVESHAK_CRM_PROFILES');
+    if (savedProfiles) {
+      try {
+        setProfileSettings(JSON.parse(savedProfiles));
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('ANVESHAK_CRM_PROFILES', JSON.stringify(profileSettings));
+  }, [profileSettings]);
   
   // Data States
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
@@ -453,11 +474,43 @@ export default function App() {
     { id: '1', description: 'Heavy Duty Inline Pipeline Filters (100mm)', qty: 5, price: 30000, gst: 18 }
   ]);
 
+  // PERSIST STATE TO LOCALSTORAGE
+  useEffect(() => {
+    const savedState = localStorage.getItem('ANVESHAK_CRM_STATE_V2');
+    if (savedState) {
+      try {
+        const parsed = JSON.parse(savedState);
+        if (parsed.leads) setLeads(parsed.leads);
+        if (parsed.deals) setDeals(parsed.deals);
+        if (parsed.tasks) setTasks(parsed.tasks);
+        if (parsed.activities) setActivities(parsed.activities);
+        if (parsed.companies) setCompanies(parsed.companies);
+        if (parsed.usersList) setUsersList(parsed.usersList);
+      } catch (err) {
+        console.error('Error parsing local CRM state:', err);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('ANVESHAK_CRM_STATE_V2', JSON.stringify({
+      leads,
+      deals,
+      tasks,
+      activities,
+      companies,
+      usersList
+    }));
+  }, [leads, deals, tasks, activities, companies, usersList]);
+
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
   const [scoringNotification, setScoringNotification] = useState(false);
 
   // Active Simulated Agent Name based on current role selection
-  const currentAgentName = currentRole === 'Sales Rep' ? 'KP Sumanth' : currentRole === 'Manager' ? 'Balasaraswathi' : 'Admin User';
+  const currentAgentName = profileSettings[currentRole]?.fullName || 'Admin User';
+  const currentAgentTitle = profileSettings[currentRole]?.title || 'Director';
+  const currentAgentEmail = profileSettings[currentRole]?.email || 'admin@anveshakhub.com';
+  const currentAgentColor = profileSettings[currentRole]?.avatarColor || '#d97706';
 
   // ----------------------------------------------------
   // ROLE SECURITY GUARDS (MOCK MIDDLEWARE)
@@ -1250,19 +1303,22 @@ export default function App() {
               <button onClick={() => setActiveTab('audit')}>
                 <AuditIcon /> Audit Registry
               </button>
-            </li>
-          )}
+          <li className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`}>
+            <button onClick={() => setActiveTab('settings')}>
+              ⚙️ Settings & Profiles
+            </button>
+          </li>
         </ul>
 
         {/* Sidebar User Footer */}
         <div className="sidebar-footer">
           <div className="sidebar-user">
-            <div className="user-avatar" style={{ backgroundColor: currentRole === 'Sales Rep' ? '#1e40af' : '#d97706' }}>
-              {currentRole === 'Sales Rep' ? 'KS' : currentRole === 'Manager' ? 'BS' : 'AD'}
+            <div className="user-avatar" style={{ backgroundColor: currentAgentColor }}>
+              {currentAgentName.split(' ').map(n => n[0]).join('')}
             </div>
             <div className="user-info">
               <h4>{currentAgentName}</h4>
-              <p>{currentRole} Session</p>
+              <p>{currentAgentTitle}</p>
             </div>
           </div>
           <button 
@@ -1297,6 +1353,16 @@ export default function App() {
             <div className="nav-avatar" style={{ backgroundColor: '#f1f5f9', color: '#475569', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Notifications">
               <BellIcon />
             </div>
+            
+            <div className="top-user-pill" onClick={() => setActiveTab('settings')} style={{ cursor: 'pointer' }}>
+              <div className="top-user-text">
+                <h4>{currentAgentName}</h4>
+                <span>{currentAgentTitle}</span>
+              </div>
+              <div className="user-avatar" style={{ width: '36px', height: '36px', fontSize: '11px', backgroundColor: currentAgentColor }}>
+                {currentAgentName.split(' ').map(n => n[0]).join('')}
+              </div>
+            </div>
           </div>
         </header>
 
@@ -1308,7 +1374,7 @@ export default function App() {
               {/* Top Greeting & Forecast Banner */}
               <div className="dashboard-greeting-row">
                 <div className="greeting-text">
-                  <h2>Good morning, {currentRole === 'Admin' ? 'Riya' : currentRole === 'Manager' ? 'Balu' : 'Sumanth'}</h2>
+                  <h2>Good morning, {currentAgentName.split(' ')[0]}</h2>
                   <p>Your pipeline summary</p>
                 </div>
                 <div className="forecast-pill">
@@ -1563,19 +1629,24 @@ export default function App() {
 
               {/* Contact Cards Grid */}
               <div className="contacts-grid">
-                {filteredLeads.slice(0, 4).map(contact => (
+                {filteredLeads.map(contact => (
                   <div key={contact.id} className="contact-card">
                     <div className="contact-avatar">
                       {contact.name.split(' ').map(n=>n[0]).join('')}
                     </div>
                     <div className="contact-name">{contact.name}</div>
                     <div className="contact-company">{contact.company}</div>
-                    <div style={{ fontSize: '11px', color: '#1e40af', fontWeight: 'bold', marginTop: '6px' }}>
-                      {contact.score} Lead Score
+                    <span className="badge badge-cold" style={{ fontSize: '10px', marginTop: '6px', fontWeight: 'bold' }}>
+                      ⚡ Score: {contact.score} pts
+                    </span>
+                    
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px' }}>
+                      👤 Owner: {contact.owner}
                     </div>
+
                     <div className="contact-actions">
-                      <button className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '10px' }} onClick={() => alert(`Emailing ${contact.email}...`)}>✉️ Email</button>
-                      <button className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '10px' }} onClick={() => alert(`Calling ${contact.phone}...`)}>📞 Call</button>
+                      <button className="btn btn-secondary" onClick={() => alert(`Emailing ${contact.email}...`)}>✉️ Email</button>
+                      <button className="btn btn-secondary" onClick={() => alert(`Calling ${contact.phone}...`)}>📞 Call</button>
                     </div>
                   </div>
                 ))}
@@ -1657,26 +1728,35 @@ export default function App() {
               </div>
 
               {/* Companies Grid */}
-              <div className="contacts-grid">
+              <div className="companies-grid">
                 {companies.map(comp => (
-                  <div key={comp.id} className="contact-card" style={{ textAlign: 'left' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                      <div className="contact-avatar" style={{ margin: '0 0 8px 0', backgroundColor: '#eff6ff', color: '#1e40af' }}>
+                  <div key={comp.id} className="company-card">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                      <div className="contact-avatar" style={{ margin: 0, backgroundColor: '#eff6ff', color: '#1e40af' }}>
                         {comp.name.slice(0, 2).toUpperCase()}
                       </div>
                       <span className="badge badge-cold" style={{ fontSize: '9px' }}>{comp.state}</span>
                     </div>
-                    <div className="contact-name">{comp.name}</div>
-                    <div className="contact-company">{comp.industry}</div>
-                    <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '8px' }}>📍 {comp.address}</div>
+                    <h3 className="contact-name" style={{ fontSize: '14.5px', marginBottom: '4px' }}>{comp.name}</h3>
+                    <div className="contact-company" style={{ color: '#d49b38', fontWeight: '600' }}>{comp.industry}</div>
                     
-                    <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '12px', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
-                      <span>Affiliated Contacts: <strong>{comp.contactsCount}</strong></span>
-                      <span>Deal Roll-up: <strong style={{ color: '#1e40af' }}>{formatCurrency(comp.totalDealValue)}</strong></span>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      📍 {comp.address}
                     </div>
-                    
-                    <div className="contact-actions" style={{ marginTop: '12px' }}>
-                      <button className="btn btn-secondary" style={{ width: '100%', fontSize: '11px' }} onClick={() => setSelectedCompanyDetail(comp)}>
+
+                    <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '16px', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11.5px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>Affiliated Contacts:</span>
+                        <strong>{comp.contactsCount} Contacts</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>Total B2G Roll-up:</span>
+                        <strong style={{ color: '#10b981' }}>{formatCurrency(comp.totalDealValue)}</strong>
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: 'auto', paddingTop: '14px' }}>
+                      <button className="btn btn-secondary" style={{ width: '100%', fontSize: '11px', justifyContent: 'center' }} onClick={() => setSelectedCompanyDetail(comp)}>
                         Inspect Account Profile (CON-05)
                       </button>
                     </div>
@@ -2453,6 +2533,132 @@ export default function App() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          {/* TAB 9: SETTINGS & CRM PROFILE MANAGEMENT */}
+          {activeTab === 'settings' && (
+            <div className="animate-fade" style={{ maxWidth: '640px' }}>
+              <div className="page-header-row">
+                <div className="page-title-text">
+                  <h2>Settings & Profile Management</h2>
+                  <p>Customize your profile card details, workspace configurations, and persona info</p>
+                </div>
+              </div>
+
+              <div className="panel-card" style={{ padding: '24px' }}>
+                <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '16px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <span>👤</span> Profile Info for: <span className="badge badge-hot" style={{ fontSize: '11px', textTransform: 'uppercase' }}>{currentRole} Session</span>
+                </h3>
+
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  alert('✅ CRM Profile settings saved successfully!');
+                  // The profileSettings state triggers the LocalStorage persistence effect automatically.
+                }}>
+                  <div className="form-group">
+                    <label>Full Name</label>
+                    <input 
+                      type="text" 
+                      required 
+                      value={profileSettings[currentRole]?.fullName || ''} 
+                      onChange={(e) => {
+                        setProfileSettings({
+                          ...profileSettings,
+                          [currentRole]: {
+                            ...profileSettings[currentRole],
+                            fullName: e.target.value
+                          }
+                        });
+                      }} 
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Work Email</label>
+                    <input 
+                      type="email" 
+                      required 
+                      value={profileSettings[currentRole]?.email || ''} 
+                      onChange={(e) => {
+                        setProfileSettings({
+                          ...profileSettings,
+                          [currentRole]: {
+                            ...profileSettings[currentRole],
+                            email: e.target.value
+                          }
+                        });
+                      }} 
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Title / Designation</label>
+                    <input 
+                      type="text" 
+                      required 
+                      value={profileSettings[currentRole]?.title || ''} 
+                      onChange={(e) => {
+                        setProfileSettings({
+                          ...profileSettings,
+                          [currentRole]: {
+                            ...profileSettings[currentRole],
+                            title: e.target.value
+                          }
+                        });
+                      }} 
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Avatar Background Color (Hex)</label>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                      <input 
+                        type="color" 
+                        value={profileSettings[currentRole]?.avatarColor || '#d97706'} 
+                        onChange={(e) => {
+                          setProfileSettings({
+                            ...profileSettings,
+                            [currentRole]: {
+                              ...profileSettings[currentRole],
+                              avatarColor: e.target.value
+                            }
+                          });
+                        }} 
+                        style={{ padding: '0', width: '40px', height: '40px', cursor: 'pointer' }}
+                      />
+                      <span style={{ fontSize: '12px', fontFamily: 'monospace' }}>
+                        {profileSettings[currentRole]?.avatarColor || '#d97706'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={profileSettings[currentRole]?.notify || false} 
+                      onChange={(e) => {
+                        setProfileSettings({
+                          ...profileSettings,
+                          [currentRole]: {
+                            ...profileSettings[currentRole],
+                            notify: e.target.checked
+                          }
+                        });
+                      }} 
+                      style={{ cursor: 'pointer' }}
+                      id="notifyCheck"
+                    />
+                    <label htmlFor="notifyCheck" style={{ textTransform: 'none', cursor: 'pointer' }}>
+                      Enable workspace desktop sound notifications on new leads & quotes
+                    </label>
+                  </div>
+
+                  <div className="modal-actions" style={{ marginTop: '24px' }}>
+                    <button type="submit" className="btn btn-primary" style={{ backgroundColor: '#1e40af' }}>
+                      Save Changes
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           )}
