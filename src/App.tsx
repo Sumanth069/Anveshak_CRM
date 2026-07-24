@@ -509,7 +509,6 @@ export default function App() {
   // Active Simulated Agent Name based on current role selection
   const currentAgentName = profileSettings[currentRole]?.fullName || 'Admin User';
   const currentAgentTitle = profileSettings[currentRole]?.title || 'Director';
-  const currentAgentEmail = profileSettings[currentRole]?.email || 'admin@anveshakhub.com';
   const currentAgentColor = profileSettings[currentRole]?.avatarColor || '#d97706';
 
   // ----------------------------------------------------
@@ -1118,9 +1117,6 @@ export default function App() {
   const filteredLeads = filterByOwner(leads);
   const filteredTasks = filterByOwner(tasks);
 
-  const totalPipeline = filteredDeals.reduce((acc, curr) => curr.stage !== 'Lost' ? acc + curr.value : acc, 0);
-  const activeDealsCount = filteredDeals.filter(d => d.stage !== 'Won' && d.stage !== 'Lost').length;
-  const hotLeadsCount = filteredLeads.filter(l => l.score >= 60 && l.status !== 'Disqualified').length;
   const openTasksCount = filteredTasks.filter(t => t.status === 'Open').length;
 
   // RENDER DEDICATED LOGIN SCREEN IF NOT AUTHENTICATED
@@ -2537,6 +2533,7 @@ export default function App() {
                 </table>
               </div>
             </div>
+          )}
           {/* TAB 9: SETTINGS & CRM PROFILE MANAGEMENT */}
           {activeTab === 'settings' && (
             <div className="animate-fade" style={{ maxWidth: '640px' }}>
@@ -3339,6 +3336,12 @@ export default function App() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {scoringNotification && (
+        <div style={{ position: 'fixed', bottom: '24px', right: '24px', backgroundColor: '#10b981', color: '#ffffff', padding: '14px 20px', borderRadius: '8px', zIndex: 1100, fontWeight: 'bold', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+          ✓ Lead scores recalculated based on updated scoring weights!
         </div>
       )}
     </div>
