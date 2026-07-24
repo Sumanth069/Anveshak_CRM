@@ -1090,3 +1090,92 @@
     grid-template-columns: repeat(3, 1fr);
   }
 }
+
+/* Operational Calendar 7-Column Grid Styles */
+.calendar-grid-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--bg-surface);
+}
+
+.calendar-grid-header div {
+  padding: 6px 0;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  background-color: var(--border-color);
+  border: 1px solid var(--border-color);
+}
+
+.calendar-day {
+  background-color: #ffffff;
+  min-height: 100px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  transition: all 0.15s ease;
+}
+
+.calendar-day:hover {
+  background-color: #f8fafc;
+}
+
+.calendar-day.empty {
+  background-color: #f1f5f9;
+}
+
+.day-number {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-label);
+  margin-bottom: 6px;
+}
+
+.day-events {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  max-height: 80px;
+}
+
+.calendar-event {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.calendar-event.task {
+  background-color: var(--info-bg);
+  color: var(--info);
+  border-left: 2px solid var(--info);
+}
+
+.calendar-event.deal {
+  background-color: var(--warning-bg);
+  color: var(--warning);
+  border-left: 2px solid var(--warning);
+}
+
+.calendar-event.activity {
+  background-color: var(--success-bg);
+  color: var(--success);
+  border-left: 2px solid var(--success);
+}
+
