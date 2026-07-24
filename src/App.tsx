@@ -1546,56 +1546,6 @@ export default function App() {
               </div>
             </div>
           )}
-                          .filter(l => l.status !== 'Disqualified')
-                          .sort((a, b) => b.score - a.score)
-                          .slice(0, 3)
-                          .map(lead => (
-                            <tr key={lead.id}>
-                              <td style={{ fontWeight: '600' }}>{lead.name}</td>
-                              <td>{lead.company}</td>
-                              <td>
-                                <span className={`badge ${lead.score >= 60 ? 'badge-hot' : 'badge-warm'}`}>
-                                  {lead.status}
-                                </span>
-                              </td>
-                              <td style={{ fontWeight: 'bold', color: '#1e40af' }}>{lead.score} pts</td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Audit & Access Registry Summary */}
-                <div className="panel-card">
-                  <div className="panel-title">
-                    <h3>System Access Logs & Audits</h3>
-                    <button className="btn btn-secondary" style={{ fontSize: '11px' }} onClick={() => setActiveTab('audit')}>Full Registry</button>
-                  </div>
-                  <table className="custom-table">
-                    <thead>
-                      <tr>
-                        <th>Time</th>
-                        <th>User</th>
-                        <th>Event</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {auditLogs.slice(0, 3).map(log => (
-                        <tr key={log.id}>
-                          <td style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{log.timestamp.split(' ')[1] || log.timestamp}</td>
-                          <td style={{ fontWeight: '600' }}>{log.user}</td>
-                          <td>
-                            <span className="badge badge-cold" style={{ fontSize: '9px' }}>{log.action}</span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* TAB 2: CONTACTS DIRECTORY */}
           {activeTab === 'leads' && (
