@@ -1303,6 +1303,8 @@ export default function App() {
               <button onClick={() => setActiveTab('audit')}>
                 <AuditIcon /> Audit Registry
               </button>
+            </li>
+          )}
           <li className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`}>
             <button onClick={() => setActiveTab('settings')}>
               ⚙️ Settings & Profiles
