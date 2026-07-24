@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
 import Tesseract from 'tesseract.js';
 
@@ -381,6 +381,11 @@ const initialUsers: SystemUser[] = [
 ];
 
 export default function App() {
+  // Authentication & Persona State
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(true); // Start logged in for seamless demo
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+
   // Navigation & Simulation Roles
   const [activeTab, setActiveTab] = useState<'dashboard' | 'leads' | 'companies' | 'kanban' | 'quote' | 'tasks' | 'calendar' | 'reports' | 'users' | 'scoring' | 'audit'>('dashboard');
   const [currentRole, setCurrentRole] = useState<'Admin' | 'Manager' | 'Sales Rep'>('Admin');
@@ -1065,40 +1070,119 @@ export default function App() {
   const hotLeadsCount = filteredLeads.filter(l => l.score >= 60 && l.status !== 'Disqualified').length;
   const openTasksCount = filteredTasks.filter(t => t.status === 'Open').length;
 
+  // RENDER DEDICATED LOGIN SCREEN IF NOT AUTHENTICATED
+  if (!isLoggedIn) {
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: '#151c2e', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '36px', width: '100%', maxWidth: '460px', boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}>
+          {/* Brand Header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+            <div style={{ width: '42px', height: '42px', backgroundColor: '#f5d396', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#182238', fontWeight: '800', fontSize: '20px' }}>
+              A
+            </div>
+            <div>
+              <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#111827' }}>Anveshak CRM</h2>
+              <span style={{ fontSize: '10px', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: '700' }}>ENTERPRISE CRM V2.0</span>
+            </div>
+          </div>
+
+          <h3 style={{ fontSize: '17px', fontWeight: '800', color: '#111827', marginBottom: '4px' }}>Sign in to your Workspace</h3>
+          <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '20px' }}>Select a test persona card below to verify role-based features without auth friction.</p>
+
+          {/* 3 Persona Cards for 1-Click Working Demo */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+            <div 
+              style={{ border: '1px solid #eaedf2', padding: '12px 14px', borderRadius: '10px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f8fafc', transition: 'all 0.15s' }}
+              onClick={() => {
+                setCurrentRole('Admin');
+                setIsLoggedIn(true);
+                setActiveTab('dashboard');
+              }}
+            >
+              <div>
+                <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#111827' }}>Riya Sharma / Alexander Thorne</div>
+                <div style={{ fontSize: '10.5px', color: '#6b7280' }}>Regional Director • ADMIN Privileges</div>
+              </div>
+              <span className="badge badge-hot" style={{ fontSize: '9px' }}>ADMIN</span>
+            </div>
+
+            <div 
+              style={{ border: '1px solid #eaedf2', padding: '12px 14px', borderRadius: '10px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f8fafc', transition: 'all 0.15s' }}
+              onClick={() => {
+                setCurrentRole('Manager');
+                setIsLoggedIn(true);
+                setActiveTab('dashboard');
+              }}
+            >
+              <div>
+                <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#111827' }}>Balasaraswathi</div>
+                <div style={{ fontSize: '10.5px', color: '#6b7280' }}>Sales Manager • MANAGER Scope</div>
+              </div>
+              <span className="badge badge-warm" style={{ fontSize: '9px' }}>MANAGER</span>
+            </div>
+
+            <div 
+              style={{ border: '1px solid #eaedf2', padding: '12px 14px', borderRadius: '10px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f8fafc', transition: 'all 0.15s' }}
+              onClick={() => {
+                setCurrentRole('Sales Rep');
+                setIsLoggedIn(true);
+                setActiveTab('dashboard');
+              }}
+            >
+              <div>
+                <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#111827' }}>KP Sumanth</div>
+                <div style={{ fontSize: '10.5px', color: '#6b7280' }}>Enterprise Rep • SALES_REP Assigned</div>
+              </div>
+              <span className="badge badge-cold" style={{ fontSize: '9px' }}>SALES_REP</span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '16px 0', color: '#94a3b8', fontSize: '11px' }}>
+            <div style={{ flex: 1, height: '1px', backgroundColor: '#eaedf2' }}></div>
+            <span>or enter custom credentials</span>
+            <div style={{ flex: 1, height: '1px', backgroundColor: '#eaedf2' }}></div>
+          </div>
+
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            setIsLoggedIn(true);
+            setActiveTab('dashboard');
+          }}>
+            <div className="form-group" style={{ marginBottom: '12px' }}>
+              <label>Work Email</label>
+              <input type="email" required placeholder="name@anveshakhub.com" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} />
+            </div>
+            <div className="form-group" style={{ marginBottom: '18px' }}>
+              <label>Password</label>
+              <input type="password" required placeholder="••••••••" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} />
+            </div>
+
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '11px', fontSize: '13.5px', justifyContent: 'center', backgroundColor: '#1e40af' }}>
+              Log In to Anveshak CRM
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="app-container">
+    <div className={`app-container bg-${activeTab}`}>
       {/* Left Sidebar Layout (Figma Dark Navy) */}
       <aside className="sidebar">
         <div className="sidebar-brand">
           <div className="sidebar-logo-icon">A</div>
           <div className="sidebar-brand-name">
             <h1>Anveshak</h1>
-            <span>VERSION 2.0 (V2)</span>
+            <span>ENTERPRISE CRM</span>
           </div>
         </div>
 
         {/* Primary Sidebar CTA Button */}
         <div className="sidebar-action-box">
           <button className="btn-sidebar-cta" onClick={() => setShowLeadModal(true)}>
-            + New Lead / Deal
+            + New Deal
           </button>
-        </div>
-
-        {/* Auth Role Simulator Widget */}
-        <div className="role-simulator">
-          <label>SIMULATE IDENTITY ROLE</label>
-          <select 
-            value={currentRole} 
-            onChange={(e) => {
-              setCurrentRole(e.target.value as any);
-              setActiveTab('dashboard');
-            }}
-            className="role-select"
-          >
-            <option value="Admin">Admin (Full Control)</option>
-            <option value="Manager">Manager (Balu)</option>
-            <option value="Sales Rep">Sales Rep (Sumanth)</option>
-          </select>
         </div>
 
         {/* Sidebar Menu Items (Matching PDS Sitemap Order) */}
@@ -1181,6 +1265,13 @@ export default function App() {
               <p>{currentRole} Session</p>
             </div>
           </div>
+          <button 
+            className="btn-logout-icon" 
+            title="Sign out & switch persona"
+            onClick={() => setIsLoggedIn(false)}
+          >
+            🚪
+          </button>
         </div>
       </aside>
 
@@ -1211,162 +1302,250 @@ export default function App() {
 
         {/* Main Body */}
         <div className="content-body">
-          {/* TAB 1: EXECUTIVE DASHBOARD & PERFORMANCE ANALYTICS */}
+          {/* TAB 1: EXECUTIVE DASHBOARD (SCREENSHOT 1) */}
           {activeTab === 'dashboard' && (
             <div className="animate-fade">
-              {/* Header Title */}
-              <div className="page-header-row">
-                <div className="page-title-text">
-                  <h2>Performance Analytics</h2>
-                  <p>Real-time pipeline metrics, revenue forecasts, and lead engagement</p>
+              {/* Top Greeting & Forecast Banner */}
+              <div className="dashboard-greeting-row">
+                <div className="greeting-text">
+                  <h2>Good morning, {currentRole === 'Admin' ? 'Riya' : currentRole === 'Manager' ? 'Balu' : 'Sumanth'}</h2>
+                  <p>Your pipeline summary</p>
                 </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button className="btn btn-secondary" style={{ fontSize: '11px' }}>📅 Oct 1, 2026 - Oct 31, 2026</button>
-                  <button className="btn btn-primary" onClick={() => setShowLeadModal(true)}>+ Create Lead</button>
+                <div className="forecast-pill">
+                  ★ You're 12% ahead of last month's forecast.
                 </div>
               </div>
 
-              {/* 4 Metric KPI Cards */}
+              {/* 4 Metric KPI Cards (Screenshot 1 Top Row) */}
               <section className="metric-grid">
                 <div className="metric-card">
                   <div className="metric-header">
-                    <span>TOTAL PIPELINE VALUE</span>
-                    <span className="trend-badge up">↑ +12.4%</span>
+                    <span>OPEN PIPELINE</span>
+                    <span className="trend-badge up">↑ 4.2%</span>
                   </div>
-                  <div className="metric-val">{formatCurrency(totalPipeline)}</div>
-                  <div className="metric-sub">Across active pipeline deals</div>
+                  <div className="metric-val">₹84.2L</div>
                 </div>
 
                 <div className="metric-card">
                   <div className="metric-header">
-                    <span>ACTIVE DEALS</span>
-                    <span className="trend-badge up">↑ +4</span>
+                    <span>ACTIVE LEADS</span>
+                    <span className="trend-badge up">+3</span>
                   </div>
-                  <div className="metric-val">{activeDealsCount} Deals</div>
-                  <div className="metric-sub">In qualification & proposal</div>
+                  <div className="metric-val">37</div>
                 </div>
 
                 <div className="metric-card">
                   <div className="metric-header">
-                    <span>HOT LEADS (SCORE &gt; 60)</span>
-                    <span className="trend-badge up">↑ +18%</span>
+                    <span>WIN RATE</span>
+                    <span className="trend-badge down">↓ 1.5%</span>
                   </div>
-                  <div className="metric-val">{hotLeadsCount} Prospects</div>
-                  <div className="metric-sub">Prioritized for callbacks</div>
+                  <div className="metric-val">41%</div>
                 </div>
 
                 <div className="metric-card">
                   <div className="metric-header">
-                    <span>TASKS TO RESOLVE</span>
-                    <span className="trend-badge down">↓ 2 Due</span>
+                    <span>AVG. DEAL CYCLE</span>
+                    <span className="trend-badge neutral">Stable</span>
                   </div>
-                  <div className="metric-val" style={{ color: openTasksCount > 0 ? '#d97706' : '' }}>
-                    {openTasksCount} Tasks
-                  </div>
-                  <div className="metric-sub">Open checklist items</div>
+                  <div className="metric-val">18d</div>
                 </div>
               </section>
 
-              {/* Analytics SVG Charts Row */}
-              <div className="analytics-grid">
-                {/* Revenue over Time SVG Area Line Chart */}
-                <div className="panel-card">
-                  <div className="panel-title">
-                    <h3>Revenue over Time</h3>
-                    <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: 'var(--text-muted)' }}>
-                      <span><span style={{ color: '#1e40af', fontWeight: 'bold' }}>●</span> Actual</span>
-                      <span><span style={{ color: '#94a3b8', fontWeight: 'bold' }}>●</span> Forecast</span>
-                    </div>
+              {/* The Trail ● Live Pipeline Tracking (Screenshot 1 Center) */}
+              <div className="trail-container">
+                <div className="trail-header">
+                  <div className="trail-title">
+                    The trail <span style={{ color: '#d49b38' }}>● Live Pipeline Tracking</span>
                   </div>
-                  <div className="chart-container">
-                    <svg className="chart-svg" viewBox="0 0 500 150">
-                      <defs>
-                        <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#1e40af" stopOpacity="0.25" />
-                          <stop offset="100%" stopColor="#1e40af" stopOpacity="0.0" />
-                        </linearGradient>
-                      </defs>
-                      {/* Grid Lines */}
-                      <line x1="0" y1="30" x2="500" y2="30" stroke="#f1f5f9" strokeDasharray="3 3" />
-                      <line x1="0" y1="75" x2="500" y2="75" stroke="#f1f5f9" strokeDasharray="3 3" />
-                      <line x1="0" y1="120" x2="500" y2="120" stroke="#f1f5f9" strokeDasharray="3 3" />
-                      
-                      {/* Gradient Area Fill */}
-                      <path d="M 0,120 Q 100,90 200,60 T 400,30 T 500,20 L 500,150 L 0,150 Z" fill="url(#chartGrad)" />
-                      
-                      {/* Line Curve */}
-                      <path d="M 0,120 Q 100,90 200,60 T 400,30 T 500,20" fill="none" stroke="#1e40af" strokeWidth="3" />
-                      
-                      {/* Data Points */}
-                      <circle cx="0" cy="120" r="4" fill="#1e40af" />
-                      <circle cx="125" cy="85" r="4" fill="#1e40af" />
-                      <circle cx="250" cy="50" r="4" fill="#1e40af" />
-                      <circle cx="375" cy="35" r="4" fill="#1e40af" />
-                      <circle cx="500" cy="20" r="4" fill="#1e40af" />
-                    </svg>
+                  <div style={{ display: 'flex', gap: '8px', color: 'var(--text-muted)', fontSize: '13px' }}>
+                    <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '11px' }}>≡ Filter</button>
                   </div>
                 </div>
 
-                {/* Lead Sources SVG Doughnut Chart */}
-                <div className="panel-card">
-                  <div className="panel-title">
-                    <h3>Lead Sources</h3>
-                  </div>
-                  <div className="doughnut-wrapper">
-                    <div className="doughnut-chart">
-                      <svg width="120" height="120" viewBox="0 0 42 42">
-                        <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#e2e8f0" strokeWidth="4"></circle>
-                        {/* Segment 1: Inbound (45%) */}
-                        <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#1e40af" strokeWidth="4.5" strokeDasharray="45 55" strokeDashoffset="25"></circle>
-                        {/* Segment 2: Organic Search (35%) */}
-                        <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#0284c7" strokeWidth="4.5" strokeDasharray="35 65" strokeDashoffset="80"></circle>
-                        {/* Segment 3: Referrals (20%) */}
-                        <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#fbbf24" strokeWidth="4.5" strokeDasharray="20 80" strokeDashoffset="45"></circle>
-                      </svg>
-                      <div className="doughnut-center-text">
-                        <div className="val">1,245</div>
-                        <div className="lbl">Total Leads</div>
+                <div className="trail-columns">
+                  {/* Column 1: Discovered */}
+                  <div className="trail-col">
+                    <div className="trail-col-header">
+                      <div className="trail-dot active"></div>
+                      <span className="trail-col-name">Discovered</span>
+                      <span className="trail-col-meta">12 Deals • ₹22.4L</span>
+                    </div>
+                    
+                    <div className="trail-card" onClick={() => setSelectedLeadDetail(leads[0])}>
+                      <div className="trail-card-top">
+                        <span className="trail-badge new">NEW LEAD</span>
+                        <span className="trail-card-value">₹4.5L</span>
+                      </div>
+                      <div className="trail-card-title">Kavya Textiles</div>
+                      <div className="trail-card-subtitle">Supply Chain Digitization</div>
+                      <div className="trail-card-footer">
+                        <span className="user-avatar" style={{ width: '20px', height: '20px', fontSize: '9px', backgroundColor: '#182238' }}>AJ</span>
+                        <span>⏱ 2h ago</span>
                       </div>
                     </div>
-                    <div className="legend-list">
-                      <div className="legend-item">
-                        <span><span className="legend-dot" style={{ backgroundColor: '#1e40af' }}></span> Inbound Leads</span>
-                        <span style={{ fontWeight: 'bold' }}>45%</span>
+                  </div>
+
+                  {/* Column 2: Engaged */}
+                  <div className="trail-col">
+                    <div className="trail-col-header">
+                      <div className="trail-dot active"></div>
+                      <span className="trail-col-name">Engaged</span>
+                      <span className="trail-col-meta">8 Deals • ₹34.1L</span>
+                    </div>
+
+                    <div className="trail-card" onClick={() => setSelectedDealDetail(deals[0])}>
+                      <div className="trail-card-top">
+                        <span className="trail-badge demo">DEMO DONE</span>
+                        <span className="trail-card-value">₹12.0L</span>
                       </div>
-                      <div className="legend-item">
-                        <span><span className="legend-dot" style={{ backgroundColor: '#0284c7' }}></span> Organic Search</span>
-                        <span style={{ fontWeight: 'bold' }}>35%</span>
+                      <div className="trail-card-title">Orbit Logistics</div>
+                      <div className="trail-card-subtitle">Warehouse Automation v2</div>
+                      <div className="trail-card-footer">
+                        <span className="user-avatar" style={{ width: '20px', height: '20px', fontSize: '9px', backgroundColor: '#d49b38' }}>RS</span>
+                        <span>⏱ 1d ago</span>
                       </div>
-                      <div className="legend-item">
-                        <span><span className="legend-dot" style={{ backgroundColor: '#fbbf24' }}></span> Referrals</span>
-                        <span style={{ fontWeight: 'bold' }}>20%</span>
+                    </div>
+
+                    <div className="trail-card" onClick={() => setSelectedDealDetail(deals[1])}>
+                      <div className="trail-card-top">
+                        <span className="trail-badge discovery">DISCOVERY</span>
+                        <span className="trail-card-value">₹5.2L</span>
+                      </div>
+                      <div className="trail-card-title">Skyline Retail</div>
+                      <div className="trail-card-subtitle">Point of Sale Upgrade</div>
+                      <div className="trail-card-footer">
+                        <span className="user-avatar" style={{ width: '20px', height: '20px', fontSize: '9px', backgroundColor: '#475569' }}>MK</span>
+                        <span>⏱ 3d ago</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Column 3: Proposal */}
+                  <div className="trail-col">
+                    <div className="trail-col-header">
+                      <div className="trail-dot"></div>
+                      <span className="trail-col-name">Proposal</span>
+                      <span className="trail-col-meta">5 Deals • ₹18.5L</span>
+                    </div>
+
+                    <div className="trail-dropzone" onClick={() => setActiveTab('kanban')}>
+                      <div style={{ fontSize: '18px', marginBottom: '4px' }}>⊕</div>
+                      <div>Move deal here</div>
+                    </div>
+                  </div>
+
+                  {/* Column 4: Won */}
+                  <div className="trail-col">
+                    <div className="trail-col-header">
+                      <div className="trail-dot won"></div>
+                      <span className="trail-col-name">Won</span>
+                      <span className="trail-col-meta">2 Deals • ₹9.2L</span>
+                    </div>
+
+                    <div className="trail-card" style={{ borderLeft: '3px solid #10b981' }}>
+                      <div className="trail-card-top">
+                        <span className="trail-badge new" style={{ backgroundColor: '#ecfdf5', color: '#047857' }}>CLOSED</span>
+                        <span className="trail-card-value">₹6.4L</span>
+                      </div>
+                      <div className="trail-card-title">Apex FinTech</div>
+                      <div className="trail-card-subtitle">Core CRM Migration</div>
+                      <div className="trail-card-footer">
+                        <span className="user-avatar" style={{ width: '20px', height: '20px', fontSize: '9px', backgroundColor: '#1e40af' }}>RS</span>
+                        <span style={{ color: '#10b981', fontWeight: 'bold' }}>✓ Success</span>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Bottom Tables Split */}
-              <div className="analytics-grid">
-                {/* Hot Prospects Table */}
-                <div className="panel-card">
-                  <div className="panel-title">
-                    <h3>Priority Hot Prospects Queue</h3>
-                    <button className="btn btn-secondary" style={{ fontSize: '11px' }} onClick={() => setActiveTab('leads')}>View All Leads</button>
+              {/* Bottom Split Row (Recent Activity Feed & Dark Tasks Widget - Screenshot 1 Bottom) */}
+              <div className="dashboard-bottom-split">
+                {/* Left: Recent Activity Feed */}
+                <div className="panel-card" style={{ padding: '22px' }}>
+                  <div className="panel-title" style={{ marginBottom: '18px' }}>
+                    <h3>Recent Activity</h3>
+                    <button className="btn btn-secondary" style={{ fontSize: '11px' }} onClick={() => setActiveTab('audit')}>View all</button>
                   </div>
-                  
-                  <div className="custom-table-container">
-                    <table className="custom-table">
-                      <thead>
-                        <tr>
-                          <th>Lead Name</th>
-                          <th>Company</th>
-                          <th>Status</th>
-                          <th>Score</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredLeads
+
+                  <div className="activity-list">
+                    <div className="activity-item">
+                      <div className="activity-icon-box">✉️</div>
+                      <div className="activity-content">
+                        <div className="activity-title">Riya Sharma sent a proposal to Orbit Logistics</div>
+                        <div className="activity-time">20 minutes ago • ₹12,000 Deal</div>
+                        <div className="activity-attachment" onClick={() => {
+                          setActiveTab('quote');
+                          setShowQuotePreview(true);
+                        }}>
+                          <span>📄 Orbit_Proposal_v2.pdf</span>
+                          <span>⤓ Download</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="activity-item">
+                      <div className="activity-icon-box">📞</div>
+                      <div className="activity-content">
+                        <div className="activity-title">Arjun Jain completed a discovery call with Kavya Textiles</div>
+                        <div className="activity-time">1 hour ago • High Intent</div>
+                      </div>
+                    </div>
+
+                    <div className="activity-item">
+                      <div className="activity-icon-box">👤</div>
+                      <div className="activity-content">
+                        <div className="activity-title">System imported 24 new leads from Inbound Campaign</div>
+                        <div className="activity-time">3 hours ago</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: Dark Navy Tasks Widget (Screenshot 1 Right) */}
+                <div className="dark-tasks-widget">
+                  <h3>Upcoming Tasks</h3>
+
+                  <div className="task-items-list">
+                    {tasks.slice(0, 3).map(t => (
+                      <div key={t.id} className="task-item-row">
+                        <input 
+                          type="checkbox" 
+                          className="task-checkbox"
+                          checked={t.status === 'Completed'}
+                          onChange={() => {
+                            setTasks(tasks.map(tk => tk.id === t.id ? { ...tk, status: tk.status === 'Completed' ? 'Open' : 'Completed' } : tk));
+                          }}
+                        />
+                        <div className="task-item-details">
+                          <h4 style={{ textDecoration: t.status === 'Completed' ? 'line-through' : 'none', opacity: t.status === 'Completed' ? 0.6 : 1 }}>
+                            {t.title}
+                          </h4>
+                          <p>Due: {t.dueDate}</p>
+                        </div>
+                        {t.priority === 'High' && (
+                          <span className="badge badge-hot" style={{ marginLeft: 'auto', fontSize: '8px' }}>Urgent</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="goal-progress-section">
+                    <div className="goal-progress-label">
+                      <span>Weekly Goal Progress</span>
+                      <span style={{ color: '#f5d396', fontWeight: 'bold' }}>65%</span>
+                    </div>
+                    <div className="goal-progress-bar">
+                      <div className="goal-progress-fill" style={{ width: '65%' }}></div>
+                    </div>
+                  </div>
+
+                  <div className="floating-add-task-btn" onClick={() => setShowTaskModal(true)} title="Add Task">
+                    +
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
                           .filter(l => l.status !== 'Disqualified')
                           .sort((a, b) => b.score - a.score)
                           .slice(0, 3)
@@ -1557,23 +1736,196 @@ export default function App() {
             </div>
           )}
 
-          {/* TAB 3: DEALS & PIPELINE (KANBAN & VELOCITY) */}
+          {/* TAB 3: DEALS & PIPELINE VELOCITY (SCREENSHOT 2) */}
           {activeTab === 'kanban' && (
             <div className="animate-fade">
+              {/* Header Row */}
               <div className="page-header-row">
                 <div className="page-title-text">
                   <h2>Pipeline Velocity</h2>
-                  <p>Visual stage tracking and sales cycle pipeline velocity</p>
+                  <p>Real-time visualization of your active sales funnel across all territories.</p>
                 </div>
-                <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                  <div style={{ background: '#ffffff', border: '1px solid var(--border-color)', padding: '6px 14px', borderRadius: '8px', fontSize: '12px' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Pipeline Total: </span>
-                    <strong style={{ color: '#1e40af' }}>{formatCurrency(totalPipeline)}</strong>
-                  </div>
-                  <button className="btn btn-primary" onClick={() => setActiveTab('leads')}>+ Add Deal</button>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <button className="btn btn-secondary">≡ Filter</button>
+                  <button className="btn btn-secondary">📅 This Quarter</button>
+                  <button className="btn btn-primary" onClick={() => setShowLeadModal(true)}>+ New Deal</button>
                 </div>
               </div>
 
+              {/* Stage Volume Funnel & Projected Revenue Row (Screenshot 2 Top) */}
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '20px', marginBottom: '24px' }}>
+                {/* Stage Lead Volume Funnel Card */}
+                <div className="panel-card" style={{ padding: '22px' }}>
+                  <div className="panel-title" style={{ marginBottom: '14px' }}>
+                    <h3>Stage Lead Volume</h3>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                      <span style={{ color: '#d49b38', fontWeight: 'bold' }}>●</span> HIGH PROBABILITY &nbsp;&nbsp;
+                      <span style={{ color: '#cbd5e1', fontWeight: 'bold' }}>●</span> BENCHMARK
+                    </div>
+                  </div>
+
+                  <div className="funnel-graphic-container">
+                    <div className="funnel-stage-box" style={{ flex: 1, borderRadius: '8px 0 0 8px' }}>
+                      <div className="funnel-stage-val">428</div>
+                      <div className="funnel-stage-label">Discovered</div>
+                    </div>
+                    <div className="funnel-stage-box" style={{ flex: 0.8 }}>
+                      <div className="funnel-stage-val">156</div>
+                      <div className="funnel-stage-label">Qualified</div>
+                    </div>
+                    <div className="funnel-stage-box" style={{ flex: 0.6 }}>
+                      <div className="funnel-stage-val">62</div>
+                      <div className="funnel-stage-label">Proposal</div>
+                    </div>
+                    <div className="funnel-stage-box" style={{ flex: 0.4, borderColor: '#d49b38', background: '#fffbeb', borderRadius: '0 8px 8px 0' }}>
+                      <div className="funnel-stage-val" style={{ color: '#b45309' }}>18</div>
+                      <div className="funnel-stage-label" style={{ color: '#b45309' }}>Negotiation</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Analytics Cards */}
+                <div>
+                  <div className="projected-rev-dark-card">
+                    <div className="lbl">PROJECTED REVENUE</div>
+                    <div className="val">$2.48M</div>
+                    <div style={{ fontSize: '11px', color: '#10b981', marginTop: '6px', fontWeight: 'bold' }}>
+                      ↑ 12.5% vs last month
+                    </div>
+                  </div>
+
+                  <div className="panel-card" style={{ padding: '18px' }}>
+                    <div style={{ fontSize: '9.5px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)' }}>AVG. CYCLE TIME</div>
+                    <div style={{ fontSize: '26px', fontWeight: '800', color: 'var(--text-main)', marginTop: '4px' }}>14 Days</div>
+                    <div style={{ fontSize: '11px', color: '#d49b38', marginTop: '4px', fontWeight: 'bold' }}>
+                      ⚡ -2 days improvement
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Active Deals Pipeline Table (Screenshot 2 Center) */}
+              <div className="panel-card" style={{ marginBottom: '24px' }}>
+                <div className="panel-title">
+                  <h3>Active Deals Pipeline</h3>
+                  <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                    Showing 24 active deals • <span style={{ color: '#d49b38', fontWeight: 'bold', cursor: 'pointer' }}>View All Transactions</span>
+                  </div>
+                </div>
+
+                <div className="custom-table-container">
+                  <table className="custom-table">
+                    <thead>
+                      <tr>
+                        <th>Deal Name</th>
+                        <th>Value</th>
+                        <th>Status</th>
+                        <th>Close Date</th>
+                        <th>Probability</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr onClick={() => setSelectedDealDetail(deals[0])} style={{ cursor: 'pointer' }}>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div className="user-avatar" style={{ width: '28px', height: '28px', fontSize: '11px', backgroundColor: '#182238' }}>S</div>
+                            <div>
+                              <div style={{ fontWeight: '700' }}>Stellar Dynamics Cloud Migration</div>
+                              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Assigned to: Elena Rossi</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td style={{ fontWeight: '800' }}>$450,000</td>
+                        <td><span className="badge badge-warm" style={{ backgroundColor: '#fffbeb', color: '#b45309' }}>Negotiation</span></td>
+                        <td>Oct 24, 2024</td>
+                        <td>
+                          <div className="prob-progress-bar">
+                            <div className="prob-progress-fill" style={{ width: '85%' }}></div>
+                          </div>
+                          <span style={{ fontWeight: 'bold', fontSize: '11px' }}>85%</span>
+                        </td>
+                      </tr>
+
+                      <tr onClick={() => setSelectedDealDetail(deals[1])} style={{ cursor: 'pointer' }}>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div className="user-avatar" style={{ width: '28px', height: '28px', fontSize: '11px', backgroundColor: '#ecfdf5', color: '#047857' }}>V</div>
+                            <div>
+                              <div style={{ fontWeight: '700' }}>Vanguard FinTech Integration</div>
+                              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Assigned to: Marcus Aurelius</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td style={{ fontWeight: '800' }}>$1,200,000</td>
+                        <td><span className="badge badge-cold" style={{ backgroundColor: '#eff6ff', color: '#1e40af' }}>Proposal</span></td>
+                        <td>Nov 12, 2024</td>
+                        <td>
+                          <div className="prob-progress-bar">
+                            <div className="prob-progress-fill" style={{ width: '45%', backgroundColor: '#3b82f6' }}></div>
+                          </div>
+                          <span style={{ fontWeight: 'bold', fontSize: '11px' }}>45%</span>
+                        </td>
+                      </tr>
+
+                      <tr onClick={() => setSelectedDealDetail(deals[2] || deals[0])} style={{ cursor: 'pointer' }}>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div className="user-avatar" style={{ width: '28px', height: '28px', fontSize: '11px', backgroundColor: '#fef3c7', color: '#b45309' }}>N</div>
+                            <div>
+                              <div style={{ fontWeight: '700' }}>Nexus Core Licensing</div>
+                              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Assigned to: Alexander Thorne</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td style={{ fontWeight: '800' }}>$85,000</td>
+                        <td><span className="badge badge-cold" style={{ backgroundColor: '#ecfdf5', color: '#047857' }}>Qualified</span></td>
+                        <td>Oct 30, 2024</td>
+                        <td>
+                          <div className="prob-progress-bar">
+                            <div className="prob-progress-fill" style={{ width: '65%', backgroundColor: '#10b981' }}></div>
+                          </div>
+                          <span style={{ fontWeight: 'bold', fontSize: '11px' }}>65%</span>
+                        </td>
+                      </tr>
+
+                      <tr onClick={() => setSelectedDealDetail(deals[3] || deals[0])} style={{ cursor: 'pointer' }}>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div className="user-avatar" style={{ width: '28px', height: '28px', fontSize: '11px', backgroundColor: '#182238' }}>B</div>
+                            <div>
+                              <div style={{ fontWeight: '700' }}>Blackstone Enterprise Suite</div>
+                              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Assigned to: Sarah Jenkins</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td style={{ fontWeight: '800' }}>$620,000</td>
+                        <td><span className="badge badge-warm" style={{ backgroundColor: '#fffbeb', color: '#b45309' }}>Negotiation</span></td>
+                        <td>Dec 05, 2024</td>
+                        <td>
+                          <div className="prob-progress-bar">
+                            <div className="prob-progress-fill" style={{ width: '90%' }}></div>
+                          </div>
+                          <span style={{ fontWeight: 'bold', fontSize: '11px' }}>90%</span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Table Pagination Bar (Screenshot 2 Bottom) */}
+                <div style={{ padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-subtle)' }}>
+                  <button className="btn btn-secondary" style={{ fontSize: '11px' }}>Previous</button>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button className="btn btn-primary" style={{ padding: '4px 10px', fontSize: '11px', backgroundColor: '#d49b38' }}>1</button>
+                    <button className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '11px' }}>2</button>
+                    <button className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '11px' }}>3</button>
+                  </div>
+                  <button className="btn btn-secondary" style={{ fontSize: '11px' }}>Next</button>
+                </div>
+              </div>
+
+              {/* Drag and Drop Stage Kanban Board */}
+              <h3 style={{ fontSize: '14px', fontWeight: '800', marginBottom: '12px' }}>Interactive Stage Kanban Drag-and-Drop</h3>
               <div className="kanban-board">
                 {stages.map(stage => {
                   const stageDeals = filteredDeals.filter(d => d.stage === stage);
