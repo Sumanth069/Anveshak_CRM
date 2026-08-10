@@ -441,3 +441,48 @@ export async function scanVisitingCardVisionAction(imageDataBase64: string) {
     return { success: false, error: err.message };
   }
 }
+
+export async function saveScannedContactAction(contact: {
+  name: string;
+  company?: string;
+  email?: string;
+  phone?: string;
+  designation?: string;
+  address?: string;
+  city?: string;
+  pincode?: string;
+  website?: string;
+  linkedin?: string;
+  owner?: string;
+}) {
+  try {
+    const created = await prisma.lead.create({
+      data: {
+        name: contact.name,
+        company: contact.company || null,
+        email: contact.email || null,
+        phone: contact.phone || null,
+        status: 'Daily Contact',
+        score: 15,
+        owner: contact.owner || 'KP Sumanth',
+        customValues: {
+          designation: contact.designation || '',
+          address: contact.address || '',
+          city: contact.city || '',
+          pincode: contact.pincode || '',
+          website: contact.website || '',
+          linkedin: contact.linkedin || '',
+          isScanned: true,
+          scannedAt: new Date().toISOString()
+        },
+        activities: [
+          { action: 'Visiting card scanned & saved to Supabase DB', points: 15, date: new Date().toISOString().slice(0, 10) }
+        ]
+      }
+    });
+    return { success: true, data: created };
+  } catch (err: any) {
+    console.error('saveScannedContactAction error:', err);
+    return { success: false, error: err.message };
+  }
+}

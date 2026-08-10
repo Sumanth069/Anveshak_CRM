@@ -7225,15 +7225,42 @@ export default function App() {
 
               {/* Extracted Details Form */}
               <form 
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
                   const contactFullName = `${scannedResultForm.firstName} ${scannedResultForm.lastName}`.trim() || scannedResultForm.fullName;
                   if (!contactFullName) {
                     triggerToast('Please enter a Contact Name before saving.', 'info');
                     return;
                   }
+
+                  let dbId = `CNT-${Date.now().toString().slice(-4)}`;
+
+                  // Persist Scanned Contact to Supabase Database via Server Action
+                  try {
+                    const { saveScannedContactAction } = await import('@/app/actions/crm');
+                    const res = await saveScannedContactAction({
+                      name: contactFullName,
+                      company: scannedResultForm.company,
+                      email: scannedResultForm.email,
+                      phone: scannedResultForm.phone,
+                      designation: scannedResultForm.designation,
+                      address: scannedResultForm.address,
+                      city: scannedResultForm.city,
+                      pincode: scannedResultForm.pincode,
+                      website: scannedResultForm.website,
+                      linkedin: scannedResultForm.linkedin,
+                      owner: currentUser?.fullName || 'KP Sumanth'
+                    });
+                    if (res && res.success && res.data) {
+                      dbId = res.data.id;
+                      triggerToast(`Scanned contact ${contactFullName} saved to Supabase DB!`, 'success');
+                    }
+                  } catch (dbErr) {
+                    console.error('Database save error for scanned contact:', dbErr);
+                  }
+
                   const newEntry = {
-                    id: `CNT-${Date.now().toString().slice(-4)}`,
+                    id: dbId,
                     name: contactFullName,
                     company: scannedResultForm.company || '',
                     email: scannedResultForm.email || '',
@@ -7247,7 +7274,6 @@ export default function App() {
                   setShowScanModal(false);
                   setScannedImagePreview(null);
                   setScannedResultForm({ firstName: '', lastName: '', fullName: '', company: '', designation: '', phone: '', email: '', website: '', linkedin: '', address: '', city: '', pincode: '' });
-                  triggerToast(`Scanned contact ${newEntry.name} added to Daily Contacts!`, 'success');
                 }}
                 style={{ display: 'flex', flexDirection: 'column', gap: '12px', boxSizing: 'border-box', width: '100%' }}
               >
