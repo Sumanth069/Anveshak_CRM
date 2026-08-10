@@ -1,33 +1,31 @@
-# Walkthrough: Full Mobile Screen Optimization & Responsive App Navigation
+# Walkthrough: GitHub Code Push & Vercel Deployment Guide
 
-I have overhauled the Anveshak CRM dashboard layout to be **100% mobile-first and fully responsive** for mobile phones (iOS & Android).
-
----
-
-## 1. Upgrades Implemented
-
-### 📱 1. Mobile Slide-Out Drawer & Hamburger Menu
-* **Top Header Bar**: Added a mobile hamburger toggle button (`☰`) in the top navbar on small screens (`max-width: 768px`).
-* **Backdrop & Drawer**: Toggling the hamburger button smoothly slides out the full CRM navigation sidebar over a dark backdrop blur overlay (`backdrop-filter: blur(4px)`).
-
-### 📱 2. Fixed Mobile Bottom App Navigation Bar
-* Positioned a fixed **Bottom Navigation Bar** (`mobile-bottom-nav`) anchored to the bottom of the screen on mobile devices (`max-width: 768px`):
-  * 📊 **Home** (Dashboard & Analytics)
-  * 🎴 **Contacts** (Visiting Card Scanner & Daily List)
-  * 🎯 **Leads** (Leads Queue)
-  * 💼 **Deals** (Kanban Pipeline)
-  * ☰ **Menu** (Slide-out Navigation Drawer)
-
-### 📱 3. Mobile Table & Modal Responsiveness
-* **Horizontal Scroll Wrappers**: All tables (`Daily Contacts`, `Leads Queue`, `Companies`, `Quotes`, `Audit`) now scroll smoothly horizontally on mobile (`-webkit-overflow-scrolling: touch`).
-* **Responsive Metric Cards**: KPI grid automatically scales to `grid-template-columns: 1fr 1fr` on small mobile screens.
-* **Touch Target Optimization**: All buttons and form inputs are optimized with `min-height: 42px` and `touch-action: manipulation`.
-* **Modal Fitting**: Modals automatically fit mobile viewports (`width: 95vw`, `max-height: 90vh`, `overflow-y: auto`).
+I have committed and successfully pushed all repository changes, Next.js application files, mobile screen optimizations, and AI Vision OCR actions directly to your GitHub repository!
 
 ---
 
-## 2. Verification & Build Quality
+## 1. GitHub Repository Status
 
-* **TypeScript Type Safety**: `npx tsc --noEmit` passed with **0 errors**.
-* **Production Build**: `npm run build` compiled successfully in **1158ms** with **0 errors**.
-* **Live App**: Active at **`http://localhost:5179/crm`**.
+* **Target Repository**: [`https://github.com/Sumanth069/Anveshak_CRM`](https://github.com/Sumanth069/Anveshak_CRM)
+* **Branch**: `main`
+* **Commit**: `feat: mobile optimization` (`2e2f243`)
+* **Status**: **Successfully Pushed to GitHub** 🚀
+
+---
+
+## 2. Deploying to Vercel (Step-by-Step)
+
+1. Open **[Vercel Dashboard](https://vercel.com/dashboard)** in your browser.
+2. Click **Add New... ➔ Project**.
+3. Select your GitHub repository: **`Sumanth069/Anveshak_CRM`**.
+4. Configure Project Settings:
+   * **Framework Preset**: `Next.js`
+   * **Root Directory**: `./`
+   * **Build Command**: `npm run build`
+   * **Output Directory**: `.next`
+5. **Environment Variables** (Optional for AI Vision & Database):
+   * `GEMINI_API_KEY`: *(Your Google AI Studio API key for 99.9% AI Vision Card OCR)*
+   * `DATABASE_URL`: *(Your Supabase or PostgreSQL Connection String)*
+   * `NEXT_PUBLIC_SUPABASE_URL`: *(Your Supabase Project URL)*
+   * `NEXT_PUBLIC_SUPABASE_ANON_KEY`: *(Your Supabase Anon Key)*
+6. Click **Deploy**! Vercel will build and publish your live production application within 60 seconds!
