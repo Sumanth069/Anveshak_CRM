@@ -495,159 +495,118 @@ export async function saveOwnerFeedbackAction(feedback: {
   authorName?: string;
 }) {
   const author = feedback.authorName || 'CRM Owner';
-  const meta = {
-    pageTab: feedback.pageTab,
-    category: feedback.category,
-    noteText: feedback.noteText,
-    authorName: author,
-    status: 'New',
-    createdAt: new Date().toISOString()
-  };
 
-  let createdId = `FB-${Date.now()}`;
-
-  // 1. Persist in Supabase Lead table (Guaranteed Schema & Active Table)
+  // Primary: Create row in dedicated owner_feedback table
   try {
-    const leadRec = await prisma.lead.create({
+    const created = await prisma.ownerFeedback.create({
       data: {
-        name: feedback.noteText.slice(0, 200),
-        company: feedback.pageTab,
-        email: `${feedback.category.toLowerCase()}@feedback.internal`,
-        status: 'OWNER_FEEDBACK',
-        score: 100,
-        owner: author,
-        customValues: meta
+        pageTab: feedback.pageTab,
+        category: feedback.category,
+        noteText: feedback.noteText,
+        authorName: author,
+        status: 'New'
       }
     });
-    if (leadRec && leadRec.id) {
-      createdId = leadRec.id;
+
+    return {
+      success: true,
+      data: {
+        id: created.id,
+        pageTab: created.pageTab,
+        category: created.category,
+        noteText: created.noteText,
+        authorName: created.authorName,
+        status: created.status || 'New',
+        createdAt: new Date(created.createdAt || Date.now()).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
+      }
+    };
+  } catch (err: any) {
+    console.warn('Prisma ownerFeedback create warning, falling back to Lead table:', err);
+    try {
+      const leadRec = await prisma.lead.create({
+        data: {
+          name: feedback.noteText.slice(0, 200),
+          company: feedback.pageTab,
+          email: `${feedback.category.toLowerCase()}@feedback.internal`,
+          status: 'OWNER_FEEDBACK',
+          score: 100,
+          owner: author,
+          customValues: {
+            pageTab: feedback.pageTab,
+            category: feedback.category,
+            noteText: feedback.noteText,
+            authorName: author,
+            status: 'New',
+            createdAt: new Date().toISOString()
+          }
+        }
+      });
+      return {
+        success: true,
+        data: {
+          id: leadRec.id,
+          pageTab: feedback.pageTab,
+          category: feedback.category,
+          noteText: feedback.noteText,
+          authorName: author,
+          status: 'New',
+          createdAt: new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
+        }
+      };
+    } catch (e2) {
+      return { success: false, error: err.message };
     }
-  } catch (e1) {
-    console.warn('Prisma lead create for feedback warning:', e1);
   }
-
-  // 2. Also Persist in AuditLog table
-  try {
-    await prisma.auditLog.create({
-      data: {
-        user: author,
-        action: `OWNER_FEEDBACK: [${feedback.category}] ${feedback.noteText}`,
-        entity: 'OWNER_FEEDBACK',
-        afterState: JSON.stringify(meta)
-      }
-    });
-  } catch (e2) {
-    console.warn('Prisma auditLog create for feedback warning:', e2);
-  }
-
-  // 3. Supabase JS Client Fallback if needed
-  try {
-    await supabase.from('audit_logs').insert([{
-      user: author,
-      action: `OWNER_FEEDBACK: [${feedback.category}] ${feedback.noteText}`,
-      entity: 'OWNER_FEEDBACK',
-      after_state: JSON.stringify(meta)
-    }]);
-  } catch (e3) {
-    console.warn('Supabase JS insert fallback warning:', e3);
-  }
-
-  return { success: true, data: { id: createdId, ...meta } };
 }
 
 export async function getOwnerFeedbackListAction() {
   let feedbackItems: any[] = [];
 
-  // 1. Query Supabase Lead table where status = 'OWNER_FEEDBACK'
+  // Primary: Fetch from dedicated owner_feedback table
   try {
-    const leads = await prisma.lead.findMany({
-      where: { status: 'OWNER_FEEDBACK' },
+    const items = await prisma.ownerFeedback.findMany({
       orderBy: { createdAt: 'desc' }
     });
 
-    leads.forEach(l => {
-      const cv: any = l.customValues || {};
+    items.forEach(item => {
       feedbackItems.push({
-        id: l.id,
-        pageTab: cv.pageTab || l.company || 'dashboard',
-        category: cv.category || 'Requirement',
-        noteText: cv.noteText || l.name,
-        authorName: cv.authorName || l.owner || 'CRM Owner',
-        status: cv.status || 'New',
-        createdAt: cv.createdAt 
-          ? new Date(cv.createdAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
-          : new Date(l.createdAt || Date.now()).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
+        id: item.id,
+        pageTab: item.pageTab || 'dashboard',
+        category: item.category || 'Requirement',
+        noteText: item.noteText,
+        authorName: item.authorName || 'CRM Owner',
+        status: item.status || 'New',
+        createdAt: item.createdAt 
+          ? new Date(item.createdAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
+          : new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
       });
     });
-  } catch (e1) {
-    console.warn('Prisma lead query for feedback warning:', e1);
+  } catch (e) {
+    console.warn('Prisma ownerFeedback findMany warning:', e);
   }
 
-  // 2. Query AuditLog table
-  try {
-    const auditLogs = await prisma.auditLog.findMany({
-      where: { entity: 'OWNER_FEEDBACK' },
-      orderBy: { timestamp: 'desc' }
-    });
-
-    auditLogs.forEach(log => {
-      let parsed: any = {};
-      const stateStr = log.afterState || (log as any).after_state;
-      try {
-        parsed = stateStr ? JSON.parse(stateStr) : {};
-      } catch (e) {}
-
-      if (parsed.noteText && !feedbackItems.some(f => f.id === log.id || f.noteText === parsed.noteText)) {
-        feedbackItems.push({
-          id: log.id,
-          pageTab: parsed.pageTab || 'dashboard',
-          category: parsed.category || 'Requirement',
-          noteText: parsed.noteText || log.action,
-          authorName: log.user || 'CRM Owner',
-          status: parsed.status || 'New',
-          createdAt: parsed.createdAt 
-            ? new Date(parsed.createdAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
-            : new Date(log.timestamp || Date.now()).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
-        });
-      }
-    });
-  } catch (e2) {
-    console.warn('Prisma auditLog query for feedback warning:', e2);
-  }
-
-  // 3. Fallback query direct Supabase client if empty
+  // Backup: Fetch from Lead table if owner_feedback is empty
   if (feedbackItems.length === 0) {
     try {
-      const { data } = await supabase
-        .from('audit_logs')
-        .select('*')
-        .eq('entity', 'OWNER_FEEDBACK')
-        .order('timestamp', { ascending: false });
-
-      if (data && data.length > 0) {
-        data.forEach(log => {
-          let parsed: any = {};
-          try {
-            parsed = log.after_state ? JSON.parse(log.after_state) : {};
-          } catch (e) {}
-          if (parsed.noteText) {
-            feedbackItems.push({
-              id: log.id,
-              pageTab: parsed.pageTab || 'dashboard',
-              category: parsed.category || 'Requirement',
-              noteText: parsed.noteText || log.action,
-              authorName: log.user || 'CRM Owner',
-              status: parsed.status || 'New',
-              createdAt: parsed.createdAt 
-                ? new Date(parsed.createdAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
-                : new Date(log.timestamp || Date.now()).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
-            });
-          }
+      const leads = await prisma.lead.findMany({
+        where: { status: 'OWNER_FEEDBACK' },
+        orderBy: { createdAt: 'desc' }
+      });
+      leads.forEach(l => {
+        const cv: any = l.customValues || {};
+        feedbackItems.push({
+          id: l.id,
+          pageTab: cv.pageTab || l.company || 'dashboard',
+          category: cv.category || 'Requirement',
+          noteText: cv.noteText || l.name,
+          authorName: cv.authorName || l.owner || 'CRM Owner',
+          status: cv.status || 'New',
+          createdAt: cv.createdAt 
+            ? new Date(cv.createdAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
+            : new Date(l.createdAt || Date.now()).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
         });
-      }
-    } catch (e3) {
-      console.error('Supabase direct query fallback error:', e3);
-    }
+      });
+    } catch (e2) {}
   }
 
   return { success: true, data: feedbackItems };
@@ -655,39 +614,23 @@ export async function getOwnerFeedbackListAction() {
 
 export async function updateOwnerFeedbackStatusAction(id: string, status: string) {
   try {
-    // Update in Lead table if present
-    const lead = await prisma.lead.findUnique({ where: { id } });
-    if (lead) {
-      const cv: any = lead.customValues || {};
-      cv.status = status;
-      await prisma.lead.update({
-        where: { id },
-        data: { customValues: cv }
-      });
-    }
-  } catch (e1) {}
-
-  try {
-    // Update in AuditLog table if present
-    const log = await prisma.auditLog.findUnique({ where: { id } });
-    if (log && log.afterState) {
-      let parsed = JSON.parse(log.afterState);
-      parsed.status = status;
-      await prisma.auditLog.update({
-        where: { id },
-        data: { afterState: JSON.stringify(parsed) }
-      });
-    }
-  } catch (e2) {}
-
-  try {
-    const { data } = await supabase.from('audit_logs').select('*').eq('id', id).single();
-    if (data) {
-      let parsed = JSON.parse(data.after_state || '{}');
-      parsed.status = status;
-      await supabase.from('audit_logs').update({ after_state: JSON.stringify(parsed) }).eq('id', id);
-    }
-  } catch (e3) {}
-
+    await prisma.ownerFeedback.update({
+      where: { id },
+      data: { status }
+    });
+    return { success: true };
+  } catch (e1) {
+    try {
+      const lead = await prisma.lead.findUnique({ where: { id } });
+      if (lead) {
+        const cv: any = lead.customValues || {};
+        cv.status = status;
+        await prisma.lead.update({
+          where: { id },
+          data: { customValues: cv }
+        });
+      }
+    } catch (e2) {}
+  }
   return { success: true };
 }
