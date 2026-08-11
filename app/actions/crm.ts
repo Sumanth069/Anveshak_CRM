@@ -498,7 +498,8 @@ export async function saveOwnerFeedbackAction(feedback: {
 
   // Primary: Create row in dedicated owner_feedback table
   try {
-    const created = await prisma.ownerFeedback.create({
+    const dbClient = prisma as any;
+    const created = await dbClient.ownerFeedback.create({
       data: {
         pageTab: feedback.pageTab,
         category: feedback.category,
@@ -564,23 +565,26 @@ export async function getOwnerFeedbackListAction() {
 
   // Primary: Fetch from dedicated owner_feedback table
   try {
-    const items = await prisma.ownerFeedback.findMany({
+    const dbClient = prisma as any;
+    const items = await dbClient.ownerFeedback.findMany({
       orderBy: { createdAt: 'desc' }
     });
 
-    items.forEach(item => {
-      feedbackItems.push({
-        id: item.id,
-        pageTab: item.pageTab || 'dashboard',
-        category: item.category || 'Requirement',
-        noteText: item.noteText,
-        authorName: item.authorName || 'CRM Owner',
-        status: item.status || 'New',
-        createdAt: item.createdAt 
-          ? new Date(item.createdAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
-          : new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
+    if (Array.isArray(items)) {
+      items.forEach((item: any) => {
+        feedbackItems.push({
+          id: item.id,
+          pageTab: item.pageTab || 'dashboard',
+          category: item.category || 'Requirement',
+          noteText: item.noteText,
+          authorName: item.authorName || 'CRM Owner',
+          status: item.status || 'New',
+          createdAt: item.createdAt 
+            ? new Date(item.createdAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
+            : new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
+        });
       });
-    });
+    }
   } catch (e) {
     console.warn('Prisma ownerFeedback findMany warning:', e);
   }
@@ -614,7 +618,8 @@ export async function getOwnerFeedbackListAction() {
 
 export async function updateOwnerFeedbackStatusAction(id: string, status: string) {
   try {
-    await prisma.ownerFeedback.update({
+    const dbClient = prisma as any;
+    await dbClient.ownerFeedback.update({
       where: { id },
       data: { status }
     });
