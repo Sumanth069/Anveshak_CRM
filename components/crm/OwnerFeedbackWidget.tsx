@@ -66,15 +66,39 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
   };
 
   const loadFeedbackFromDb = async () => {
+    let localItems: FeedbackItem[] = [];
+    try {
+      const saved = localStorage.getItem('ANVESHAK_OWNER_FEEDBACK_LIST');
+      if (saved) localItems = JSON.parse(saved);
+    } catch (e) {}
+
     try {
       const { getOwnerFeedbackListAction } = await import('@/app/actions/crm');
       const res = await getOwnerFeedbackListAction();
       if (res && res.success && Array.isArray(res.data)) {
-        setFeedbackList(res.data as any);
-        localStorage.setItem('ANVESHAK_OWNER_FEEDBACK_LIST', JSON.stringify(res.data));
+        const dbItems: FeedbackItem[] = res.data as any;
+        
+        // Merge DB items + local items deduplicated by noteText
+        const mergedMap = new Map<string, FeedbackItem>();
+        [...localItems, ...dbItems].forEach(item => {
+          if (item && item.noteText) {
+            const key = item.noteText.trim();
+            if (!mergedMap.has(key) || item.status === 'Resolved') {
+              mergedMap.set(key, item);
+            }
+          }
+        });
+
+        const mergedList = Array.from(mergedMap.values());
+        setFeedbackList(mergedList);
+        localStorage.setItem('ANVESHAK_OWNER_FEEDBACK_LIST', JSON.stringify(mergedList));
+      } else if (localItems.length > 0) {
+        setFeedbackList(localItems);
       }
     } catch (err) {
-      console.error('Error fetching owner feedback list:', err);
+      if (localItems.length > 0) {
+        setFeedbackList(localItems);
+      }
     }
   };
 
@@ -125,6 +149,13 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
       createdAt: new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
     };
 
+    // Immediately preserve local state & local storage so refresh never loses note
+    setFeedbackList(prev => {
+      const updated = [newNote, ...prev.filter(p => p.noteText !== newNote.noteText)];
+      localStorage.setItem('ANVESHAK_OWNER_FEEDBACK_LIST', JSON.stringify(updated));
+      return updated;
+    });
+
     // Save to Supabase DB via Server Action
     try {
       const { saveOwnerFeedbackAction } = await import('@/app/actions/crm');
@@ -134,26 +165,16 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
         noteText: noteText.trim(),
         authorName: currentUser?.fullName || 'CRM Owner'
       });
-      if (res && res.success) {
-        triggerToast('Feedback saved to Supabase DB!');
-        await loadFeedbackFromDb();
-        broadcastSync();
-        setNoteText('');
-        setIsSubmitting(false);
-        setActiveSubTab('list');
-        return;
+      if (res && res.success && res.data) {
+        newNote.id = res.data.id || newNote.id;
+        triggerToast('Saved to Supabase DB!');
       }
     } catch (err) {
       console.warn('Supabase DB save fallback to local storage:', err);
     }
 
-    const updatedList = [newNote, ...feedbackList];
-    setFeedbackList(updatedList);
-    localStorage.setItem('ANVESHAK_OWNER_FEEDBACK_LIST', JSON.stringify(updatedList));
-
     setNoteText('');
     setIsSubmitting(false);
-    triggerToast('Feedback note saved');
     broadcastSync();
     setActiveSubTab('list');
   };
