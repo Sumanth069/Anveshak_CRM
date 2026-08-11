@@ -17,6 +17,35 @@ interface FeedbackItem {
   createdAt: string;
 }
 
+// Clean SVG Vector Icons (No Emojis)
+const MessageSquareIcon = () => (
+  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+);
+
+const RequirementIcon = () => (
+  <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+);
+
+const SuggestionIcon = () => (
+  <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+);
+
+const BugIcon = () => (
+  <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+);
+
+const DesignIcon = () => (
+  <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>
+);
+
+const CloseIcon = () => (
+  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+);
+
+const CheckIcon = () => (
+  <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"/></svg>
+);
+
 export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFeedbackWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState<'submit' | 'list'>('submit');
@@ -26,7 +55,7 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
   const [feedbackList, setFeedbackList] = useState<FeedbackItem[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Load stored feedback notes from localStorage & Supabase
+  // Load stored feedback notes from localStorage
   useEffect(() => {
     const saved = localStorage.getItem('ANVESHAK_OWNER_FEEDBACK_LIST');
     if (saved) {
@@ -80,7 +109,7 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
 
     setNoteText('');
     setIsSubmitting(false);
-    triggerToast('✓ Feedback note saved!');
+    triggerToast('Feedback note saved to database');
     setActiveSubTab('list');
   };
 
@@ -106,6 +135,8 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
     }
   };
 
+  const pendingCount = feedbackList.filter(f => f.status !== 'Resolved').length;
+
   return (
     <>
       {/* Floating Action Button (FAB) */}
@@ -113,34 +144,41 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
         <button
           className={`owner-feedback-fab ${isOpen ? 'active' : ''}`}
           onClick={() => setIsOpen(!isOpen)}
-          title="Owner Suggestions & Page Requirements"
+          title="Owner Feedback & Requirements"
         >
-          <span className="fab-icon">{isOpen ? '✕' : '💬'}</span>
+          <span className="fab-icon-box">
+            {isOpen ? <CloseIcon /> : <MessageSquareIcon />}
+          </span>
           <span className="fab-label">Owner Feedback</span>
-          {feedbackList.filter(f => f.status !== 'Resolved').length > 0 && (
-            <span className="fab-badge">{feedbackList.filter(f => f.status !== 'Resolved').length}</span>
+          {pendingCount > 0 && (
+            <span className="fab-badge">{pendingCount}</span>
           )}
         </button>
       </div>
 
-      {/* Floating Chat / Feedback Pop-up Drawer */}
+      {/* Floating Feedback Panel */}
       {isOpen && (
         <div className="owner-feedback-panel animate-fade">
           {/* Header */}
           <div className="feedback-panel-header">
             <div className="feedback-header-title">
-              <span style={{ fontSize: '16px' }}>⚡</span>
+              <div className="header-icon-box">
+                <MessageSquareIcon />
+              </div>
               <div>
                 <h4>Owner Feedback & Requirements</h4>
-                <p>Live Note Collector for Vercel CRM</p>
+                <p>Internal Notes & Requirement Collector</p>
               </div>
             </div>
-            <button className="feedback-close-btn" onClick={() => setIsOpen(false)}>✕</button>
+            <button className="feedback-close-btn" onClick={() => setIsOpen(false)}>
+              <CloseIcon />
+            </button>
           </div>
 
           {/* Context Tag Banner */}
           <div className="feedback-context-banner">
-            <span>📍 Active Page:</span>
+            <span className="context-dot"></span>
+            <span>Active Section:</span>
             <strong>{activeTab.toUpperCase()}</strong>
           </div>
 
@@ -150,7 +188,7 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
               className={activeSubTab === 'submit' ? 'active' : ''}
               onClick={() => setActiveSubTab('submit')}
             >
-              + Add Note / Requirement
+              + Submit Note
             </button>
             <button
               className={activeSubTab === 'list' ? 'active' : ''}
@@ -164,7 +202,7 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
           {activeSubTab === 'submit' && (
             <form onSubmit={handleSubmit} className="feedback-form">
               <div className="feedback-form-group">
-                <label>Feedback Category</label>
+                <label>Category</label>
                 <div className="category-pills">
                   {(['Requirement', 'Suggestion', 'Bug', 'Design'] as const).map(cat => (
                     <button
@@ -173,28 +211,29 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
                       className={`cat-pill ${category === cat ? 'active' : ''}`}
                       onClick={() => setCategory(cat)}
                     >
-                      {cat === 'Requirement' && '📝 Requirement'}
-                      {cat === 'Suggestion' && '💡 Suggestion'}
-                      {cat === 'Bug' && '🐛 Bug Report'}
-                      {cat === 'Design' && '🎨 Layout/UI'}
+                      {cat === 'Requirement' && <RequirementIcon />}
+                      {cat === 'Suggestion' && <SuggestionIcon />}
+                      {cat === 'Bug' && <BugIcon />}
+                      {cat === 'Design' && <DesignIcon />}
+                      <span>{cat}</span>
                     </button>
                   ))}
                 </div>
               </div>
 
               <div className="feedback-form-group">
-                <label>Suggestion / Requirement Note *</label>
+                <label>Requirement / Note Details *</label>
                 <textarea
                   rows={4}
                   required
                   value={noteText}
                   onChange={(e) => setNoteText(e.target.value)}
-                  placeholder={`Describe your tweak, bug, or requirement for page [${activeTab}]...`}
+                  placeholder={`Enter your note or requirement for ${activeTab}...`}
                 />
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
-                <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+                <span style={{ fontSize: '11px', color: '#8c9ba5' }}>
                   Auto-tagged to <strong>{activeTab}</strong>
                 </span>
                 <button
@@ -202,7 +241,7 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
                   disabled={isSubmitting || !noteText.trim()}
                   className="btn-submit-feedback"
                 >
-                  {isSubmitting ? 'Saving...' : 'Send Suggestion →'}
+                  {isSubmitting ? 'Saving...' : 'Submit Note →'}
                 </button>
               </div>
             </form>
@@ -213,21 +252,34 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
             <div className="feedback-list-container">
               {feedbackList.length === 0 ? (
                 <div className="empty-feedback">
-                  <p>No feedback notes submitted yet.</p>
-                  <span style={{ fontSize: '11px', color: '#94a3b8' }}>Switch to "+ Add Note" to submit suggestions for this page.</span>
+                  <p>No feedback notes recorded yet.</p>
+                  <span style={{ fontSize: '11px', color: '#8c9ba5' }}>Use "+ Submit Note" to log feedback for this section.</span>
                 </div>
               ) : (
                 feedbackList.map(item => (
                   <div key={item.id} className={`feedback-item-card ${item.status === 'Resolved' ? 'resolved' : ''}`}>
                     <div className="feedback-card-top">
-                      <span className={`cat-tag ${item.category.toLowerCase()}`}>{item.category}</span>
+                      <span className={`cat-tag ${item.category.toLowerCase()}`}>
+                        {item.category === 'Requirement' && <RequirementIcon />}
+                        {item.category === 'Suggestion' && <SuggestionIcon />}
+                        {item.category === 'Bug' && <BugIcon />}
+                        {item.category === 'Design' && <DesignIcon />}
+                        <span>{item.category}</span>
+                      </span>
                       <span className="page-tag">{item.pageTab}</span>
                       <button
                         className={`status-toggle-btn ${item.status === 'Resolved' ? 'done' : ''}`}
                         onClick={() => toggleStatus(item.id)}
                         title="Toggle Resolution Status"
                       >
-                        {item.status === 'Resolved' ? '✓ Resolved' : '○ Mark Fixed'}
+                        {item.status === 'Resolved' ? (
+                          <>
+                            <CheckIcon />
+                            <span>Resolved</span>
+                          </>
+                        ) : (
+                          <span>Mark Resolved</span>
+                        )}
                       </button>
                     </div>
                     <p className="feedback-text">{item.noteText}</p>
@@ -243,15 +295,15 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
 
           {toastMessage && (
             <div className="feedback-toast">
-              {toastMessage}
+              <CheckIcon /> {toastMessage}
             </div>
           )}
         </div>
       )}
 
-      {/* Embedded CSS for Floating Feedback Widget */}
+      {/* Embedded Modern Professional Styles */}
       <style jsx global>{`
-        /* Floating Action Button */
+        /* Floating Action Button Container */
         .owner-feedback-fab-container {
           position: fixed;
           bottom: 24px;
@@ -262,9 +314,9 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
         .owner-feedback-fab {
           display: flex;
           align-items: center;
-          gap: 8px;
-          background: linear-gradient(135deg, #151c2e 0%, #1e293b 100%);
-          border: 1px solid #d49b38;
+          gap: 10px;
+          background: #151c2e;
+          border: 1px solid rgba(212, 155, 56, 0.5);
           color: #ffffff;
           padding: 10px 18px;
           border-radius: 30px;
@@ -272,26 +324,30 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
           cursor: pointer;
           font-size: 13px;
           font-weight: 700;
-          transition: all 0.25s ease;
+          transition: all 0.2s ease;
         }
 
         .owner-feedback-fab:hover {
           transform: translateY(-2px);
-          box-shadow: 0 12px 28px rgba(212, 155, 56, 0.35);
-          background: #1e2b48;
+          border-color: #d49b38;
+          box-shadow: 0 12px 28px rgba(212, 155, 56, 0.3);
+          background: #1e293b;
         }
 
         .owner-feedback-fab.active {
-          background: #ef4444;
+          background: #1e293b;
           border-color: #ef4444;
         }
 
-        .fab-icon {
-          font-size: 16px;
+        .fab-icon-box {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #f5d396;
         }
 
         .fab-badge {
-          background-color: #d49b38;
+          background: #d49b38;
           color: #151c2e;
           font-size: 10px;
           font-weight: 800;
@@ -308,9 +364,9 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
           max-width: 92vw;
           max-height: 520px;
           background: #151c2e;
-          border: 1px solid rgba(212, 155, 56, 0.4);
-          border-radius: 16px;
-          box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          border-radius: 14px;
+          box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
           z-index: 1050;
           display: flex;
           flex-direction: column;
@@ -320,8 +376,8 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
 
         .feedback-panel-header {
           padding: 14px 16px;
-          background: #1e293b;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+          background: #182238;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
           display: flex;
           justify-content: space-between;
           align-items: center;
@@ -333,8 +389,19 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
           gap: 10px;
         }
 
+        .header-icon-box {
+          width: 32px;
+          height: 32px;
+          border-radius: 8px;
+          background: rgba(212, 155, 56, 0.15);
+          color: #f5d396;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
         .feedback-header-title h4 {
-          font-size: 13.5px;
+          font-size: 13px;
           font-weight: 700;
           color: #ffffff;
           margin: 0;
@@ -350,9 +417,12 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
           background: transparent;
           border: none;
           color: #8c9ba5;
-          font-size: 14px;
           cursor: pointer;
           padding: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: color 0.2s;
         }
 
         .feedback-close-btn:hover {
@@ -360,19 +430,26 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
         }
 
         .feedback-context-banner {
-          background: rgba(212, 155, 56, 0.12);
-          border-bottom: 1px solid rgba(212, 155, 56, 0.2);
-          padding: 6px 16px;
+          background: rgba(255, 255, 255, 0.03);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+          padding: 7px 16px;
           font-size: 11px;
-          color: #f5d396;
+          color: #8c9ba5;
           display: flex;
           gap: 6px;
           align-items: center;
         }
 
+        .context-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #d49b38;
+        }
+
         .feedback-subtabs {
           display: flex;
-          background: #0f172a;
+          background: #111827;
           border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
 
@@ -424,12 +501,15 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
         }
 
         .cat-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
           padding: 6px 10px;
-          background: #1e293b;
+          background: #182238;
           border: 1px solid rgba(255, 255, 255, 0.1);
-          color: #94a3b8;
+          color: #8c9ba5;
           border-radius: 6px;
-          font-size: 10.5px;
+          font-size: 11px;
           font-weight: 600;
           cursor: pointer;
           transition: all 0.15s;
@@ -439,12 +519,12 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
           background: #d49b38;
           color: #151c2e;
           border-color: #d49b38;
-          font-weight: 800;
+          font-weight: 700;
         }
 
         .feedback-form textarea {
           width: 100%;
-          background: #0f172a;
+          background: #182238;
           border: 1px solid rgba(255, 255, 255, 0.15);
           border-radius: 8px;
           color: #ffffff;
@@ -488,7 +568,7 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
         }
 
         .feedback-item-card {
-          background: #1e293b;
+          background: #182238;
           border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: 8px;
           padding: 12px;
@@ -510,9 +590,12 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
         }
 
         .cat-tag {
-          font-size: 9px;
-          font-weight: 800;
-          padding: 2px 6px;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 9.5px;
+          font-weight: 700;
+          padding: 2px 7px;
           border-radius: 4px;
           text-transform: uppercase;
           background: #334155;
@@ -529,15 +612,18 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
           background: rgba(255, 255, 255, 0.08);
           padding: 2px 6px;
           border-radius: 4px;
-          color: #94a3b8;
+          color: #8c9ba5;
           text-transform: uppercase;
         }
 
         .status-toggle-btn {
           margin-left: auto;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
           font-size: 10px;
           font-weight: 700;
-          padding: 3px 8px;
+          padding: 4px 8px;
           border-radius: 4px;
           background: rgba(255, 255, 255, 0.08);
           color: #cbd5e1;
@@ -579,13 +665,16 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
           border-radius: 20px;
           font-size: 11px;
           font-weight: 700;
+          display: flex;
+          align-items: center;
+          gap: 6px;
           box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
 
         /* Mobile Screen Adjustments */
         @media (max-width: 768px) {
           .owner-feedback-fab-container {
-            bottom: 74px !important; /* Positions fab cleanly above fixed mobile bottom nav bar */
+            bottom: 74px !important;
             right: 14px !important;
           }
           .owner-feedback-panel {

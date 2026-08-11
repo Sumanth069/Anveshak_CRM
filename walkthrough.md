@@ -1,20 +1,25 @@
-# Walkthrough: Automatic Database Contact Persistence & GitHub Push
+# Walkthrough: Floating Owner Feedback & Requirements Widget
 
-I have implemented **Automatic Supabase/Prisma Database Persistence** for every scanned visiting card.
+I have created and integrated the **Floating Owner Feedback & Page Requirements Widget (`OwnerFeedbackWidget.tsx`)** into the live CRM app and pushed the updates to GitHub!
 
 ---
 
 ## 1. Upgrades Implemented
 
-### 💾 1. Automatic Database Persistence for Scanned Contacts
-* Created `saveScannedContactAction` Server Action in `app/actions/crm.ts`.
-* Every time a user scans a visiting card and clicks **"Save Scanned Contact →"**, the contact details are automatically saved as a permanent row into your **Supabase PostgreSQL Database** (`leads` table).
-* Preserves all 10 extracted fields:
-  * **Full Name** (`name`)
-  * **Company** (`company`)
-  * **Email** (`email`)
-  * **Phone** (`phone`)
-  * **Designation**, **Address**, **City**, **Pincode**, **Website**, **LinkedIn**, and **Timestamp** stored in structured `customValues`.
+### 💬 1. Floating Action Button & Glassmorphism Chat Drawer
+* **Floating FAB**: Embedded a non-intrusive floating action button anchored to the bottom-right corner (`bottom: 24px, right: 24px` on desktop; `bottom: 74px, right: 14px` on mobile above the bottom navigation bar).
+* **Context Auto-Detection**: Automatically records and tags which page/tab the owner is currently viewing (`Daily Contacts`, `Kanban Deals`, `GST Quotes`, `Dashboard`, etc.).
+* **Category Picker**:
+  * 📝 `Requirement`
+  * 💡 `Suggestion`
+  * 🐛 `Bug Report`
+  * 🎨 `Layout/UI`
+* **Real-time Persistence**: Submits feedback notes to **Supabase Database** (`saveOwnerFeedbackAction` in `app/actions/crm.ts`) and caches in `localStorage`.
+
+### 📥 2. Feedback Inbox & Resolution Tracking
+* Includes an **Inbox** sub-tab in the widget allowing you to:
+  * View all submitted notes grouped by active page tab, category, author, and timestamp.
+  * Click **`○ Mark Fixed`** / **`✓ Resolved`** to check off requirements as you update them.
 
 ---
 
@@ -22,13 +27,13 @@ I have implemented **Automatic Supabase/Prisma Database Persistence** for every 
 
 * **Target Repository**: [`https://github.com/Sumanth069/Anveshak_CRM`](https://github.com/Sumanth069/Anveshak_CRM)
 * **Branch**: `main`
-* **Commit**: `feat: automatic database persistence for scanned visiting card contacts` (`d404b50`)
-* **Status**: **Successfully Pushed to GitHub** 🚀
+* **Commit**: `feat: floating owner feedback and page requirement chat widget` (`8417006`)
+* **Status**: **Successfully Pushed to GitHub** 🚀 (Vercel will auto-redeploy!)
 
 ---
 
 ## 3. Verification & Build Quality
 
 * **TypeScript Type Safety**: `npx tsc --noEmit` passed with **0 errors**.
-* **Production Build**: `npm run build` compiled successfully in **722ms** with **0 errors**.
+* **Production Build**: `npm run build` compiled successfully in **1526ms** with **0 errors**.
 * **Live App**: Active at **`http://localhost:5179/crm`**.
