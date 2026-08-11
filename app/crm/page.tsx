@@ -7,6 +7,7 @@ import GSTQuoteBuilder from '@/components/crm/GSTQuoteBuilder';
 import SystemDiagnostics from '@/components/crm/SystemDiagnostics';
 import AuditDiffModal from '@/components/crm/AuditDiffModal';
 import SupabaseSettings from '@/components/crm/SupabaseSettings';
+import OwnerFeedbackWidget from '@/components/crm/OwnerFeedbackWidget';
 import { updateSupabaseConfig, isSupabaseConnected } from '@/lib/supabase';
 
 // Type Definitions
@@ -7554,6 +7555,9 @@ export default function App() {
           <span>Menu</span>
         </button>
       </nav>
+
+      {/* Floating Owner Feedback & Requirements Widget */}
+      <OwnerFeedbackWidget activeTab={activeTab} currentUser={currentUser} />
     </div>
   );
 }

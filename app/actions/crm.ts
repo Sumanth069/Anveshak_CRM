@@ -486,3 +486,48 @@ export async function saveScannedContactAction(contact: {
     return { success: false, error: err.message };
   }
 }
+
+export async function saveOwnerFeedbackAction(feedback: {
+  pageTab: string;
+  category: string;
+  noteText: string;
+  authorName?: string;
+}) {
+  try {
+    const created = await prisma.auditLog.create({
+      data: {
+        user: feedback.authorName || 'CRM Owner',
+        action: `OWNER_FEEDBACK: [${feedback.category}] on page ${feedback.pageTab}`,
+        entity: 'OWNER_FEEDBACK',
+        afterState: JSON.stringify({
+          pageTab: feedback.pageTab,
+          category: feedback.category,
+          noteText: feedback.noteText,
+          status: 'New',
+          createdAt: new Date().toISOString()
+        })
+      }
+    });
+    return { success: true, data: created };
+  } catch (err: any) {
+    console.error('saveOwnerFeedbackAction error:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function updateOwnerFeedbackStatusAction(id: string, status: string) {
+  try {
+    await prisma.auditLog.create({
+      data: {
+        user: 'CRM Admin',
+        action: `OWNER_FEEDBACK_STATUS: Changed to ${status}`,
+        entity: 'OWNER_FEEDBACK',
+        afterState: JSON.stringify({ targetId: id, status, updatedAt: new Date().toISOString() })
+      }
+    });
+    return { success: true };
+  } catch (err: any) {
+    console.error('updateOwnerFeedbackStatusAction error:', err);
+    return { success: false, error: err.message };
+  }
+}
