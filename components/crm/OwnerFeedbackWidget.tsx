@@ -55,36 +55,54 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
   const [feedbackList, setFeedbackList] = useState<FeedbackItem[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  const broadcastSync = () => {
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        const channel = new BroadcastChannel('anveshak_feedback_sync');
+        channel.postMessage({ type: 'REFRESH_FEEDBACK' });
+        channel.close();
+      } catch (e) {}
+    }
+  };
+
   const loadFeedbackFromDb = async () => {
     try {
       const { getOwnerFeedbackListAction } = await import('@/app/actions/crm');
       const res = await getOwnerFeedbackListAction();
-      if (res && res.success && Array.isArray(res.data) && res.data.length > 0) {
+      if (res && res.success && Array.isArray(res.data)) {
         setFeedbackList(res.data as any);
         localStorage.setItem('ANVESHAK_OWNER_FEEDBACK_LIST', JSON.stringify(res.data));
-      } else {
-        const saved = localStorage.getItem('ANVESHAK_OWNER_FEEDBACK_LIST');
-        if (saved) {
-          setFeedbackList(JSON.parse(saved));
-        }
       }
     } catch (err) {
-      const saved = localStorage.getItem('ANVESHAK_OWNER_FEEDBACK_LIST');
-      if (saved) {
-        try {
-          setFeedbackList(JSON.parse(saved));
-        } catch (e) {
-          console.error(e);
-        }
-      }
+      console.error('Error fetching owner feedback list:', err);
     }
   };
 
-  // Load stored feedback notes from Supabase & poll every 10 seconds for multi-device sync
+  // Multi-tab BroadcastChannel & 3s Polling Sync across all Chrome windows & devices
   useEffect(() => {
     loadFeedbackFromDb();
-    const interval = setInterval(loadFeedbackFromDb, 10000);
-    return () => clearInterval(interval);
+
+    let channel: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        channel = new BroadcastChannel('anveshak_feedback_sync');
+        channel.onmessage = (event) => {
+          if (event.data && event.data.type === 'REFRESH_FEEDBACK') {
+            loadFeedbackFromDb();
+          }
+        };
+      } catch (e) {}
+    }
+
+    const interval = setInterval(loadFeedbackFromDb, 3000);
+    const handleFocus = () => loadFeedbackFromDb();
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+      if (channel) channel.close();
+    };
   }, []);
 
   const triggerToast = (msg: string) => {
@@ -119,6 +137,7 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
       if (res && res.success) {
         triggerToast('Feedback saved to Supabase DB!');
         await loadFeedbackFromDb();
+        broadcastSync();
         setNoteText('');
         setIsSubmitting(false);
         setActiveSubTab('list');
@@ -134,7 +153,8 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
 
     setNoteText('');
     setIsSubmitting(false);
-    triggerToast('Feedback note saved locally');
+    triggerToast('Feedback note saved');
+    broadcastSync();
     setActiveSubTab('list');
   };
 
@@ -154,6 +174,7 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
       const targetItem = updated.find(i => i.id === id);
       if (targetItem) {
         await updateOwnerFeedbackStatusAction(id, targetItem.status);
+        broadcastSync();
       }
     } catch (err) {
       console.error(err);

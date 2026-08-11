@@ -1,6 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
+import { supabase } from '@/lib/supabase';
 
 export async function fetchCrmInitialState() {
   try {
@@ -493,77 +494,134 @@ export async function saveOwnerFeedbackAction(feedback: {
   noteText: string;
   authorName?: string;
 }) {
+  const payload = {
+    user: feedback.authorName || 'CRM Owner',
+    action: `OWNER_FEEDBACK: [${feedback.category}] on page ${feedback.pageTab}`,
+    entity: 'OWNER_FEEDBACK',
+    after_state: JSON.stringify({
+      pageTab: feedback.pageTab,
+      category: feedback.category,
+      noteText: feedback.noteText,
+      status: 'New',
+      createdAt: new Date().toISOString()
+    })
+  };
+
   try {
     const created = await prisma.auditLog.create({
       data: {
-        user: feedback.authorName || 'CRM Owner',
-        action: `OWNER_FEEDBACK: [${feedback.category}] on page ${feedback.pageTab}`,
-        entity: 'OWNER_FEEDBACK',
-        afterState: JSON.stringify({
-          pageTab: feedback.pageTab,
-          category: feedback.category,
-          noteText: feedback.noteText,
-          status: 'New',
-          createdAt: new Date().toISOString()
-        })
+        user: payload.user,
+        action: payload.action,
+        entity: payload.entity,
+        afterState: payload.after_state
       }
     });
     return { success: true, data: created };
   } catch (err: any) {
-    console.error('saveOwnerFeedbackAction error:', err);
+    console.warn('Prisma save failed, trying Supabase JS client fallback:', err);
+    try {
+      const { data, error } = await supabase.from('audit_logs').insert([payload]).select();
+      if (!error && data && data.length > 0) {
+        return { success: true, data: data[0] };
+      }
+    } catch (sbErr) {
+      console.error('Supabase insert fallback error:', sbErr);
+    }
     return { success: false, error: err.message };
   }
 }
 
 export async function getOwnerFeedbackListAction() {
+  let logs: any[] = [];
   try {
-    const logs = await prisma.auditLog.findMany({
+    logs = await prisma.auditLog.findMany({
       where: { entity: 'OWNER_FEEDBACK' },
       orderBy: { timestamp: 'desc' }
     });
-
-    const list = logs.map(log => {
-      let parsed: any = {};
-      try {
-        parsed = log.afterState ? JSON.parse(log.afterState) : {};
-      } catch (e) {
-        parsed = {};
-      }
-
-      return {
-        id: log.id,
-        pageTab: parsed.pageTab || 'dashboard',
-        category: parsed.category || 'Requirement',
-        noteText: parsed.noteText || log.action,
-        authorName: log.user || 'CRM Owner',
-        status: parsed.status || 'New',
-        createdAt: parsed.createdAt 
-          ? new Date(parsed.createdAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
-          : new Date(log.timestamp || Date.now()).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
-      };
-    });
-
-    return { success: true, data: list };
   } catch (err: any) {
-    console.error('getOwnerFeedbackListAction error:', err);
-    return { success: false, error: err.message };
+    console.warn('Prisma findMany error, trying Supabase JS client fallback:', err);
+    try {
+      const { data, error } = await supabase
+        .from('audit_logs')
+        .select('*')
+        .eq('entity', 'OWNER_FEEDBACK')
+        .order('timestamp', { ascending: false });
+      if (!error && data) {
+        logs = data;
+      }
+    } catch (sbErr) {
+      console.error('Supabase select fallback error:', sbErr);
+    }
   }
+
+  // Also query direct Supabase client if Prisma logs is empty
+  if (!logs || logs.length === 0) {
+    try {
+      const { data } = await supabase
+        .from('audit_logs')
+        .select('*')
+        .eq('entity', 'OWNER_FEEDBACK')
+        .order('timestamp', { ascending: false });
+      if (data && data.length > 0) {
+        logs = data;
+      }
+    } catch (e) {
+      console.error('Supabase direct query error:', e);
+    }
+  }
+
+  const list = logs.map(log => {
+    let parsed: any = {};
+    const stateStr = log.afterState || log.after_state;
+    try {
+      parsed = stateStr ? JSON.parse(stateStr) : {};
+    } catch (e) {
+      parsed = {};
+    }
+
+    return {
+      id: log.id,
+      pageTab: parsed.pageTab || 'dashboard',
+      category: parsed.category || 'Requirement',
+      noteText: parsed.noteText || log.action,
+      authorName: log.user || 'CRM Owner',
+      status: parsed.status || 'New',
+      createdAt: parsed.createdAt 
+        ? new Date(parsed.createdAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
+        : new Date(log.timestamp || Date.now()).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
+    };
+  });
+
+  return { success: true, data: list };
 }
 
 export async function updateOwnerFeedbackStatusAction(id: string, status: string) {
   try {
     const existing = await prisma.auditLog.findUnique({ where: { id } });
-    if (existing && existing.afterState) {
-      let parsed = JSON.parse(existing.afterState);
+    if (existing) {
+      const stateStr = existing.afterState || '{}';
+      let parsed = JSON.parse(stateStr);
       parsed.status = status;
       await prisma.auditLog.update({
         where: { id },
         data: { afterState: JSON.stringify(parsed) }
       });
+      return { success: true };
+    }
+  } catch (err: any) {
+    console.warn('Prisma update error, trying Supabase JS client fallback:', err);
+  }
+
+  try {
+    const { data } = await supabase.from('audit_logs').select('*').eq('id', id).single();
+    if (data) {
+      let parsed = JSON.parse(data.after_state || '{}');
+      parsed.status = status;
+      await supabase.from('audit_logs').update({ after_state: JSON.stringify(parsed) }).eq('id', id);
     }
     return { success: true };
-  } catch (err: any) {
-    console.error('updateOwnerFeedbackStatusAction error:', err);
-    return { success: false, error: err.message };
+  } catch (sbErr: any) {
+    console.error('Supabase update fallback error:', sbErr);
+    return { success: false, error: sbErr.message };
   }
 }
