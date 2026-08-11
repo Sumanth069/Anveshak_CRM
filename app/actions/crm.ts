@@ -515,16 +515,52 @@ export async function saveOwnerFeedbackAction(feedback: {
   }
 }
 
+export async function getOwnerFeedbackListAction() {
+  try {
+    const logs = await prisma.auditLog.findMany({
+      where: { entity: 'OWNER_FEEDBACK' },
+      orderBy: { timestamp: 'desc' }
+    });
+
+    const list = logs.map(log => {
+      let parsed: any = {};
+      try {
+        parsed = log.afterState ? JSON.parse(log.afterState) : {};
+      } catch (e) {
+        parsed = {};
+      }
+
+      return {
+        id: log.id,
+        pageTab: parsed.pageTab || 'dashboard',
+        category: parsed.category || 'Requirement',
+        noteText: parsed.noteText || log.action,
+        authorName: log.user || 'CRM Owner',
+        status: parsed.status || 'New',
+        createdAt: parsed.createdAt 
+          ? new Date(parsed.createdAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
+          : new Date(log.timestamp || Date.now()).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
+      };
+    });
+
+    return { success: true, data: list };
+  } catch (err: any) {
+    console.error('getOwnerFeedbackListAction error:', err);
+    return { success: false, error: err.message };
+  }
+}
+
 export async function updateOwnerFeedbackStatusAction(id: string, status: string) {
   try {
-    await prisma.auditLog.create({
-      data: {
-        user: 'CRM Admin',
-        action: `OWNER_FEEDBACK_STATUS: Changed to ${status}`,
-        entity: 'OWNER_FEEDBACK',
-        afterState: JSON.stringify({ targetId: id, status, updatedAt: new Date().toISOString() })
-      }
-    });
+    const existing = await prisma.auditLog.findUnique({ where: { id } });
+    if (existing && existing.afterState) {
+      let parsed = JSON.parse(existing.afterState);
+      parsed.status = status;
+      await prisma.auditLog.update({
+        where: { id },
+        data: { afterState: JSON.stringify(parsed) }
+      });
+    }
     return { success: true };
   } catch (err: any) {
     console.error('updateOwnerFeedbackStatusAction error:', err);

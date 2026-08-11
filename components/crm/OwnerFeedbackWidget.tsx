@@ -55,16 +55,36 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
   const [feedbackList, setFeedbackList] = useState<FeedbackItem[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Load stored feedback notes from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem('ANVESHAK_OWNER_FEEDBACK_LIST');
-    if (saved) {
-      try {
-        setFeedbackList(JSON.parse(saved));
-      } catch (err) {
-        console.error(err);
+  const loadFeedbackFromDb = async () => {
+    try {
+      const { getOwnerFeedbackListAction } = await import('@/app/actions/crm');
+      const res = await getOwnerFeedbackListAction();
+      if (res && res.success && Array.isArray(res.data) && res.data.length > 0) {
+        setFeedbackList(res.data as any);
+        localStorage.setItem('ANVESHAK_OWNER_FEEDBACK_LIST', JSON.stringify(res.data));
+      } else {
+        const saved = localStorage.getItem('ANVESHAK_OWNER_FEEDBACK_LIST');
+        if (saved) {
+          setFeedbackList(JSON.parse(saved));
+        }
+      }
+    } catch (err) {
+      const saved = localStorage.getItem('ANVESHAK_OWNER_FEEDBACK_LIST');
+      if (saved) {
+        try {
+          setFeedbackList(JSON.parse(saved));
+        } catch (e) {
+          console.error(e);
+        }
       }
     }
+  };
+
+  // Load stored feedback notes from Supabase & poll every 10 seconds for multi-device sync
+  useEffect(() => {
+    loadFeedbackFromDb();
+    const interval = setInterval(loadFeedbackFromDb, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   const triggerToast = (msg: string) => {
@@ -87,7 +107,7 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
       createdAt: new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
     };
 
-    // Try Supabase Server Action
+    // Save to Supabase DB via Server Action
     try {
       const { saveOwnerFeedbackAction } = await import('@/app/actions/crm');
       const res = await saveOwnerFeedbackAction({
@@ -96,8 +116,13 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
         noteText: noteText.trim(),
         authorName: currentUser?.fullName || 'CRM Owner'
       });
-      if (res && res.success && res.data) {
-        newNote.id = res.data.id || newNote.id;
+      if (res && res.success) {
+        triggerToast('Feedback saved to Supabase DB!');
+        await loadFeedbackFromDb();
+        setNoteText('');
+        setIsSubmitting(false);
+        setActiveSubTab('list');
+        return;
       }
     } catch (err) {
       console.warn('Supabase DB save fallback to local storage:', err);
@@ -109,7 +134,7 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
 
     setNoteText('');
     setIsSubmitting(false);
-    triggerToast('Feedback note saved to database');
+    triggerToast('Feedback note saved locally');
     setActiveSubTab('list');
   };
 
