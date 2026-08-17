@@ -1105,9 +1105,9 @@ export default function App() {
   });
 
   // Toast & Audio Telemetry
-  const [toasts, setToasts] = useState<{ id: string; message: string; type: 'info' | 'success' | 'warning' }[]>([]);
+  const [toasts, setToasts] = useState<{ id: string; message: string; type: 'info' | 'success' | 'warning' | 'error' }[]>([]);
   
-  const triggerToast = (message: string, type: 'info' | 'success' | 'warning' = 'info') => {
+  const triggerToast = (message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') => {
     const id = `TOAST-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
     setToasts(prev => [...prev, { id, message, type }]);
     
@@ -1123,7 +1123,7 @@ export default function App() {
       if (type === 'success') {
         osc.frequency.setValueAtTime(659.25, audioCtx.currentTime); // E5
         osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.08); // A5
-      } else if (type === 'warning') {
+      } else if (type === 'warning' || type === 'error') {
         osc.frequency.setValueAtTime(440, audioCtx.currentTime); // A4
         osc.frequency.setValueAtTime(349.23, audioCtx.currentTime + 0.1); // F4
       } else {

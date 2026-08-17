@@ -15,7 +15,7 @@ interface Contact360ModalProps {
   onContactUpdated: (updated: any) => void;
   onContactDeleted: (id: string) => void;
   onConvertToLead: (contact: any) => void;
-  triggerToast?: (msg: string, type: 'success' | 'warning' | 'info' | 'error') => void;
+  triggerToast?: (msg: string, type?: any) => void;
 }
 
 export default function Contact360Modal({
@@ -110,7 +110,7 @@ export default function Contact360Modal({
         setIsEditing(false);
         if (triggerToast) triggerToast('Contact profile updated!', 'success');
       } else {
-        alert(res.error || 'Failed to update contact.');
+        alert((res as any).error || 'Failed to update contact.');
       }
     } catch (err: any) {
       alert('Error: ' + err.message);
@@ -126,7 +126,7 @@ export default function Contact360Modal({
           if (triggerToast) triggerToast('Contact deleted.', 'info');
           onClose();
         } else {
-          alert(res.error || 'Failed to delete contact.');
+          alert((res as any).error || 'Failed to delete contact.');
         }
       } catch (err: any) {
         alert('Error: ' + err.message);

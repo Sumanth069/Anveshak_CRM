@@ -79,7 +79,7 @@ export async function fetchContact360Action(contactId: string) {
         where: { primaryContactId: contactId },
         orderBy: { createdAt: 'desc' }
       }).catch(() => []),
-      prisma.task.findMany({
+      (prisma.task as any).findMany({
         where: {
           OR: [
             { linkedTo: { contains: contact.name, mode: 'insensitive' } },
@@ -89,7 +89,7 @@ export async function fetchContact360Action(contactId: string) {
         orderBy: { createdAt: 'desc' },
         take: 10
       }).catch(() => []),
-      prisma.deal.findMany({
+      (prisma.deal as any).findMany({
         where: {
           OR: [
             { name: { contains: contact.name, mode: 'insensitive' } },
