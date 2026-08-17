@@ -1058,17 +1058,24 @@ export default function App() {
   });
 
   useEffect(() => {
-    const savedContacts = localStorage.getItem('ANVESHAK_DAILY_CONTACTS');
-    if (savedContacts) {
+    // Initial fetch from live database
+    const syncContactsFromDb = async () => {
       try {
-        setContactsList(JSON.parse(savedContacts));
-      } catch (err) {}
-    }
+        const { fetchContactsListAction } = await import('@/app/actions/contacts');
+        const res = await fetchContactsListAction();
+        if (res.success && res.contacts && res.contacts.length > 0) {
+          setContactsList(res.contacts.map((c: any) => ({
+            ...c,
+            phone: c.preferredPhone || c.phone,
+            dateAdded: c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-IN') : 'Today'
+          })));
+        }
+      } catch (err) {
+        console.warn('Initial contacts sync error:', err);
+      }
+    };
+    syncContactsFromDb();
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem('ANVESHAK_DAILY_CONTACTS', JSON.stringify(contactsList));
-  }, [contactsList]);
 
   useEffect(() => {
     const initAuthAndUsers = async () => {
@@ -3222,12 +3229,13 @@ export default function App() {
           )}
 
           {/* TAB: CENTRALIZED CONTACTS (ONE PERSON = ONE RECORD) */}
+          {/* TAB 1: CENTRALIZED CONTACT MANAGEMENT (ONE PERSON = ONE RECORD) */}
           {activeTab === 'contacts' && (
             <div className="animate-fade">
               {/* Header Row with Actions */}
               <div className="page-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
                 <div className="page-title-text">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                     <h2>Centralized Contacts Directory</h2>
                     <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}>
                       One Person = One Record
@@ -3235,19 +3243,21 @@ export default function App() {
                   </div>
                   <p>Enterprise unified directory with deduplication scoring, E.164 phone validation, 1-click outreach, and 360° profile views.</p>
                 </div>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div className="page-header-actions">
                   <button 
-                    className="btn btn-primary" 
+                    className="btn btn-primary primary-action-full" 
                     style={{ 
-                      backgroundColor: '#0284c7', 
-                      borderColor: '#0284c7', 
+                      backgroundColor: '#151c2e', 
+                      borderColor: '#151c2e', 
+                      color: '#f5d396',
                       display: 'inline-flex', 
                       alignItems: 'center', 
+                      justifyContent: 'center',
                       gap: '8px', 
-                      height: '40px', 
-                      padding: '0 16px', 
-                      fontSize: '13px', 
-                      fontWeight: '600', 
+                      height: '38px', 
+                      padding: '0 14px', 
+                      fontSize: '12.5px', 
+                      fontWeight: '700', 
                       borderRadius: '8px'
                     }} 
                     onClick={() => {
@@ -3257,7 +3267,7 @@ export default function App() {
                       setShowScanModal(true);
                     }}
                   >
-                    <CameraIcon /> Scan Visiting Card (OCR)
+                    <CameraIcon /> Scan Visiting Card
                   </button>
 
                   <button 
@@ -3267,16 +3277,17 @@ export default function App() {
                       borderColor: '#059669', 
                       display: 'inline-flex', 
                       alignItems: 'center', 
+                      justifyContent: 'center',
                       gap: '6px', 
-                      height: '40px', 
-                      padding: '0 16px', 
-                      fontSize: '13px', 
+                      height: '38px', 
+                      padding: '0 14px', 
+                      fontSize: '12px', 
                       fontWeight: '600', 
                       borderRadius: '8px'
                     }} 
                     onClick={() => setShowExcelImportModal(true)}
                   >
-                    📥 Import Excel / CSV
+                    📥 Import Excel
                   </button>
 
                   <button 
@@ -3284,21 +3295,67 @@ export default function App() {
                     style={{ 
                       display: 'inline-flex', 
                       alignItems: 'center', 
+                      justifyContent: 'center',
                       gap: '6px', 
-                      height: '40px', 
-                      padding: '0 16px', 
-                      fontSize: '13px', 
+                      height: '38px', 
+                      padding: '0 14px', 
+                      fontSize: '12px', 
                       fontWeight: '600', 
                       borderRadius: '8px'
                     }} 
                     onClick={() => setShowAddContactModal(true)}
                   >
-                    + Manual Add Contact
+                    + Manual Add
+                  </button>
+
+                  <button 
+                    className="btn btn-secondary" 
+                    style={{ 
+                      height: '38px', 
+                      padding: '0 12px', 
+                      fontSize: '12px', 
+                      fontWeight: '600', 
+                      borderRadius: '8px',
+                      color: '#151c2e',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px'
+                    }} 
+                    onClick={async () => {
+                      try {
+                        triggerToast('Syncing with Supabase database...', 'info');
+                        const { fetchContactsListAction } = await import('@/app/actions/contacts');
+                        const res = await fetchContactsListAction();
+                        if (res.success && res.contacts) {
+                          setContactsList(res.contacts.map((c: any) => ({
+                            ...c,
+                            phone: c.preferredPhone || c.phone,
+                            dateAdded: c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-IN') : 'Today'
+                          })));
+                          triggerToast(`Synced ${res.contacts.length} contacts from Supabase!`, 'success');
+                        } else {
+                          triggerToast('Database sync completed.', 'info');
+                        }
+                      } catch (err: any) {
+                        triggerToast('Sync error: ' + err.message, 'error');
+                      }
+                    }}
+                  >
+                    ↻ Sync DB
                   </button>
 
                   <button
                     className="btn btn-secondary"
-                    style={{ height: '40px', padding: '0 14px', fontSize: '13px' }}
+                    style={{ 
+                      height: '38px', 
+                      padding: '0 12px', 
+                      fontSize: '12px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px'
+                    }}
                     onClick={() => {
                       const csvHeader = 'Name,Company,Designation,Phone,Email,City,Category,Source,Last Contacted\n';
                       const csvRows = filteredContacts.map(c => 
@@ -3315,7 +3372,7 @@ export default function App() {
                       triggerToast('Exported contacts to CSV file!', 'success');
                     }}
                   >
-                    📤 Export CSV
+                    📤 CSV
                   </button>
                 </div>
               </div>
@@ -3340,8 +3397,198 @@ export default function App() {
                 }}
               />
 
-              {/* Contacts Table */}
-              <div className="panel-card" style={{ padding: '0', overflow: 'hidden' }}>
+              {/* MOBILE CONTACT CARDS VIEW (<= 768px) */}
+              <div className="mobile-only-cards">
+                {filteredContacts.length === 0 ? (
+                  <div className="panel-card" style={{ textAlign: 'center', padding: '36px 16px', color: '#64748b' }}>
+                    <div style={{ fontSize: '28px', marginBottom: '8px' }}>🔍</div>
+                    <p style={{ margin: '0 0 6px', fontWeight: '700', color: 'var(--text-main)' }}>No matching contacts found</p>
+                    <p style={{ margin: 0, fontSize: '12px' }}>Try adjusting your filters or tap "+ Manual Add" above.</p>
+                  </div>
+                ) : (
+                  filteredContacts.map(cnt => {
+                    const rawPhone = cnt.preferredPhone || cnt.phone;
+                    const normPhone = normalizePhone(rawPhone);
+
+                    return (
+                      <div key={cnt.id} className="mobile-contact-card">
+                        {/* Top: Avatar, Name, Company, Category */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', minWidth: 0, flex: 1 }}>
+                            <div style={{
+                              width: '38px',
+                              height: '38px',
+                              borderRadius: '10px',
+                              background: '#151c2e',
+                              border: '1.5px solid #d49b38',
+                              color: '#f5d396',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '14px',
+                              fontWeight: '800',
+                              flexShrink: 0
+                            }}>
+                              {(cnt.name || 'C').charAt(0).toUpperCase()}
+                            </div>
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <button
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  padding: 0,
+                                  fontWeight: '800',
+                                  fontSize: '14px',
+                                  color: '#111827',
+                                  cursor: 'pointer',
+                                  textAlign: 'left',
+                                  display: 'block',
+                                  lineHeight: '1.2'
+                                }}
+                                onClick={() => setSelectedContactFor360(cnt.id)}
+                              >
+                                {cnt.name}
+                              </button>
+                              <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {cnt.designation ? `${cnt.designation} • ` : ''}
+                                <strong style={{ color: '#d49b38' }}>{cnt.company || 'No Company'}</strong>
+                              </div>
+                            </div>
+                          </div>
+
+                          <span style={{
+                            background: cnt.category === 'Customer' ? '#ecfdf5' : cnt.category === 'VIP' ? '#fffbeb' : '#eff6ff',
+                            color: cnt.category === 'Customer' ? '#047857' : cnt.category === 'VIP' ? '#b45309' : '#1e40af',
+                            border: `1px solid ${cnt.category === 'Customer' ? '#a7f3d0' : cnt.category === 'VIP' ? '#fde68a' : '#bfdbfe'}`,
+                            padding: '2px 8px',
+                            borderRadius: '6px',
+                            fontSize: '10.5px',
+                            fontWeight: '700',
+                            flexShrink: 0
+                          }}>
+                            {cnt.category || 'Prospect'}
+                          </span>
+                        </div>
+
+                        {/* Middle: Phone, Email, Provenance */}
+                        <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '8px 10px', fontSize: '11.5px', display: 'flex', flexDirection: 'column', gap: '4px', border: '1px solid var(--border-subtle)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>📞 Phone:</span>
+                            {rawPhone ? (
+                              <a href={`tel:${rawPhone}`} style={{ fontWeight: '700', color: '#1e40af', textDecoration: 'none' }}>
+                                {normPhone.isValid ? normPhone.display : rawPhone}
+                              </a>
+                            ) : (
+                              <span style={{ color: 'var(--text-muted)' }}>—</span>
+                            )}
+                          </div>
+                          {cnt.email && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ color: 'var(--text-muted)' }}>✉️ Email:</span>
+                              <a href={`mailto:${cnt.email}`} style={{ color: '#475569', textDecoration: 'none', maxWidth: '210px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {cnt.email}
+                              </a>
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10.5px', color: 'var(--text-muted)', paddingTop: '3px', borderTop: '1px dashed var(--border-color)' }}>
+                            <span>Source: <strong>{cnt.sourceType || 'Direct'}</strong></span>
+                            <span>Last: <strong>{cnt.lastContactedAt ? new Date(cnt.lastContactedAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }) : 'Never'}</strong></span>
+                          </div>
+                        </div>
+
+                        {/* Actions Bottom Toolbar */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                          <button
+                            className="btn btn-primary"
+                            style={{ backgroundColor: '#10b981', borderColor: '#10b981', color: '#fff', fontSize: '11.5px', padding: '6px 8px', justifyContent: 'center', minHeight: '34px' }}
+                            onClick={() => setShowQuickCommContact(cnt)}
+                          >
+                            💬 Contact
+                          </button>
+                          <button
+                            className="btn btn-secondary"
+                            style={{ fontSize: '11.5px', padding: '6px 8px', justifyContent: 'center', minHeight: '34px' }}
+                            onClick={() => setSelectedContactFor360(cnt.id)}
+                          >
+                            🔍 360° Profile
+                          </button>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '2px' }}>
+                          {!cnt.isConverted ? (
+                            <button
+                              className="btn btn-primary"
+                              style={{ flex: 1, backgroundColor: '#1e40af', borderColor: '#1e40af', fontSize: '11.5px', padding: '6px 10px', justifyContent: 'center', minHeight: '32px' }}
+                              onClick={async () => {
+                                try {
+                                  const { createLeadAction } = await import('@/app/actions/crm');
+                                  const res = await createLeadAction({
+                                    name: cnt.name,
+                                    company: cnt.company,
+                                    email: cnt.email,
+                                    phone: cnt.preferredPhone || cnt.phone,
+                                    status: 'New',
+                                    score: 25,
+                                    owner: currentUser?.fullName || 'KP Sumanth'
+                                  });
+                                  if (res.success && res.data) {
+                                    const newLead: Lead = {
+                                      id: res.data.id,
+                                      name: res.data.name,
+                                      company: res.data.company || '',
+                                      email: res.data.email || '',
+                                      phone: res.data.phone || '',
+                                      status: (res.data.status as any) || 'New',
+                                      score: res.data.score || 25,
+                                      owner: res.data.owner || 'KP Sumanth',
+                                      activities: []
+                                    };
+                                    setLeads(prev => [newLead, ...prev]);
+                                    setContactsList(prev => prev.map(c => c.id === cnt.id ? { ...c, isConverted: true, convertedLeadId: newLead.id } : c));
+                                    triggerToast(`Contact ${cnt.name} converted to Lead in Supabase!`, 'success');
+                                  } else {
+                                    alert(res.error || 'Failed to convert contact.');
+                                  }
+                                } catch (err) {
+                                  console.error('Error converting contact:', err);
+                                }
+                              }}
+                            >
+                              + Convert to Lead →
+                            </button>
+                          ) : (
+                            <span style={{ flex: 1, justifyContent: 'center', fontSize: '11px', color: '#059669', background: '#ecfdf5', padding: '6px 8px', borderRadius: '6px', fontWeight: '700', display: 'flex', alignItems: 'center' }}>
+                              In Leads Pipeline ✓
+                            </span>
+                          )}
+                          <button
+                            className="btn btn-secondary"
+                            style={{ color: '#dc2626', borderColor: '#fca5a5', backgroundColor: '#fef2f2', padding: '6px 10px', minHeight: '32px' }}
+                            title="Delete Contact"
+                            onClick={async () => {
+                              if (confirm(`Are you sure you want to delete contact "${cnt.name}"?`)) {
+                                try {
+                                  const { deleteContactAction } = await import('@/app/actions/contacts');
+                                  await deleteContactAction(cnt.id, currentUser?.fullName || 'CRM User');
+                                  setContactsList(prev => prev.filter(c => c.id !== cnt.id));
+                                  triggerToast(`Contact ${cnt.name} deleted`, 'info');
+                                } catch (dErr) {
+                                  setContactsList(prev => prev.filter(c => c.id !== cnt.id));
+                                }
+                              }
+                            }}
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* DESKTOP CONTACTS TABLE (>= 769px) */}
+              <div className="desktop-only-table panel-card" style={{ padding: '0', overflow: 'hidden' }}>
                 <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
@@ -3377,8 +3624,9 @@ export default function App() {
                                   width: '34px',
                                   height: '34px',
                                   borderRadius: '8px',
-                                  background: '#0284c7',
-                                  color: '#fff',
+                                  background: '#151c2e',
+                                  border: '1.5px solid #d49b38',
+                                  color: '#f5d396',
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
@@ -3396,7 +3644,7 @@ export default function App() {
                                       padding: 0,
                                       fontWeight: '600',
                                       fontSize: '13px',
-                                      color: '#0284c7',
+                                      color: '#1e40af',
                                       cursor: 'pointer',
                                       textAlign: 'left',
                                       textDecoration: 'hover:underline'
@@ -3435,8 +3683,9 @@ export default function App() {
                             {/* Category */}
                             <td style={{ padding: '12px' }}>
                               <span style={{
-                                background: cnt.category === 'Customer' ? '#dcfce7' : cnt.category === 'VIP' ? '#fef3c7' : '#e0f2fe',
-                                color: cnt.category === 'Customer' ? '#15803d' : cnt.category === 'VIP' ? '#b45309' : '#0369a1',
+                                background: cnt.category === 'Customer' ? '#ecfdf5' : cnt.category === 'VIP' ? '#fffbeb' : '#eff6ff',
+                                color: cnt.category === 'Customer' ? '#047857' : cnt.category === 'VIP' ? '#b45309' : '#1e40af',
+                                border: `1px solid ${cnt.category === 'Customer' ? '#a7f3d0' : cnt.category === 'VIP' ? '#fde68a' : '#bfdbfe'}`,
                                 padding: '2px 8px',
                                 borderRadius: '10px',
                                 fontSize: '11px',
@@ -3481,7 +3730,7 @@ export default function App() {
                                 {/* 1-Click Comm Modal Trigger */}
                                 <button
                                   className="btn btn-primary"
-                                  style={{ padding: '4px 10px', fontSize: '11px', backgroundColor: '#25D366', borderColor: '#25D366', color: '#fff' }}
+                                  style={{ padding: '4px 10px', fontSize: '11px', backgroundColor: '#10b981', borderColor: '#10b981', color: '#fff' }}
                                   title="Quick WhatsApp / Call / Email"
                                   onClick={() => setShowQuickCommContact(cnt)}
                                 >
@@ -3501,7 +3750,7 @@ export default function App() {
                                 {!cnt.isConverted ? (
                                   <button 
                                     className="btn btn-primary" 
-                                    style={{ padding: '4px 10px', fontSize: '11px', backgroundColor: '#0284c7', borderColor: '#0284c7' }}
+                                    style={{ padding: '4px 10px', fontSize: '11px', backgroundColor: '#1e40af', borderColor: '#1e40af' }}
                                     onClick={async () => {
                                       try {
                                         const { createLeadAction } = await import('@/app/actions/crm');
@@ -3589,44 +3838,40 @@ export default function App() {
                   <h2>Leads Queue & Scoring Management</h2>
                   <p>Centralized database of qualified leads synced with Supabase PostgreSQL</p>
                 </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   <button className="btn btn-secondary" onClick={() => handleCSVExport('Leads')}>Export CSV</button>
                   <button className="btn btn-primary" onClick={() => setShowLeadModal(true)}>+ Add Direct Lead</button>
                 </div>
               </div>
 
               {/* Advanced Filter Toolbar */}
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', backgroundColor: '#ffffff', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                <div style={{ flex: 1, minWidth: '200px' }}>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', backgroundColor: '#ffffff', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                <div style={{ flex: 1, minWidth: '180px' }}>
                   <input 
                     type="text" 
-                    placeholder="🔍 Search contacts by name, email, phone or company..." 
+                    placeholder="🔍 Search leads by name, email, phone or company..." 
                     value={searchQuery} 
                     onChange={(e) => setSearchQuery(e.target.value)} 
-                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '13px' }}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '13px', background: '#f8fafc' }}
                   />
                 </div>
                 
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                  <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 'bold' }}>Owner:</span>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                   <select 
                     value={selectedOwnerFilter} 
                     onChange={(e) => setSelectedOwnerFilter(e.target.value)}
-                    style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '13px' }}
+                    style={{ padding: '7px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '12.5px', background: '#f8fafc' }}
                   >
                     <option value="All">All Owners</option>
                     <option value="KP Sumanth">KP Sumanth</option>
                     <option value="Balasaraswathi">Balasaraswathi</option>
                     <option value="Riya Sharma">Riya Sharma</option>
                   </select>
-                </div>
 
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                  <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 'bold' }}>Tag:</span>
                   <select 
                     value={selectedTagFilter} 
                     onChange={(e) => setSelectedTagFilter(e.target.value)}
-                    style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '13px' }}
+                    style={{ padding: '7px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '12.5px', background: '#f8fafc' }}
                   >
                     <option value="All">All Tags</option>
                     <option value="B2G">B2G</option>
@@ -3634,13 +3879,11 @@ export default function App() {
                     <option value="Hot Lead">Hot Lead</option>
                     <option value="Corporate">Corporate</option>
                   </select>
-                </div>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                  <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 'bold' }}>Status:</span>
+
                   <select 
                     value={selectedStatusFilter} 
                     onChange={(e) => setSelectedStatusFilter(e.target.value)}
-                    style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '13px' }}
+                    style={{ padding: '7px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '12.5px', background: '#f8fafc' }}
                   >
                     <option value="All">All Statuses</option>
                     <option value="New">New</option>
@@ -3693,10 +3936,10 @@ export default function App() {
                       </span>
                     </div>
 
-                    <div className="contact-avatar" style={{ margin: '0 auto 10px auto' }}>
+                    <div className="contact-avatar" style={{ margin: '0 auto 10px auto', backgroundColor: '#151c2e', color: '#f5d396', border: '2px solid #d49b38' }}>
                       {contact.name.split(' ').map(n=>n[0]).join('')}
                     </div>
-                    <div className="contact-name">{contact.name}</div>
+                    <div className="contact-name" style={{ fontSize: '15px', fontWeight: '800' }}>{contact.name}</div>
                     <div className="contact-company" style={{ color: '#d49b38', fontWeight: '700', fontSize: '11px', textTransform: 'uppercase' }}>
                       {contact.company}
                     </div>
@@ -3705,19 +3948,19 @@ export default function App() {
                       Owner: <strong>{contact.owner}</strong>
                     </div>
 
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', justifyContent: 'center', marginTop: '10px' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', justifyContent: 'center', marginTop: '8px' }}>
                       {(contact.tags || []).map(t => (
-                        <span key={t} className="badge badge-cold" style={{ fontSize: '9px', padding: '2px 6px' }}>{t}</span>
+                        <span key={t} className="badge badge-cold" style={{ fontSize: '9.5px', padding: '2px 6px' }}>{t}</span>
                       ))}
                     </div>
 
                      <div className="contact-actions" style={{ marginTop: '14px', display: 'flex', gap: '4px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                       <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '10px' }} onClick={() => openEmailComposer(contact.name, contact.email)}>Email</button>
-                       <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '10px', color: '#25D366', borderColor: '#25D366' }} onClick={() => openWhatsAppModalForContact(contact.name, contact.phone)}>WhatsApp</button>
-                       <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '10px' }} onClick={() => startVoIPCall(contact.name, contact.phone)}>Call</button>
+                       <button className="btn btn-secondary" style={{ padding: '6px 8px', fontSize: '10.5px' }} onClick={() => openEmailComposer(contact.name, contact.email)}>Email</button>
+                       <button className="btn btn-secondary" style={{ padding: '6px 8px', fontSize: '10.5px', color: '#10b981', borderColor: '#a7f3d0' }} onClick={() => openWhatsAppModalForContact(contact.name, contact.phone)}>WhatsApp</button>
+                       <button className="btn btn-secondary" style={{ padding: '6px 8px', fontSize: '10.5px' }} onClick={() => startVoIPCall(contact.name, contact.phone)}>Call</button>
                        <button 
                          className="btn btn-primary" 
-                         style={{ padding: '4px 8px', fontSize: '10px', backgroundColor: '#10b981', borderColor: '#10b981', color: '#fff' }} 
+                         style={{ padding: '6px 8px', fontSize: '10.5px', backgroundColor: '#10b981', borderColor: '#10b981', color: '#fff' }} 
                          onClick={() => {
                            setSelectedLeadForConversion(contact);
                            setConvertDealForm({
@@ -4086,75 +4329,146 @@ export default function App() {
 
                   </div>
 
-                  <div className="custom-table-container">
-                    <table className="custom-table">
-                      <thead>
-                        <tr>
-                          <th style={{ width: '50px', textAlign: 'center' }}>Done</th>
-                          <th>Task Details</th>
-                          <th>Linked Lead/Deal</th>
-                          <th>Due Date</th>
-                          <th>Priority</th>
-                          <th>Assignee</th>
-                          <th>Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {displayTasks.map(t => {
-                          const isOverdue = new Date(t.dueDate) < new Date('2026-07-16') && t.status === 'Open';
-                          return (
-                            <tr key={t.id} style={{ opacity: t.status === 'Completed' ? 0.65 : 1 }}>
-                              <td style={{ textAlign: 'center' }}>
-                                <input 
-                                  type="checkbox" 
-                                  checked={t.status === 'Completed'} 
-                                  onChange={() => toggleTaskStatus(t.id)} 
-                                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                                />
-                              </td>
-                              <td>
-                                <div style={{ fontWeight: '700', textDecoration: t.status === 'Completed' ? 'line-through' : 'none', color: '#0f172a' }}>
-                                  {t.title}
-                                </div>
-                                <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>{t.description}</div>
-                              </td>
-                              <td style={{ fontSize: '12px', fontWeight: '500' }}>
-                                {t.linkedTo ? `🔗 ${t.linkedTo}` : '—'}
-                              </td>
-                              <td style={{ color: isOverdue ? 'var(--danger)' : '#334155', fontWeight: isOverdue ? 'bold' : 'normal', fontSize: '12px' }}>
-                                {t.dueDate} {isOverdue && <span style={{ fontSize: '10px', color: 'var(--danger)', background: '#fee2e2', padding: '2px 6px', borderRadius: '4px', marginLeft: '6px' }}>OVERDUE</span>}
-                              </td>
-                              <td>
-                                <span className={`badge ${t.priority === 'High' ? 'badge-hot' : t.priority === 'Medium' ? 'badge-warm' : 'badge-cold'}`}>
-                                  {t.priority}
-                                </span>
-                              </td>
-                              <td style={{ fontSize: '12px', fontWeight: '600' }}>{t.assignee}</td>
-                              <td>
-                                <button 
-                                  className="btn btn-secondary" 
-                                  style={{ padding: '3px 8px', fontSize: '11px', color: 'var(--danger)', borderColor: '#fee2e2' }}
-                                  onClick={() => {
-                                    if (confirm(`Are you sure you want to delete task "${t.title}"?`)) {
-                                      setTasks(tasks.filter(tk => tk.id !== t.id));
-                                    }
-                                  }}
-                                >
-                                  🗑️ Delete
-                                </button>
+                  {/* DESKTOP TASK TABLE */}
+                  <div className="desktop-only-table">
+                    <div className="custom-table-container">
+                      <table className="custom-table">
+                        <thead>
+                          <tr>
+                            <th style={{ width: '50px', textAlign: 'center' }}>Done</th>
+                            <th>Task Details</th>
+                            <th>Linked Lead/Deal</th>
+                            <th>Due Date</th>
+                            <th>Priority</th>
+                            <th>Assignee</th>
+                            <th>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {displayTasks.map(t => {
+                            const isOverdue = new Date(t.dueDate) < new Date('2026-07-16') && t.status === 'Open';
+                            return (
+                              <tr key={t.id} style={{ opacity: t.status === 'Completed' ? 0.65 : 1 }}>
+                                <td style={{ textAlign: 'center' }}>
+                                  <input 
+                                    type="checkbox" 
+                                    checked={t.status === 'Completed'} 
+                                    onChange={() => toggleTaskStatus(t.id)} 
+                                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                                  />
+                                </td>
+                                <td>
+                                  <div style={{ fontWeight: '700', textDecoration: t.status === 'Completed' ? 'line-through' : 'none', color: '#0f172a' }}>
+                                    {t.title}
+                                  </div>
+                                  <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>{t.description}</div>
+                                </td>
+                                <td style={{ fontSize: '12px', fontWeight: '500' }}>
+                                  {t.linkedTo ? `🔗 ${t.linkedTo}` : '—'}
+                                </td>
+                                <td style={{ color: isOverdue ? 'var(--danger)' : '#334155', fontWeight: isOverdue ? 'bold' : 'normal', fontSize: '12px' }}>
+                                  {t.dueDate} {isOverdue && <span style={{ fontSize: '10px', color: 'var(--danger)', background: '#fee2e2', padding: '2px 6px', borderRadius: '4px', marginLeft: '6px' }}>OVERDUE</span>}
+                                </td>
+                                <td>
+                                  <span className={`badge ${t.priority === 'High' ? 'badge-hot' : t.priority === 'Medium' ? 'badge-warm' : 'badge-cold'}`}>
+                                    {t.priority}
+                                  </span>
+                                </td>
+                                <td style={{ fontSize: '12px', fontWeight: '600' }}>{t.assignee}</td>
+                                <td>
+                                  <button 
+                                    className="btn btn-secondary" 
+                                    style={{ padding: '3px 8px', fontSize: '11px', color: 'var(--danger)', borderColor: '#fee2e2' }}
+                                    onClick={() => {
+                                      if (confirm(`Are you sure you want to delete task "${t.title}"?`)) {
+                                        setTasks(tasks.filter(tk => tk.id !== t.id));
+                                      }
+                                    }}
+                                  >
+                                    🗑️ Delete
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                          {displayTasks.length === 0 && (
+                            <tr>
+                              <td colSpan={7} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)', fontSize: '13px' }}>
+                                No tasks match the active filters and workspace settings.
                               </td>
                             </tr>
-                          );
-                        })}
-                        {displayTasks.length === 0 && (
-                          <tr>
-                            <td colSpan={7} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)', fontSize: '13px' }}>
-                              No tasks match the active filters and workspace settings.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* MOBILE TASK CARDS */}
+                  <div className="mobile-only-cards">
+                    {displayTasks.map(t => {
+                      const isOverdue = new Date(t.dueDate) < new Date('2026-07-16') && t.status === 'Open';
+                      return (
+                        <div 
+                          key={t.id} 
+                          className="mobile-contact-card"
+                          style={{ opacity: t.status === 'Completed' ? 0.7 : 1 }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, cursor: 'pointer', margin: 0 }}>
+                              <input 
+                                type="checkbox" 
+                                checked={t.status === 'Completed'} 
+                                onChange={() => toggleTaskStatus(t.id)} 
+                                style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#10b981' }}
+                              />
+                              <div>
+                                <div style={{ fontWeight: '700', fontSize: '13.5px', textDecoration: t.status === 'Completed' ? 'line-through' : 'none', color: '#0f172a' }}>
+                                  {t.title}
+                                </div>
+                                {t.description && (
+                                  <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                    {t.description}
+                                  </div>
+                                )}
+                              </div>
+                            </label>
+
+                            <span className={`badge ${t.priority === 'High' ? 'badge-hot' : t.priority === 'Medium' ? 'badge-warm' : 'badge-cold'}`} style={{ fontSize: '10px', flexShrink: 0 }}>
+                              {t.priority}
+                            </span>
+                          </div>
+
+                          <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '8px 10px', fontSize: '11.5px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid var(--border-subtle)' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>
+                              {t.linkedTo ? `🔗 ${t.linkedTo}` : `👤 ${t.assignee}`}
+                            </span>
+                            <span style={{ color: isOverdue ? 'var(--danger)' : '#334155', fontWeight: isOverdue ? 'bold' : '600', fontSize: '11px' }}>
+                              📅 {t.dueDate} {isOverdue && <span style={{ fontSize: '9.5px', color: 'var(--danger)', background: '#fee2e2', padding: '2px 5px', borderRadius: '4px', marginLeft: '4px' }}>OVERDUE</span>}
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                            <button 
+                              className="btn btn-secondary" 
+                              style={{ padding: '4px 10px', fontSize: '11px', color: 'var(--danger)', borderColor: '#fee2e2', minHeight: '30px' }}
+                              onClick={() => {
+                                if (confirm(`Are you sure you want to delete task "${t.title}"?`)) {
+                                  setTasks(tasks.filter(tk => tk.id !== t.id));
+                                }
+                              }}
+                            >
+                              🗑️ Delete Task
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {displayTasks.length === 0 && (
+                      <div className="panel-card" style={{ textAlign: 'center', padding: '28px 16px', color: '#64748b' }}>
+                        <div style={{ fontSize: '24px', marginBottom: '6px' }}>📋</div>
+                        <p style={{ margin: 0, fontWeight: '600', fontSize: '12.5px' }}>No tasks match the active filters.</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -7472,7 +7786,7 @@ export default function App() {
                 const { createContactAction } = await import('@/app/actions/contacts');
                 const res = await createContactAction(candidate, currentUser?.fullName || 'CRM User');
                 if (res.success && res.contact) {
-                  setContactsList(prev => [{ ...res.contact, phone: res.contact.preferredPhone, dateAdded: 'Today' }, ...prev]);
+                  setContactsList(prev => [{ ...res.contact, phone: res.contact?.preferredPhone || cleanPhone, dateAdded: 'Today' }, ...prev]);
                   triggerToast(`Contact "${candidate.name}" created!`, 'success');
                 } else {
                   setContactsList(prev => [{ id: `CNT-${Date.now().toString().slice(-4)}`, ...candidate, phone: cleanPhone, dateAdded: 'Today' }, ...prev]);

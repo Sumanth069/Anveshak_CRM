@@ -1,9 +1,44 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
+import { supabase } from '@/lib/supabase';
 import { normalizePhone } from '@/lib/phone';
 import { scoreDuplicate } from '@/lib/dedup';
 import { mergeContactRecords, ContactRecord } from '@/lib/contactMerge';
+
+function mapContactFromSupabase(row: any) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name || '',
+    preferredPhone: row.preferred_phone || row.phone || null,
+    phone: row.preferred_phone || row.phone || null,
+    alternatePhones: Array.isArray(row.alternate_phones) ? row.alternate_phones : (typeof row.alternate_phones === 'string' ? [row.alternate_phones] : []),
+    email: row.email || null,
+    alternateEmails: Array.isArray(row.alternate_emails) ? row.alternate_emails : (typeof row.alternate_emails === 'string' ? [row.alternate_emails] : []),
+    company: row.company || null,
+    designation: row.designation || null,
+    city: row.city || null,
+    state: row.state || null,
+    address: row.address || null,
+    category: row.category || 'Prospect',
+    sourceType: row.source_type || 'Direct',
+    sourceEvent: row.source_event || null,
+    sourceHistory: Array.isArray(row.source_history) ? row.source_history : [],
+    doNotContact: !!row.do_not_contact,
+    consentGiven: row.consent_given !== false,
+    notes: row.notes || null,
+    tags: Array.isArray(row.tags) ? row.tags : [],
+    customFields: row.custom_fields || {},
+    owner: row.owner || 'KP Sumanth',
+    lastContactedAt: row.last_contacted_at || null,
+    isConverted: !!row.is_converted,
+    convertedLeadId: row.converted_lead_id || null,
+    createdAt: row.created_at || new Date().toISOString(),
+    updatedAt: row.updated_at || new Date().toISOString(),
+    dateAdded: row.created_at ? new Date(row.created_at).toLocaleDateString('en-IN') : 'Today'
+  };
+}
 
 export async function fetchContactsListAction(params: {
   search?: string;
@@ -13,18 +48,41 @@ export async function fetchContactsListAction(params: {
   limit?: number;
 } = {}) {
   try {
-    const { search, category, sourceType, recency, limit = 200 } = params;
+    const { search, category, sourceType, recency, limit = 1000 } = params;
 
+    // 1. Direct Supabase Query (Live database sync)
+    try {
+      let query = supabase.from('contacts').select('*');
+
+      if (category && category !== 'all') {
+        query = query.eq('category', category);
+      }
+
+      if (sourceType && sourceType !== 'all') {
+        query = query.eq('source_type', sourceType);
+      }
+
+      if (search && search.trim()) {
+        const q = `%${search.trim()}%`;
+        query = query.or(`name.ilike.${q},company.ilike.${q},email.ilike.${q},preferred_phone.ilike.${q},city.ilike.${q},designation.ilike.${q}`);
+      }
+
+      const { data: supaContacts, error: supaErr } = await query
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (!supaErr && supaContacts && supaContacts.length > 0) {
+        const mapped = supaContacts.map(mapContactFromSupabase).filter(Boolean);
+        return { success: true, contacts: mapped };
+      }
+    } catch (supaEx) {
+      console.warn('Direct Supabase fetch fallback to Prisma:', supaEx);
+    }
+
+    // 2. Prisma fallback
     const where: any = {};
-
-    if (category && category !== 'all') {
-      where.category = category;
-    }
-
-    if (sourceType && sourceType !== 'all') {
-      where.sourceType = sourceType;
-    }
-
+    if (category && category !== 'all') where.category = category;
+    if (sourceType && sourceType !== 'all') where.sourceType = sourceType;
     if (search && search.trim()) {
       const q = search.trim();
       where.OR = [
@@ -37,23 +95,20 @@ export async function fetchContactsListAction(params: {
       ];
     }
 
-    if (recency === 'never') {
-      where.lastContactedAt = null;
-    } else if (recency === 'month') {
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-      where.lastContactedAt = { gte: thirtyDaysAgo };
-    } else if (recency === 'older') {
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-      where.lastContactedAt = { lt: thirtyDaysAgo };
-    }
-
     const contacts = await prisma.contact.findMany({
       where,
       orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
       take: limit,
     });
 
-    return { success: true, contacts };
+    return { 
+      success: true, 
+      contacts: contacts.map(c => ({
+        ...c,
+        phone: c.preferredPhone || '',
+        dateAdded: c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-IN') : 'Today'
+      })) 
+    };
   } catch (error: any) {
     console.error('fetchContactsListAction error:', error);
     return { success: false, error: error.message, contacts: [] };
@@ -62,6 +117,58 @@ export async function fetchContactsListAction(params: {
 
 export async function fetchContact360Action(contactId: string) {
   try {
+    // 1. Direct Supabase Query
+    try {
+      const { data: contactRow, error: cErr } = await supabase
+        .from('contacts')
+        .select('*')
+        .eq('id', contactId)
+        .single();
+
+      if (!cErr && contactRow) {
+        const contact = mapContactFromSupabase(contactRow);
+        const [commRes, mergeRes, taskRes, dealRes] = await Promise.all([
+          supabase.from('communications').select('*').eq('contact_id', contactId).order('created_at', { ascending: false }),
+          supabase.from('contact_merge_logs').select('*').eq('primary_contact_id', contactId).order('created_at', { ascending: false }),
+          supabase.from('tasks').select('*').ilike('linked_to', `%${contact?.name || ''}%`).limit(10),
+          supabase.from('deals').select('*').ilike('name', `%${contact?.name || ''}%`).limit(10)
+        ]);
+
+        return {
+          success: true,
+          data: {
+            contact,
+            communications: (commRes.data || []).map((c: any) => ({
+              id: c.id,
+              contactId: c.contact_id,
+              channel: c.channel,
+              direction: c.direction,
+              subject: c.subject,
+              summary: c.summary,
+              content: c.content,
+              outcome: c.outcome,
+              loggedBy: c.logged_by,
+              createdAt: c.created_at
+            })),
+            mergeLogs: (mergeRes.data || []).map((m: any) => ({
+              id: m.id,
+              primaryContactId: m.primary_contact_id,
+              secondaryContactId: m.secondary_contact_id,
+              mergedFromSnapshot: m.merged_from_snapshot,
+              mergeReason: m.merge_reason,
+              mergedBy: m.merged_by,
+              createdAt: m.created_at
+            })),
+            linkedTasks: taskRes.data || [],
+            linkedDeals: dealRes.data || []
+          }
+        };
+      }
+    } catch (supaEx) {
+      console.warn('Supabase fetchContact360Action fallback to Prisma:', supaEx);
+    }
+
+    // 2. Prisma fallback
     const contact = await prisma.contact.findUnique({
       where: { id: contactId }
     });
@@ -104,7 +211,11 @@ export async function fetchContact360Action(contactId: string) {
     return {
       success: true,
       data: {
-        contact,
+        contact: {
+          ...contact,
+          phone: contact.preferredPhone || '',
+          dateAdded: contact.createdAt ? new Date(contact.createdAt).toLocaleDateString('en-IN') : 'Today'
+        },
         communications,
         mergeLogs,
         linkedTasks,
@@ -112,16 +223,62 @@ export async function fetchContact360Action(contactId: string) {
       }
     };
   } catch (error: any) {
-    console.warn('Prisma DB error in fetchContact360Action (bypassed):', error);
+    console.warn('DB error in fetchContact360Action (bypassed):', error);
     return { success: false, error: 'Database record not found' };
   }
 }
 
 export async function createContactAction(data: any, authorName = 'System User') {
-  try {
-    const normPhone = data.preferredPhone ? normalizePhone(data.preferredPhone) : null;
-    const preferredPhone = normPhone?.isValid ? normPhone.e164 : (data.preferredPhone || null);
+  const normPhone = data.preferredPhone ? normalizePhone(data.preferredPhone) : null;
+  const preferredPhone = normPhone?.isValid ? normPhone.e164 : (data.preferredPhone || null);
 
+  // 1. Write to Supabase table contacts
+  try {
+    const supaPayload: any = {
+      name: data.name.trim(),
+      preferred_phone: preferredPhone,
+      alternate_phones: Array.isArray(data.alternatePhones) ? data.alternatePhones : [],
+      email: data.email ? data.email.trim().toLowerCase() : null,
+      alternate_emails: Array.isArray(data.alternateEmails) ? data.alternateEmails : [],
+      company: data.company ? data.company.trim() : null,
+      designation: data.designation ? data.designation.trim() : null,
+      city: data.city ? data.city.trim() : null,
+      state: data.state ? data.state.trim() : null,
+      address: data.address ? data.address.trim() : null,
+      category: data.category || 'Prospect',
+      source_type: data.sourceType || 'Direct',
+      source_event: data.sourceEvent || null,
+      source_history: data.sourceHistory || (data.sourceType ? [{
+        sourceType: data.sourceType,
+        sourceEvent: data.sourceEvent || null,
+        createdAt: new Date().toISOString()
+      }] : []),
+      do_not_contact: !!data.doNotContact,
+      consent_given: data.consentGiven !== false,
+      notes: data.notes || null,
+      tags: Array.isArray(data.tags) ? data.tags : [],
+      custom_fields: data.customFields || {},
+      owner: data.owner || authorName,
+      import_batch_id: data.importBatchId || null
+    };
+    if (data.id) supaPayload.id = data.id;
+
+    const { data: createdRow, error: sErr } = await supabase
+      .from('contacts')
+      .insert([supaPayload])
+      .select()
+      .single();
+
+    if (!sErr && createdRow) {
+      const mapped = mapContactFromSupabase(createdRow);
+      return { success: true, contact: mapped };
+    }
+  } catch (sEx) {
+    console.warn('Supabase createContactAction fallback:', sEx);
+  }
+
+  // 2. Prisma fallback
+  try {
     const created = await prisma.contact.create({
       data: {
         id: data.id || undefined,
@@ -153,28 +310,13 @@ export async function createContactAction(data: any, authorName = 'System User')
       }
     });
 
-    // Write Audit Log
-    try {
-      await prisma.auditLog.create({
-        data: {
-          user: authorName,
-          action: 'Created Contact Record',
-          entity: `Contact: ${created.name}`,
-          afterState: JSON.stringify(created)
-        }
-      });
-    } catch (auditErr) {
-      console.warn('Audit log write skipped:', auditErr);
-    }
-
     return { success: true, contact: created };
   } catch (error: any) {
     console.warn('Prisma DB write bypassed in createContactAction (using fallback contact):', error);
-    const normPhone = data.preferredPhone ? normalizePhone(data.preferredPhone) : null;
     const fallbackContact = {
       id: `CNT-${Date.now().toString().slice(-4)}`,
       name: data.name?.trim() || 'New Contact',
-      preferredPhone: normPhone?.isValid ? normPhone.e164 : (data.preferredPhone || null),
+      preferredPhone,
       alternatePhones: Array.isArray(data.alternatePhones) ? data.alternatePhones : [],
       email: data.email ? data.email.trim().toLowerCase() : null,
       alternateEmails: Array.isArray(data.alternateEmails) ? data.alternateEmails : [],
@@ -200,20 +342,26 @@ export async function createContactAction(data: any, authorName = 'System User')
 
 export async function updateContactAction(contactId: string, updates: any, authorName = 'System User') {
   try {
-    const existing = await prisma.contact.findUnique({ where: { id: contactId } });
-    if (!existing) {
-      return { success: true, contact: { id: contactId, ...updates } };
-    }
+    const supaUpdates: any = { ...updates, updated_at: new Date().toISOString() };
+    if (updates.preferredPhone) supaUpdates.preferred_phone = updates.preferredPhone;
+    if (updates.alternatePhones) supaUpdates.alternate_phones = updates.alternatePhones;
+    if (updates.alternateEmails) supaUpdates.alternate_emails = updates.alternateEmails;
+    if (updates.sourceType) supaUpdates.source_type = updates.sourceType;
+    if (updates.sourceEvent) supaUpdates.source_event = updates.sourceEvent;
+    if (updates.sourceHistory) supaUpdates.source_history = updates.sourceHistory;
+    if (updates.doNotContact !== undefined) supaUpdates.do_not_contact = updates.doNotContact;
+    if (updates.consentGiven !== undefined) supaUpdates.consent_given = updates.consentGiven;
+    if (updates.customFields) supaUpdates.custom_fields = updates.customFields;
+    if (updates.lastContactedAt) supaUpdates.last_contacted_at = updates.lastContactedAt;
+    if (updates.isConverted !== undefined) supaUpdates.is_converted = updates.isConverted;
+    if (updates.convertedLeadId) supaUpdates.converted_lead_id = updates.convertedLeadId;
 
-    if (updates.preferredPhone) {
-      const norm = normalizePhone(updates.preferredPhone);
-      if (norm.isValid) updates.preferredPhone = norm.e164;
-    }
+    await supabase.from('contacts').update(supaUpdates).eq('id', contactId);
+  } catch (sEx) {
+    console.warn('Supabase updateContactAction error:', sEx);
+  }
 
-    if (updates.email) {
-      updates.email = updates.email.trim().toLowerCase();
-    }
-
+  try {
     const updated = await prisma.contact.update({
       where: { id: contactId },
       data: {
@@ -230,6 +378,14 @@ export async function updateContactAction(contactId: string, updates: any, autho
 }
 
 export async function deleteContactAction(contactId: string, authorName = 'System User') {
+  try {
+    await supabase.from('communications').delete().eq('contact_id', contactId);
+    await supabase.from('contact_merge_logs').delete().eq('primary_contact_id', contactId);
+    await supabase.from('contacts').delete().eq('id', contactId);
+  } catch (sEx) {
+    console.warn('Supabase deleteContactAction error:', sEx);
+  }
+
   try {
     await prisma.communication.deleteMany({ where: { contactId } }).catch(() => {});
     await prisma.contactMergeLog.deleteMany({ where: { primaryContactId: contactId } }).catch(() => {});

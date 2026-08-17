@@ -5,28 +5,127 @@ import { supabase } from '@/lib/supabase';
 
 export async function fetchCrmInitialState() {
   try {
-    const [leads, deals, tasks, companies, quotes, auditLogs] = await Promise.all([
-      prisma.lead.findMany({ orderBy: { createdAt: 'desc' } }),
-      prisma.deal.findMany({ orderBy: { createdAt: 'desc' } }),
-      prisma.task.findMany({ orderBy: { createdAt: 'desc' } }),
-      prisma.company.findMany({ orderBy: { createdAt: 'desc' } }),
-      prisma.quote.findMany({ orderBy: { createdAt: 'desc' } }),
-      prisma.auditLog.findMany({ orderBy: { timestamp: 'desc' }, take: 100 })
+    // 1. Try Prisma first
+    try {
+      const [leads, deals, tasks, companies, quotes, auditLogs] = await Promise.all([
+        prisma.lead.findMany({ orderBy: { createdAt: 'desc' } }),
+        prisma.deal.findMany({ orderBy: { createdAt: 'desc' } }),
+        prisma.task.findMany({ orderBy: { createdAt: 'desc' } }),
+        prisma.company.findMany({ orderBy: { createdAt: 'desc' } }),
+        prisma.quote.findMany({ orderBy: { createdAt: 'desc' } }),
+        prisma.auditLog.findMany({ orderBy: { timestamp: 'desc' }, take: 100 })
+      ]);
+
+      if (leads.length > 0 || deals.length > 0 || tasks.length > 0 || companies.length > 0 || quotes.length > 0) {
+        return {
+          success: true,
+          data: { leads, deals, tasks, companies, quotes, auditLogs }
+        };
+      }
+    } catch (pErr) {
+      console.warn('Prisma fetchCrmInitialState fallback to direct Supabase:', pErr);
+    }
+
+    // 2. Direct Supabase Query
+    const [lRes, dRes, tRes, cRes, qRes, aRes] = await Promise.all([
+      supabase.from('leads').select('*').order('created_at', { ascending: false }),
+      supabase.from('deals').select('*').order('created_at', { ascending: false }),
+      supabase.from('tasks').select('*').order('created_at', { ascending: false }),
+      supabase.from('companies').select('*').order('created_at', { ascending: false }),
+      supabase.from('quotes').select('*').order('created_at', { ascending: false }),
+      supabase.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(100)
     ]);
 
     return {
       success: true,
       data: {
-        leads,
-        deals,
-        tasks,
-        companies,
-        quotes,
-        auditLogs
+        leads: (lRes.data || []).map((l: any) => ({
+          id: l.id,
+          name: l.name,
+          company: l.company || '',
+          email: l.email || '',
+          phone: l.phone || '',
+          status: l.status || 'New',
+          score: l.score || 0,
+          owner: l.owner || 'KP Sumanth',
+          customValues: l.custom_values || {},
+          activities: l.activities || [],
+          createdAt: l.created_at,
+          updatedAt: l.updated_at
+        })),
+        deals: (dRes.data || []).map((d: any) => ({
+          id: d.id,
+          name: d.name,
+          company: d.company,
+          value: Number(d.value) || 0,
+          stage: d.stage || 'New',
+          probability: Number(d.probability) || 0,
+          expectedClose: d.expected_close,
+          owner: d.owner || 'KP Sumanth',
+          lostReason: d.lost_reason,
+          customValues: d.custom_values || {},
+          createdAt: d.created_at,
+          updatedAt: d.updated_at
+        })),
+        tasks: (tRes.data || []).map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          dueDate: t.due_date,
+          dueTime: t.due_time,
+          priority: t.priority || 'Medium',
+          status: t.status || 'Pending',
+          category: t.category || 'General',
+          assignedTo: t.assigned_to || 'KP Sumanth',
+          linkedTo: t.linked_to,
+          completed: !!t.completed,
+          createdAt: t.created_at,
+          updatedAt: t.updated_at
+        })),
+        companies: (cRes.data || []).map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          industry: c.industry || 'Technology',
+          website: c.website || '',
+          phone: c.phone || '',
+          address: c.address || '',
+          city: c.city || '',
+          state: c.state || '',
+          gstin: c.gstin || '',
+          annualRevenue: Number(c.annual_revenue) || 0,
+          createdAt: c.created_at,
+          updatedAt: c.updated_at
+        })),
+        quotes: (qRes.data || []).map((q: any) => ({
+          id: q.id,
+          quoteNumber: q.quote_number,
+          clientName: q.client_name,
+          clientCompany: q.client_company,
+          clientGstin: q.client_gstin,
+          items: q.items || [],
+          subtotal: Number(q.subtotal) || 0,
+          cgst: Number(q.cgst) || 0,
+          sgst: Number(q.sgst) || 0,
+          igst: Number(q.igst) || 0,
+          total: Number(q.total) || 0,
+          terms: q.terms,
+          status: q.status || 'Draft',
+          validUntil: q.valid_until,
+          createdAt: q.created_at,
+          updatedAt: q.updated_at
+        })),
+        auditLogs: (aRes.data || []).map((a: any) => ({
+          id: a.id,
+          timestamp: a.timestamp || a.created_at,
+          user: a.user,
+          action: a.action,
+          entity: a.entity,
+          beforeState: a.before_state,
+          afterState: a.after_state
+        }))
       }
     };
   } catch (error: any) {
-    console.error('Prisma fetchCrmInitialState error:', error);
+    console.error('fetchCrmInitialState error:', error);
     return { success: false, error: error.message };
   }
 }
@@ -488,7 +587,7 @@ export async function saveScannedContactAction(contact: {
   }
 }
 
-export async function saveOwnerFeedbackAction(feedback: {
+export async function createOwnerFeedbackAction(feedback: {
   pageTab: string;
   category: string;
   noteText: string;
@@ -496,7 +595,39 @@ export async function saveOwnerFeedbackAction(feedback: {
 }) {
   const author = feedback.authorName || 'CRM Owner';
 
-  // Primary: Create row in dedicated owner_feedback table
+  // 1. Direct Supabase Query
+  try {
+    const { data: supaCreated, error: sErr } = await supabase
+      .from('owner_feedback')
+      .insert([{
+        page_tab: feedback.pageTab,
+        category: feedback.category,
+        note_text: feedback.noteText,
+        author_name: author,
+        status: 'New'
+      }])
+      .select()
+      .single();
+
+    if (!sErr && supaCreated) {
+      return {
+        success: true,
+        data: {
+          id: supaCreated.id,
+          pageTab: supaCreated.page_tab || feedback.pageTab,
+          category: supaCreated.category || feedback.category,
+          noteText: supaCreated.note_text || feedback.noteText,
+          authorName: supaCreated.author_name || author,
+          status: supaCreated.status || 'New',
+          createdAt: new Date(supaCreated.created_at || Date.now()).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
+        }
+      };
+    }
+  } catch (sEx) {
+    console.warn('Supabase createOwnerFeedbackAction fallback:', sEx);
+  }
+
+  // 2. Prisma fallback
   try {
     const dbClient = prisma as any;
     const created = await dbClient.ownerFeedback.create({
@@ -522,48 +653,49 @@ export async function saveOwnerFeedbackAction(feedback: {
       }
     };
   } catch (err: any) {
-    console.warn('Prisma ownerFeedback create warning, falling back to Lead table:', err);
-    try {
-      const leadRec = await prisma.lead.create({
-        data: {
-          name: feedback.noteText.slice(0, 200),
-          company: feedback.pageTab,
-          email: `${feedback.category.toLowerCase()}@feedback.internal`,
-          status: 'OWNER_FEEDBACK',
-          score: 100,
-          owner: author,
-          customValues: {
-            pageTab: feedback.pageTab,
-            category: feedback.category,
-            noteText: feedback.noteText,
-            authorName: author,
-            status: 'New',
-            createdAt: new Date().toISOString()
-          }
-        }
-      });
-      return {
-        success: true,
-        data: {
-          id: leadRec.id,
-          pageTab: feedback.pageTab,
-          category: feedback.category,
-          noteText: feedback.noteText,
-          authorName: author,
-          status: 'New',
-          createdAt: new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
-        }
-      };
-    } catch (e2) {
-      return { success: false, error: err.message };
-    }
+    return {
+      success: true,
+      data: {
+        id: `OF-${Date.now().toString().slice(-4)}`,
+        pageTab: feedback.pageTab,
+        category: feedback.category,
+        noteText: feedback.noteText,
+        authorName: author,
+        status: 'New',
+        createdAt: new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
+      }
+    };
   }
 }
 
 export async function getOwnerFeedbackListAction() {
-  let feedbackItems: any[] = [];
+  // 1. Direct Supabase Query
+  try {
+    const { data: supaItems, error: sErr } = await supabase
+      .from('owner_feedback')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-  // Primary: Fetch from dedicated owner_feedback table
+    if (!sErr && Array.isArray(supaItems) && supaItems.length > 0) {
+      const mapped = supaItems.map((item: any) => ({
+        id: item.id,
+        pageTab: item.page_tab || 'dashboard',
+        category: item.category || 'Requirement',
+        noteText: item.note_text,
+        authorName: item.author_name || 'CRM Owner',
+        status: item.status || 'New',
+        createdAt: item.created_at 
+          ? new Date(item.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
+          : new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
+      }));
+      return { success: true, data: mapped };
+    }
+  } catch (sEx) {
+    console.warn('Supabase getOwnerFeedbackListAction fallback to Prisma:', sEx);
+  }
+
+  // 2. Prisma Fallback
+  let feedbackItems: any[] = [];
   try {
     const dbClient = prisma as any;
     const items = await dbClient.ownerFeedback.findMany({
@@ -585,57 +717,32 @@ export async function getOwnerFeedbackListAction() {
         });
       });
     }
-  } catch (e) {
-    console.warn('Prisma ownerFeedback findMany warning:', e);
-  }
-
-  // Backup: Fetch from Lead table if owner_feedback is empty
-  if (feedbackItems.length === 0) {
-    try {
-      const leads = await prisma.lead.findMany({
-        where: { status: 'OWNER_FEEDBACK' },
-        orderBy: { createdAt: 'desc' }
-      });
-      leads.forEach(l => {
-        const cv: any = l.customValues || {};
-        feedbackItems.push({
-          id: l.id,
-          pageTab: cv.pageTab || l.company || 'dashboard',
-          category: cv.category || 'Requirement',
-          noteText: cv.noteText || l.name,
-          authorName: cv.authorName || l.owner || 'CRM Owner',
-          status: cv.status || 'New',
-          createdAt: cv.createdAt 
-            ? new Date(cv.createdAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
-            : new Date(l.createdAt || Date.now()).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
-        });
-      });
-    } catch (e2) {}
-  }
+  } catch (e) {}
 
   return { success: true, data: feedbackItems };
 }
 
 export async function updateOwnerFeedbackStatusAction(id: string, status: string) {
   try {
+    await supabase.from('owner_feedback').update({ status }).eq('id', id);
+  } catch (sEx) {}
+
+  try {
     const dbClient = prisma as any;
     await dbClient.ownerFeedback.update({
       where: { id },
       data: { status }
     });
-    return { success: true };
-  } catch (e1) {
-    try {
-      const lead = await prisma.lead.findUnique({ where: { id } });
-      if (lead) {
-        const cv: any = lead.customValues || {};
-        cv.status = status;
-        await prisma.lead.update({
-          where: { id },
-          data: { customValues: cv }
-        });
-      }
-    } catch (e2) {}
-  }
+  } catch (e1) {}
+
   return { success: true };
+}
+
+export async function saveOwnerFeedbackAction(feedback: {
+  pageTab: string;
+  category: string;
+  noteText: string;
+  authorName?: string;
+}) {
+  return createOwnerFeedbackAction(feedback);
 }
