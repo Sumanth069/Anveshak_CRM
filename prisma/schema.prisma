@@ -173,7 +173,7 @@ model Contact {
 model Communication {
   id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   contactId    String    @map("contact_id") @db.Uuid
-  type         String
+  type         String?   @default("Call")
   direction    String?   @default("Outbound")
   subject      String?
   notes        String?
@@ -187,13 +187,13 @@ model Communication {
 
 model ImportBatch {
   id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  fileName      String    @map("file_name")
+  fileName      String?   @default("Batch Upload") @map("file_name")
   sourceType    String?   @default("Excel Import") @map("source_type")
   sourceEvent   String?   @map("source_event")
-  totalRows     Int       @default(0) @map("total_rows")
-  importedCount Int       @default(0) @map("imported_count")
-  mergedCount   Int       @default(0) @map("merged_count")
-  failedCount   Int       @default(0) @map("failed_count")
+  totalRows     Int?      @default(0) @map("total_rows")
+  importedCount Int?      @default(0) @map("imported_count")
+  mergedCount   Int?      @default(0) @map("merged_count")
+  failedCount   Int?      @default(0) @map("failed_count")
   uploadedBy    String?   @map("uploaded_by")
   isRolledBack  Boolean?  @default(false) @map("is_rolled_back")
   createdAt     DateTime? @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at") @db.Timestamptz(6)
@@ -203,9 +203,9 @@ model ImportBatch {
 
 model ContactMergeLog {
   id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  primaryContactId   String    @map("primary_contact_id") @db.Uuid
+  primaryContactId   String?   @map("primary_contact_id") @db.Uuid
   secondaryContactId String?   @map("secondary_contact_id")
-  mergedFromSnapshot Json      @map("merged_from_snapshot")
+  mergedFromSnapshot Json?     @default("{}") @map("merged_from_snapshot")
   fieldOverrides     Json?     @default("{}") @map("field_overrides")
   mergedBy           String?   @map("merged_by")
   createdAt          DateTime? @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at") @db.Timestamptz(6)

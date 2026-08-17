@@ -13,7 +13,7 @@ interface ContactMergeModalProps {
   currentUser?: { fullName?: string; email?: string } | null;
   onClose: () => void;
   onMergeSuccess: (mergedContact: any) => void;
-  triggerToast?: (msg: string, type: 'success' | 'warning' | 'info' | 'error') => void;
+  triggerToast?: (msg: string, type?: any) => void;
 }
 
 export default function ContactMergeModal({
@@ -78,12 +78,12 @@ export default function ContactMergeModal({
         authorName: currentUser?.fullName || 'CRM User'
       });
 
-      if (res.success && res.contact) {
-        onMergeSuccess(res.contact);
-        if (triggerToast) triggerToast(`Successfully merged ${secondaryContact.name} into ${res.contact.name}!`, 'success');
+      if (res.success && (res as any).contact) {
+        onMergeSuccess((res as any).contact);
+        if (triggerToast) triggerToast(`Successfully merged ${(secondaryContact as any)?.name || 'contact'} into ${(res as any).contact?.name || 'primary'}!`, 'success');
         onClose();
       } else {
-        alert(res.error || 'Failed to merge contact records.');
+        alert((res as any).error || 'Failed to merge contact records.');
       }
     } catch (err: any) {
       console.error('Merge execution error:', err);
