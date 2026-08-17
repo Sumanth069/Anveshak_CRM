@@ -980,40 +980,180 @@ button {
 }
 
 .btn {
-  padding: 9px 16px;
-  border-radius: var(--radius-sm);
+  padding: 8px 15px;
+  border-radius: 8px;
   font-size: 12.5px;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   cursor: pointer;
   transition: all 0.15s ease;
   border: 1px solid transparent;
+  line-height: 1.2;
 }
 
 .btn-primary {
   background-color: var(--primary);
   color: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.btn-primary:hover {
+  background-color: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(30, 64, 175, 0.2);
 }
 
 .btn-secondary {
   background-color: #ffffff;
-  border-color: var(--border-color);
-  color: var(--text-label);
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 .btn-secondary:hover {
   background-color: #f8fafc;
-  color: var(--text-main);
+  border-color: #94a3b8;
+  color: #0f172a;
+  transform: translateY(-1px);
 }
 
-/* Centered Layout Limits to prevent extreme screen spanning */
+/* Unified Desktop Page Header */
+.page-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  gap: 16px;
+}
+
+.page-header-row .page-title-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.page-header-row .page-title-text h2 {
+  font-size: 22px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: -0.4px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.page-header-row .page-title-text p {
+  font-size: 13px;
+  color: #64748b;
+  margin: 4px 0 0 0;
+  line-height: 1.4;
+}
+
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Standardized Table Action Buttons */
+.btn-table-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 30px;
+  padding: 0 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.btn-table-action:hover {
+  transform: translateY(-1px);
+}
+
+.btn-table-comm {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+
+.btn-table-comm:hover {
+  background: #d1fae5;
+  border-color: #6ee7b7;
+  color: #065f46;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.15);
+}
+
+.btn-table-view {
+  background: #ffffff;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+.btn-table-view:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.btn-table-lead {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.btn-table-lead:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1e40af;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.15);
+}
+
+.badge-table-inlead {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 8px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #059669;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.btn-table-delete {
+  background: #ffffff;
+  color: #94a3b8;
+  border-color: #e2e8f0;
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+.btn-table-delete:hover {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+
+/* Professional Content Canvas Width */
 .content-body {
-  max-width: 1200px;
+  max-width: 1540px;
   width: 100%;
   margin: 0 auto;
-  padding: 24px 20px;
+  padding: 24px 28px;
 }
 
 /* Contacts Grid Alignment (Screenshot Feedback) */

@@ -3233,7 +3233,7 @@ export default function App() {
           {activeTab === 'contacts' && (
             <div className="animate-fade">
               {/* Header Row with Actions */}
-              <div className="page-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+              <div className="page-header-row">
                 <div className="page-title-text">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                     <h2>Centralized Contacts Directory</h2>
@@ -3247,8 +3247,8 @@ export default function App() {
                   <button 
                     className="btn btn-primary primary-action-full" 
                     style={{ 
-                      backgroundColor: '#151c2e', 
-                      borderColor: '#151c2e', 
+                      backgroundColor: '#0f172a', 
+                      borderColor: '#1e293b', 
                       color: '#f5d396',
                       display: 'inline-flex', 
                       alignItems: 'center', 
@@ -3258,7 +3258,8 @@ export default function App() {
                       padding: '0 14px', 
                       fontSize: '12.5px', 
                       fontWeight: '700', 
-                      borderRadius: '8px'
+                      borderRadius: '8px',
+                      boxShadow: '0 2px 6px rgba(15, 23, 42, 0.15)'
                     }} 
                     onClick={() => {
                       setScannedImagePreview(null);
@@ -3281,9 +3282,10 @@ export default function App() {
                       gap: '6px', 
                       height: '38px', 
                       padding: '0 14px', 
-                      fontSize: '12px', 
+                      fontSize: '12.5px', 
                       fontWeight: '600', 
-                      borderRadius: '8px'
+                      borderRadius: '8px',
+                      boxShadow: '0 2px 6px rgba(5, 150, 105, 0.2)'
                     }} 
                     onClick={() => setShowExcelImportModal(true)}
                   >
@@ -3299,7 +3301,7 @@ export default function App() {
                       gap: '6px', 
                       height: '38px', 
                       padding: '0 14px', 
-                      fontSize: '12px', 
+                      fontSize: '12.5px', 
                       fontWeight: '600', 
                       borderRadius: '8px'
                     }} 
@@ -3312,15 +3314,15 @@ export default function App() {
                     className="btn btn-secondary" 
                     style={{ 
                       height: '38px', 
-                      padding: '0 12px', 
-                      fontSize: '12px', 
+                      padding: '0 14px', 
+                      fontSize: '12.5px', 
                       fontWeight: '600', 
                       borderRadius: '8px',
-                      color: '#151c2e',
+                      color: '#1e293b',
                       display: 'inline-flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      gap: '4px'
+                      gap: '5px'
                     }} 
                     onClick={async () => {
                       try {
@@ -3349,12 +3351,14 @@ export default function App() {
                     className="btn btn-secondary"
                     style={{ 
                       height: '38px', 
-                      padding: '0 12px', 
-                      fontSize: '12px',
+                      padding: '0 14px', 
+                      fontSize: '12.5px',
+                      fontWeight: '600',
+                      borderRadius: '8px',
                       display: 'inline-flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      gap: '4px'
+                      gap: '5px'
                     }}
                     onClick={() => {
                       const csvHeader = 'Name,Company,Designation,Phone,Email,City,Category,Source,Last Contacted\n';
@@ -3725,12 +3729,11 @@ export default function App() {
                             </td>
 
                             {/* Actions Toolbar */}
-                            <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                            <td style={{ padding: '10px 16px', textAlign: 'right', verticalAlign: 'middle' }}>
+                              <div style={{ display: 'inline-flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
                                 {/* 1-Click Comm Modal Trigger */}
                                 <button
-                                  className="btn btn-primary"
-                                  style={{ padding: '4px 10px', fontSize: '11px', backgroundColor: '#10b981', borderColor: '#10b981', color: '#fff' }}
+                                  className="btn-table-action btn-table-comm"
                                   title="Quick WhatsApp / Call / Email"
                                   onClick={() => setShowQuickCommContact(cnt)}
                                 >
@@ -3739,8 +3742,8 @@ export default function App() {
 
                                 {/* 360 Profile Trigger */}
                                 <button
-                                  className="btn btn-secondary"
-                                  style={{ padding: '4px 10px', fontSize: '11px' }}
+                                  className="btn-table-action btn-table-view"
+                                  title="View 360° Profile"
                                   onClick={() => setSelectedContactFor360(cnt.id)}
                                 >
                                   360° View
@@ -3749,8 +3752,8 @@ export default function App() {
                                 {/* Convert to Lead Button */}
                                 {!cnt.isConverted ? (
                                   <button 
-                                    className="btn btn-primary" 
-                                    style={{ padding: '4px 10px', fontSize: '11px', backgroundColor: '#1e40af', borderColor: '#1e40af' }}
+                                    className="btn-table-action btn-table-lead"
+                                    title="Convert to Sales Lead"
                                     onClick={async () => {
                                       try {
                                         const { createLeadAction } = await import('@/app/actions/crm');
@@ -3789,19 +3792,17 @@ export default function App() {
                                     Lead →
                                   </button>
                                 ) : (
-                                  <button 
-                                    className="btn btn-secondary" 
-                                    style={{ padding: '4px 8px', fontSize: '10px', color: '#10b981', borderColor: '#a7f3d0' }}
-                                    onClick={() => setActiveTab('leads')}
+                                  <span 
+                                    className="badge-table-inlead"
+                                    title="Already in Leads Pipeline"
                                   >
                                     In Leads ✓
-                                  </button>
+                                  </span>
                                 )}
 
                                 {/* Delete Contact */}
                                 <button 
-                                  className="btn btn-secondary" 
-                                  style={{ padding: '4px 8px', fontSize: '11px', color: '#ef4444', borderColor: '#fca5a5', backgroundColor: '#fef2f2' }}
+                                  className="btn-table-action btn-table-delete"
                                   title="Delete Contact"
                                   onClick={async () => {
                                     if (confirm(`Are you sure you want to delete contact "${cnt.name}"?`)) {
@@ -3838,7 +3839,7 @@ export default function App() {
                   <h2>Leads Queue & Scoring Management</h2>
                   <p>Centralized database of qualified leads synced with Supabase PostgreSQL</p>
                 </div>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <div className="page-header-actions">
                   <button className="btn btn-secondary" onClick={() => handleCSVExport('Leads')}>Export CSV</button>
                   <button className="btn btn-primary" onClick={() => setShowLeadModal(true)}>+ Add Direct Lead</button>
                 </div>
@@ -4238,14 +4239,16 @@ export default function App() {
 
             return (
               <div className="animate-fade">
-                <div className="page-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <div className="page-header-row">
                   <div className="page-title-text">
                     <h2>Operational Task Queue (TSK-01)</h2>
                     <p>Manage standard follow-ups, checklist items, and project milestones</p>
                   </div>
-                  <button className="btn btn-primary" onClick={() => setShowTaskModal(true)}>
-                    + Create Task
-                  </button>
+                  <div className="page-header-actions">
+                    <button className="btn btn-primary" onClick={() => setShowTaskModal(true)}>
+                      + Create Task
+                    </button>
+                  </div>
                 </div>
 
                 <div className="panel-card" style={{ padding: '20px', marginBottom: '20px' }}>
