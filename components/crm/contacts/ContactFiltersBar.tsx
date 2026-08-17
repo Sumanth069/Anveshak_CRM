@@ -151,16 +151,17 @@ export default function ContactFiltersBar({
         .contact-filters-panel {
           background: #ffffff;
           border: 1px solid var(--border-color);
-          border-radius: 14px;
-          padding: 14px 16px;
-          margin-bottom: 16px;
-          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+          border-radius: 12px;
+          padding: 12px 16px;
+          margin-bottom: 18px;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
         }
 
         .contact-filters-grid {
-          display: flex;
-          flex-direction: column;
+          display: grid;
+          grid-template-columns: 1.8fr 1fr 1fr 1fr;
           gap: 10px;
+          align-items: center;
         }
 
         .contact-search-box {
@@ -180,10 +181,11 @@ export default function ContactFiltersBar({
 
         .contact-search-input {
           width: 100%;
-          padding: 10px 32px 10px 36px;
-          font-size: 13.5px;
-          border: 1px solid var(--border-color);
-          border-radius: 10px;
+          height: 38px;
+          padding: 0 32px 0 36px;
+          font-size: 13px;
+          border: 1px solid #cbd5e1;
+          border-radius: 8px;
           background: #f8fafc;
           outline: none;
           transition: all 0.2s ease;
@@ -209,9 +211,7 @@ export default function ContactFiltersBar({
         }
 
         .contact-dropdowns-row {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 8px;
+          display: contents;
         }
 
         .contact-dropdown-wrap {
@@ -220,25 +220,28 @@ export default function ContactFiltersBar({
 
         .contact-filter-select {
           width: 100%;
-          padding: 8px 10px;
+          height: 38px;
+          padding: 0 10px;
           font-size: 12.5px;
           font-weight: 500;
-          border: 1px solid var(--border-color);
+          border: 1px solid #cbd5e1;
           border-radius: 8px;
           background-color: #f8fafc;
           color: var(--text-main);
           outline: none;
           cursor: pointer;
+          transition: all 0.15s ease;
         }
 
         .contact-filter-select:focus {
           border-color: #1e40af;
           background-color: #ffffff;
+          box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.08);
         }
 
         .contact-filters-status {
           margin-top: 10px;
-          padding-top: 10px;
+          padding-top: 8px;
           border-top: 1px solid var(--border-subtle);
           display: flex;
           justify-content: space-between;
@@ -253,8 +256,17 @@ export default function ContactFiltersBar({
             border-radius: 12px;
           }
 
+          .contact-filters-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+          }
+
           .contact-dropdowns-row {
+            display: grid;
             grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            width: 100%;
           }
 
           .contact-dropdown-wrap:last-child {
@@ -262,7 +274,7 @@ export default function ContactFiltersBar({
           }
 
           .contact-filter-select {
-            padding: 9px 10px;
+            height: 36px;
             font-size: 12px;
           }
         }
