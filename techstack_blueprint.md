@@ -43,6 +43,12 @@ graph TD
 4. **WhatsApp & Email Dispatchers**:
    * Pre-loads templates (e.g., introductions, meeting follow-ups, and proposals).
    * Generates sanitized redirects to WhatsApp API and native OS `mailto:` clients.
+5. **Centralized Contact Management ("One Person = One Record")**:
+   * Multi-signal scored deduplication engine (Phone 100, Email 90, Name+Company 40, Name 20).
+   * Strict E.164 phone normalization (`lib/phone.ts`) with default India (`+91`) resolution.
+   * Interactive Contact Merge Conflict Diff modal (`ContactMergeModal.tsx`) with snapshot preservation (`ContactMergeLog`).
+   * Contact 360 Drawer (`Contact360Modal.tsx`) tracking complete communications timeline, provenance history, and linked pipeline deals.
+   * Excel & CSV Batch Importer (`ExcelImportModal.tsx`) with column mapper, preview validator, and 1-click batch rollbacks.
 
 ---
 

@@ -139,3 +139,77 @@ model OwnerFeedback {
 
   @@map("owner_feedback")
 }
+
+model Contact {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String
+  preferredPhone  String?   @map("preferred_phone")
+  alternatePhones Json?     @default("[]") @map("alternate_phones")
+  email           String?
+  alternateEmails Json?     @default("[]") @map("alternate_emails")
+  company         String?
+  designation     String?
+  city            String?
+  state           String?
+  address         String?
+  category        String?   @default("Prospect")
+  sourceType      String?   @default("Direct") @map("source_type")
+  sourceEvent     String?   @map("source_event")
+  sourceHistory   Json?     @default("[]") @map("source_history")
+  doNotContact    Boolean?  @default(false) @map("do_not_contact")
+  consentGiven    Boolean?  @default(true) @map("consent_given")
+  notes           String?
+  tags            Json?     @default("[]")
+  customFields    Json?     @default("{}") @map("custom_fields")
+  owner           String?
+  lastContactedAt DateTime? @map("last_contacted_at") @db.Timestamptz(6)
+  importBatchId   String?   @map("import_batch_id") @db.Uuid
+  createdAt       DateTime? @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime? @default(dbgenerated("timezone('utc'::text, now())")) @map("updated_at") @db.Timestamptz(6)
+
+  @@map("contacts")
+}
+
+model Communication {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contactId    String    @map("contact_id") @db.Uuid
+  type         String
+  direction    String?   @default("Outbound")
+  subject      String?
+  notes        String?
+  templateUsed String?   @map("template_used")
+  autoLogged   Boolean?  @default(false) @map("auto_logged")
+  loggedBy     String?   @map("logged_by")
+  createdAt    DateTime? @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at") @db.Timestamptz(6)
+
+  @@map("communications")
+}
+
+model ImportBatch {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fileName      String    @map("file_name")
+  sourceType    String?   @default("Excel Import") @map("source_type")
+  sourceEvent   String?   @map("source_event")
+  totalRows     Int       @default(0) @map("total_rows")
+  importedCount Int       @default(0) @map("imported_count")
+  mergedCount   Int       @default(0) @map("merged_count")
+  failedCount   Int       @default(0) @map("failed_count")
+  uploadedBy    String?   @map("uploaded_by")
+  isRolledBack  Boolean?  @default(false) @map("is_rolled_back")
+  createdAt     DateTime? @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at") @db.Timestamptz(6)
+
+  @@map("import_batches")
+}
+
+model ContactMergeLog {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  primaryContactId   String    @map("primary_contact_id") @db.Uuid
+  secondaryContactId String?   @map("secondary_contact_id")
+  mergedFromSnapshot Json      @map("merged_from_snapshot")
+  fieldOverrides     Json?     @default("{}") @map("field_overrides")
+  mergedBy           String?   @map("merged_by")
+  createdAt          DateTime? @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at") @db.Timestamptz(6)
+
+  @@map("contact_merge_logs")
+}
+
