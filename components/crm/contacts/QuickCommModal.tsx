@@ -114,7 +114,6 @@ export default function QuickCommModal({
     const encodedText = encodeURIComponent(messageBody);
     const waUrl = `https://api.whatsapp.com/send?phone=${cleanNumber}&text=${encodedText}`;
 
-    // Auto-log communication in database
     setIsSubmitting(true);
     try {
       const res = await logCommunicationAction({
@@ -214,17 +213,48 @@ export default function QuickCommModal({
     }
   };
 
+  // 4. Log Meeting
+  const handleLogMeeting = async () => {
+    if (isBlocked) {
+      alert('This contact is marked DO NOT CONTACT.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await logCommunicationAction({
+        contactId: contact.id,
+        type: 'Meeting',
+        direction: 'Outbound',
+        subject: subject || `Meeting with ${contact.name}`,
+        notes: callNotes || messageBody || 'Meeting completed.',
+        autoLogged: false,
+        authorName
+      });
+
+      if (res.success && res.communication) {
+        onCommunicationLogged(res.communication);
+        if (triggerToast) triggerToast('Meeting logged to contact timeline!', 'success');
+      }
+    } catch (err) {
+      console.error('Error logging meeting:', err);
+    } finally {
+      setIsSubmitting(false);
+      onClose();
+    }
+  };
+
   return (
     <div className="modal-overlay" style={{ zIndex: 1100 }}>
-      <div className="modal-content" style={{ width: '640px', maxWidth: '95vw' }}>
+      <div className="modal-content" style={{ width: '640px', maxWidth: '96vw', padding: '20px' }}>
         {/* Header */}
-        <div className="modal-header" style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '14px' }}>
+        <div className="modal-header" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#0f172a' }}>
-              Quick Communication Hub
+            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: 'var(--text-main)' }}>
+              Quick Outreach Hub
             </h3>
-            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b' }}>
-              Communicating with <strong>{contact.name}</strong> ({contact.company || 'No Company'})
+            <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
+              Connecting with <strong>{contact.name}</strong> • <strong style={{ color: '#d49b38' }}>{contact.company || 'No Company'}</strong>
             </p>
           </div>
           <button className="modal-close-btn" onClick={onClose}>✕</button>
@@ -237,7 +267,7 @@ export default function QuickCommModal({
             border: '1px solid #fca5a5',
             borderRadius: '8px',
             padding: '12px',
-            margin: '16px 0',
+            margin: '14px 0',
             fontSize: '12px',
             color: '#991b1b'
           }}>
@@ -259,19 +289,23 @@ export default function QuickCommModal({
         )}
 
         {/* Channel Switcher Tabs */}
-        <div style={{ display: 'flex', gap: '8px', margin: '16px 0', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+        <div style={{ display: 'flex', gap: '6px', margin: '14px 0', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', overflowX: 'auto', scrollbarWidth: 'none' }}>
           {(['WhatsApp', 'Call', 'Email', 'Meeting'] as const).map((chan) => (
             <button
               key={chan}
               type="button"
               className={`btn ${activeChannel === chan ? 'btn-primary' : 'btn-secondary'}`}
               style={{
-                padding: '6px 16px',
+                padding: '7px 14px',
                 fontSize: '12px',
-                borderRadius: '6px',
+                borderRadius: '8px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '6px',
+                whiteSpace: 'nowrap',
+                flex: 1,
+                justifyContent: 'center',
+                ...(activeChannel === chan && chan === 'WhatsApp' ? { backgroundColor: '#10b981', borderColor: '#10b981' } : {})
               }}
               onClick={() => setActiveChannel(chan)}
             >
@@ -288,7 +322,7 @@ export default function QuickCommModal({
           <div>
             {/* Template Picker */}
             <div style={{ marginBottom: '12px' }}>
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '4px' }}>
                 Select Message Template:
               </label>
               <select
@@ -297,10 +331,10 @@ export default function QuickCommModal({
                 style={{
                   width: '100%',
                   padding: '8px 10px',
-                  borderRadius: '6px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '12px',
-                  backgroundColor: '#f8fafc'
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                  fontSize: '12.5px',
+                  background: '#f8fafc'
                 }}
               >
                 {TEMPLATES.map(tpl => (
@@ -311,10 +345,11 @@ export default function QuickCommModal({
               </select>
             </div>
 
+            {/* Email Subject */}
             {activeChannel === 'Email' && (
               <div style={{ marginBottom: '12px' }}>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>
-                  Email Subject:
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                  Email Subject Line:
                 </label>
                 <input
                   type="text"
@@ -323,69 +358,58 @@ export default function QuickCommModal({
                   style={{
                     width: '100%',
                     padding: '8px 10px',
-                    borderRadius: '6px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '12px'
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)',
+                    fontSize: '12.5px',
+                    background: '#f8fafc'
                   }}
                 />
               </div>
             )}
 
+            {/* Message Body */}
             <div style={{ marginBottom: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569' }}>
-                  Message Content (Interpolated):
-                </label>
-                <span style={{ fontSize: '11px', color: '#64748b' }}>
-                  Tags: [Name], [Your Name], [Company], [Source/Place]
-                </span>
-              </div>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                Message Text (Personalized):
+              </label>
               <textarea
-                rows={6}
+                rows={5}
                 value={messageBody}
                 onChange={(e) => setMessageBody(e.target.value)}
                 style={{
                   width: '100%',
                   padding: '10px',
-                  borderRadius: '6px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '12px',
-                  fontFamily: 'inherit',
-                  lineHeight: '1.4'
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                  fontSize: '12.5px',
+                  lineHeight: '1.4',
+                  background: '#f8fafc'
                 }}
               />
             </div>
 
-            {/* Target Destination Indicator */}
-            <div style={{ background: '#f1f5f9', padding: '10px 12px', borderRadius: '6px', fontSize: '12px', marginBottom: '16px', color: '#334155' }}>
-              {activeChannel === 'WhatsApp' ? (
-                <div>Target WhatsApp Number: <strong>{normPhone.isValid ? normPhone.display : '⚠️ No valid phone'}</strong></div>
-              ) : (
-                <div>Target Email Address: <strong>{contact.email || '⚠️ No email specified'}</strong></div>
-              )}
-            </div>
-
             {/* Action Buttons */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
               <button className="btn btn-secondary" onClick={onClose} disabled={isSubmitting}>
                 Cancel
               </button>
               {activeChannel === 'WhatsApp' ? (
                 <button
                   className="btn btn-primary"
-                  style={{ backgroundColor: '#25D366', borderColor: '#25D366', color: '#fff' }}
+                  style={{ backgroundColor: '#10b981', borderColor: '#10b981', color: '#fff' }}
                   onClick={handleSendWhatsApp}
-                  disabled={isSubmitting || isBlocked || !normPhone.isValid}
+                  disabled={isSubmitting || isBlocked}
                 >
-                  {isSubmitting ? 'Logging...' : 'Launch WhatsApp Web & Auto-Log →'}
+                  {isSubmitting ? 'Opening WhatsApp...' : '🚀 Open in WhatsApp & Auto-Log'}
                 </button>
               ) : (
                 <button
                   className="btn btn-primary"
+                  style={{ backgroundColor: '#1e40af', borderColor: '#1e40af', color: '#fff' }}
                   onClick={handleSendEmail}
-                  disabled={isSubmitting || isBlocked || !contact.email}
+                  disabled={isSubmitting || isBlocked}
                 >
-                  {isSubmitting ? 'Logging...' : 'Launch Mail Client & Auto-Log →'}
+                  {isSubmitting ? 'Opening Email...' : '✉️ Open Email Client & Auto-Log'}
                 </button>
               )}
             </div>
@@ -395,121 +419,108 @@ export default function QuickCommModal({
         {/* Channel 2: Phone Call */}
         {activeChannel === 'Call' && (
           <div>
-            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px', marginBottom: '16px' }}>
-              <div style={{ fontSize: '13px', color: '#0f172a', marginBottom: '6px' }}>
-                Dialing: <strong>{normPhone.isValid ? normPhone.display : contact.preferredPhone || 'No Phone'}</strong>
-              </div>
-              <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>
-                Clicking "Dial & Log" will trigger your device dialer (tel:) and record an entry into this contact's communication history.
-              </p>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '12px', marginBottom: '16px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>
-                  Call Duration (Mins):
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  value={callDuration}
-                  onChange={(e) => setCallDuration(parseInt(e.target.value) || 1)}
-                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>
-                  Call Notes / Outcome:
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g., Discussed Q3 incubator requirements, requested quote"
-                  value={callNotes}
-                  onChange={(e) => setCallNotes(e.target.value)}
-                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
-                />
+            <div style={{ background: '#f8fafc', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '14px', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Target Phone:</div>
+                  <strong style={{ fontSize: '15px', color: '#151c2e' }}>
+                    {normPhone.isValid ? normPhone.display : (contact.preferredPhone || 'No valid phone')}
+                  </strong>
+                </div>
+                {normPhone.isValid && (
+                  <a
+                    href={`tel:${normPhone.e164}`}
+                    className="btn btn-primary"
+                    style={{ backgroundColor: '#10b981', borderColor: '#10b981', color: '#fff', fontSize: '12px', padding: '6px 14px', textDecoration: 'none' }}
+                  >
+                    📞 Tap to Call
+                  </a>
+                )}
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                Call Duration (Minutes):
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="120"
+                value={callDuration}
+                onChange={(e) => setCallDuration(Number(e.target.value))}
+                style={{ width: '100px', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '13px' }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                Call Notes & Discussion Summary:
+              </label>
+              <textarea
+                rows={4}
+                placeholder="What was discussed during the call? Next steps?"
+                value={callNotes}
+                onChange={(e) => setCallNotes(e.target.value)}
+                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '12.5px', background: '#f8fafc' }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
               <button className="btn btn-secondary" onClick={onClose} disabled={isSubmitting}>
                 Cancel
               </button>
               <button
-                className="btn btn-secondary"
-                onClick={() => handleLogCall(false)}
-                disabled={isSubmitting || isBlocked}
-              >
-                Log Call Notes Only
-              </button>
-              <button
                 className="btn btn-primary"
-                onClick={() => handleLogCall(true)}
-                disabled={isSubmitting || isBlocked || !normPhone.isValid}
+                style={{ backgroundColor: '#151c2e', borderColor: '#151c2e', color: '#f5d396' }}
+                onClick={() => handleLogCall(false)}
+                disabled={isSubmitting}
               >
-                📞 Dial & Auto-Log Call
+                {isSubmitting ? 'Logging...' : '✓ Log Call Notes to Timeline'}
               </button>
             </div>
           </div>
         )}
 
-        {/* Channel 4: Meeting Notes */}
+        {/* Channel 4: Meeting */}
         {activeChannel === 'Meeting' && (
           <div>
-            <div style={{ marginBottom: '14px' }}>
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '4px' }}>
                 Meeting Subject / Topic:
               </label>
               <input
                 type="text"
-                placeholder="e.g. In-person discussion at Bengaluru Tech Summit"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '12.5px', background: '#f8fafc' }}
               />
             </div>
+
             <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>
-                Meeting Minutes / Action Items:
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                Meeting Minutes & Key Decisions:
               </label>
               <textarea
                 rows={5}
-                placeholder="Key takeaways, action items, next steps agreed upon..."
+                placeholder="Record key conversation points, requirements, and next action items..."
                 value={callNotes}
                 onChange={(e) => setCallNotes(e.target.value)}
-                style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '12.5px', background: '#f8fafc' }}
               />
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
               <button className="btn btn-secondary" onClick={onClose} disabled={isSubmitting}>
                 Cancel
               </button>
               <button
                 className="btn btn-primary"
-                onClick={async () => {
-                  setIsSubmitting(true);
-                  try {
-                    const res = await logCommunicationAction({
-                      contactId: contact.id,
-                      type: 'Meeting',
-                      direction: 'Inbound',
-                      subject: subject || 'Meeting Minutes',
-                      notes: callNotes,
-                      autoLogged: false,
-                      authorName
-                    });
-                    if (res.success && res.communication) {
-                      onCommunicationLogged(res.communication);
-                      if (triggerToast) triggerToast('Meeting note logged!', 'success');
-                    }
-                  } finally {
-                    setIsSubmitting(false);
-                    onClose();
-                  }
-                }}
+                style={{ backgroundColor: '#6d28d9', borderColor: '#6d28d9', color: '#fff' }}
+                onClick={handleLogMeeting}
                 disabled={isSubmitting}
               >
-                Save Meeting Note →
+                {isSubmitting ? 'Saving...' : '🤝 Save Meeting to Timeline'}
               </button>
             </div>
           </div>

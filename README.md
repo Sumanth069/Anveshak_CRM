@@ -63,7 +63,17 @@ npx prisma generate
 npx prisma db push
 ```
 
-### 4. Run Development Server
+### 4. Run Type Check & Verification
+```bash
+npm run typecheck   # Runs tsc --noEmit
+```
+
+### 5. Build for Production
+```bash
+npm run build       # Runs prisma generate, tsc --noEmit, and next build
+```
+
+### 6. Run Development Server
 ```bash
 npm run dev
 ```

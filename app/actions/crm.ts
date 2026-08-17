@@ -5,28 +5,127 @@ import { supabase } from '@/lib/supabase';
 
 export async function fetchCrmInitialState() {
   try {
-    const [leads, deals, tasks, companies, quotes, auditLogs] = await Promise.all([
-      prisma.lead.findMany({ orderBy: { createdAt: 'desc' } }),
-      prisma.deal.findMany({ orderBy: { createdAt: 'desc' } }),
-      prisma.task.findMany({ orderBy: { createdAt: 'desc' } }),
-      prisma.company.findMany({ orderBy: { createdAt: 'desc' } }),
-      prisma.quote.findMany({ orderBy: { createdAt: 'desc' } }),
-      prisma.auditLog.findMany({ orderBy: { timestamp: 'desc' }, take: 100 })
+    // 1. Try Prisma first
+    try {
+      const [leads, deals, tasks, companies, quotes, auditLogs] = await Promise.all([
+        prisma.lead.findMany({ orderBy: { createdAt: 'desc' } }),
+        prisma.deal.findMany({ orderBy: { createdAt: 'desc' } }),
+        prisma.task.findMany({ orderBy: { createdAt: 'desc' } }),
+        prisma.company.findMany({ orderBy: { createdAt: 'desc' } }),
+        prisma.quote.findMany({ orderBy: { createdAt: 'desc' } }),
+        prisma.auditLog.findMany({ orderBy: { timestamp: 'desc' }, take: 100 })
+      ]);
+
+      if (leads.length > 0 || deals.length > 0 || tasks.length > 0 || companies.length > 0 || quotes.length > 0) {
+        return {
+          success: true,
+          data: { leads, deals, tasks, companies, quotes, auditLogs }
+        };
+      }
+    } catch (pErr) {
+      console.warn('Prisma fetchCrmInitialState fallback to direct Supabase:', pErr);
+    }
+
+    // 2. Direct Supabase Query
+    const [lRes, dRes, tRes, cRes, qRes, aRes] = await Promise.all([
+      supabase.from('leads').select('*').order('created_at', { ascending: false }),
+      supabase.from('deals').select('*').order('created_at', { ascending: false }),
+      supabase.from('tasks').select('*').order('created_at', { ascending: false }),
+      supabase.from('companies').select('*').order('created_at', { ascending: false }),
+      supabase.from('quotes').select('*').order('created_at', { ascending: false }),
+      supabase.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(100)
     ]);
 
     return {
       success: true,
       data: {
-        leads,
-        deals,
-        tasks,
-        companies,
-        quotes,
-        auditLogs
+        leads: (lRes.data || []).map((l: any) => ({
+          id: l.id,
+          name: l.name,
+          company: l.company || '',
+          email: l.email || '',
+          phone: l.phone || '',
+          status: l.status || 'New',
+          score: l.score || 0,
+          owner: l.owner || 'KP Sumanth',
+          customValues: l.custom_values || {},
+          activities: l.activities || [],
+          createdAt: l.created_at,
+          updatedAt: l.updated_at
+        })),
+        deals: (dRes.data || []).map((d: any) => ({
+          id: d.id,
+          name: d.name,
+          company: d.company,
+          value: Number(d.value) || 0,
+          stage: d.stage || 'New',
+          probability: Number(d.probability) || 0,
+          expectedClose: d.expected_close,
+          owner: d.owner || 'KP Sumanth',
+          lostReason: d.lost_reason,
+          customValues: d.custom_values || {},
+          createdAt: d.created_at,
+          updatedAt: d.updated_at
+        })),
+        tasks: (tRes.data || []).map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          dueDate: t.due_date,
+          dueTime: t.due_time,
+          priority: t.priority || 'Medium',
+          status: t.status || 'Pending',
+          category: t.category || 'General',
+          assignedTo: t.assigned_to || 'KP Sumanth',
+          linkedTo: t.linked_to,
+          completed: !!t.completed,
+          createdAt: t.created_at,
+          updatedAt: t.updated_at
+        })),
+        companies: (cRes.data || []).map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          industry: c.industry || 'Technology',
+          website: c.website || '',
+          phone: c.phone || '',
+          address: c.address || '',
+          city: c.city || '',
+          state: c.state || '',
+          gstin: c.gstin || '',
+          annualRevenue: Number(c.annual_revenue) || 0,
+          createdAt: c.created_at,
+          updatedAt: c.updated_at
+        })),
+        quotes: (qRes.data || []).map((q: any) => ({
+          id: q.id,
+          quoteNumber: q.quote_number,
+          clientName: q.client_name,
+          clientCompany: q.client_company,
+          clientGstin: q.client_gstin,
+          items: q.items || [],
+          subtotal: Number(q.subtotal) || 0,
+          cgst: Number(q.cgst) || 0,
+          sgst: Number(q.sgst) || 0,
+          igst: Number(q.igst) || 0,
+          total: Number(q.total) || 0,
+          terms: q.terms,
+          status: q.status || 'Draft',
+          validUntil: q.valid_until,
+          createdAt: q.created_at,
+          updatedAt: q.updated_at
+        })),
+        auditLogs: (aRes.data || []).map((a: any) => ({
+          id: a.id,
+          timestamp: a.timestamp || a.created_at,
+          user: a.user,
+          action: a.action,
+          entity: a.entity,
+          beforeState: a.before_state,
+          afterState: a.after_state
+        }))
       }
     };
   } catch (error: any) {
-    console.error('Prisma fetchCrmInitialState error:', error);
+    console.error('fetchCrmInitialState error:', error);
     return { success: false, error: error.message };
   }
 }
