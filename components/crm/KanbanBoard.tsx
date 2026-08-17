@@ -382,7 +382,7 @@ export default function KanbanBoard({
         }
 
         .kanban-empty-col {
-          padding: 30px 16px;
+          padding: 20px 16px;
           text-align: center;
           border: 1px dashed var(--border-color);
           border-radius: 10px;
@@ -393,11 +393,14 @@ export default function KanbanBoard({
           .kanban-header-wrap {
             flex-direction: column;
             align-items: stretch;
-            text-align: center;
+            text-align: left;
+            gap: 12px;
           }
 
           .kanban-controls-row {
-            flex-direction: column;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
             width: 100%;
           }
 
@@ -409,6 +412,15 @@ export default function KanbanBoard({
           .layout-toggle-pills button {
             flex: 1;
             justify-content: center;
+            font-size: 11px !important;
+            padding: 6px 8px !important;
+          }
+
+          .kanban-controls-row > button.btn-primary {
+            width: 100%;
+            height: 38px;
+            font-size: 12.5px;
+            justify-content: center;
           }
 
           .funnel-analytics-grid {
@@ -417,6 +429,37 @@ export default function KanbanBoard({
 
           .mobile-stage-selector-wrap {
             display: block;
+            margin-bottom: 12px;
+          }
+
+          .kanban-board {
+            display: flex !important;
+            flex-direction: column !important;
+            width: 100% !important;
+            gap: 14px !important;
+            overflow-x: visible !important;
+            padding: 0 !important;
+          }
+
+          .kanban-col {
+            width: 100% !important;
+            min-width: 100% !important;
+            max-width: 100% !important;
+            min-height: auto !important;
+            background: #ffffff !important;
+            border: 1px solid var(--border-color) !important;
+            border-radius: 14px !important;
+            padding: 14px !important;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03) !important;
+          }
+
+          .kanban-cards-container {
+            max-height: none !important;
+            overflow-y: visible !important;
+          }
+
+          .kanban-empty-col {
+            padding: 12px 14px !important;
           }
         }
       `}</style>

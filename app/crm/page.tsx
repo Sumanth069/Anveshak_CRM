@@ -3243,15 +3243,16 @@ export default function App() {
                   </div>
                   <p>Enterprise unified directory with deduplication scoring, E.164 phone validation, 1-click outreach, and 360° profile views.</p>
                 </div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div className="page-header-actions">
                   <button 
-                    className="btn btn-primary" 
+                    className="btn btn-primary primary-action-full" 
                     style={{ 
                       backgroundColor: '#151c2e', 
                       borderColor: '#151c2e', 
                       color: '#f5d396',
                       display: 'inline-flex', 
                       alignItems: 'center', 
+                      justifyContent: 'center',
                       gap: '8px', 
                       height: '38px', 
                       padding: '0 14px', 
@@ -3276,10 +3277,11 @@ export default function App() {
                       borderColor: '#059669', 
                       display: 'inline-flex', 
                       alignItems: 'center', 
+                      justifyContent: 'center',
                       gap: '6px', 
                       height: '38px', 
                       padding: '0 14px', 
-                      fontSize: '12.5px', 
+                      fontSize: '12px', 
                       fontWeight: '600', 
                       borderRadius: '8px'
                     }} 
@@ -3293,10 +3295,11 @@ export default function App() {
                     style={{ 
                       display: 'inline-flex', 
                       alignItems: 'center', 
+                      justifyContent: 'center',
                       gap: '6px', 
                       height: '38px', 
                       padding: '0 14px', 
-                      fontSize: '12.5px', 
+                      fontSize: '12px', 
                       fontWeight: '600', 
                       borderRadius: '8px'
                     }} 
@@ -3310,10 +3313,14 @@ export default function App() {
                     style={{ 
                       height: '38px', 
                       padding: '0 12px', 
-                      fontSize: '12.5px', 
+                      fontSize: '12px', 
                       fontWeight: '600', 
                       borderRadius: '8px',
-                      color: '#151c2e'
+                      color: '#151c2e',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px'
                     }} 
                     onClick={async () => {
                       try {
@@ -3340,7 +3347,15 @@ export default function App() {
 
                   <button
                     className="btn btn-secondary"
-                    style={{ height: '38px', padding: '0 12px', fontSize: '12.5px' }}
+                    style={{ 
+                      height: '38px', 
+                      padding: '0 12px', 
+                      fontSize: '12px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px'
+                    }}
                     onClick={() => {
                       const csvHeader = 'Name,Company,Designation,Phone,Email,City,Category,Source,Last Contacted\n';
                       const csvRows = filteredContacts.map(c => 
@@ -3482,25 +3497,28 @@ export default function App() {
                         </div>
 
                         {/* Actions Bottom Toolbar */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto auto', gap: '6px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
                           <button
                             className="btn btn-primary"
-                            style={{ backgroundColor: '#10b981', borderColor: '#10b981', color: '#fff', fontSize: '11px', padding: '6px 8px', justifyContent: 'center', minHeight: '34px' }}
+                            style={{ backgroundColor: '#10b981', borderColor: '#10b981', color: '#fff', fontSize: '11.5px', padding: '6px 8px', justifyContent: 'center', minHeight: '34px' }}
                             onClick={() => setShowQuickCommContact(cnt)}
                           >
                             💬 Contact
                           </button>
                           <button
                             className="btn btn-secondary"
-                            style={{ fontSize: '11px', padding: '6px 8px', justifyContent: 'center', minHeight: '34px' }}
+                            style={{ fontSize: '11.5px', padding: '6px 8px', justifyContent: 'center', minHeight: '34px' }}
                             onClick={() => setSelectedContactFor360(cnt.id)}
                           >
                             🔍 360° Profile
                           </button>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '2px' }}>
                           {!cnt.isConverted ? (
                             <button
                               className="btn btn-primary"
-                              style={{ backgroundColor: '#1e40af', borderColor: '#1e40af', fontSize: '11px', padding: '6px 10px', justifyContent: 'center', minHeight: '34px' }}
+                              style={{ flex: 1, backgroundColor: '#1e40af', borderColor: '#1e40af', fontSize: '11.5px', padding: '6px 10px', justifyContent: 'center', minHeight: '32px' }}
                               onClick={async () => {
                                 try {
                                   const { createLeadAction } = await import('@/app/actions/crm');
@@ -3536,16 +3554,16 @@ export default function App() {
                                 }
                               }}
                             >
-                              Lead →
+                              + Convert to Lead →
                             </button>
                           ) : (
-                            <span style={{ fontSize: '10.5px', color: '#059669', background: '#ecfdf5', padding: '6px 8px', borderRadius: '6px', fontWeight: '700', display: 'flex', alignItems: 'center' }}>
-                              In Leads ✓
+                            <span style={{ flex: 1, justifyContent: 'center', fontSize: '11px', color: '#059669', background: '#ecfdf5', padding: '6px 8px', borderRadius: '6px', fontWeight: '700', display: 'flex', alignItems: 'center' }}>
+                              In Leads Pipeline ✓
                             </span>
                           )}
                           <button
                             className="btn btn-secondary"
-                            style={{ color: '#dc2626', borderColor: '#fca5a5', backgroundColor: '#fef2f2', padding: '6px 10px', minHeight: '34px' }}
+                            style={{ color: '#dc2626', borderColor: '#fca5a5', backgroundColor: '#fef2f2', padding: '6px 10px', minHeight: '32px' }}
                             title="Delete Contact"
                             onClick={async () => {
                               if (confirm(`Are you sure you want to delete contact "${cnt.name}"?`)) {
@@ -3560,7 +3578,7 @@ export default function App() {
                               }
                             }}
                           >
-                            ✕
+                            🗑️
                           </button>
                         </div>
                       </div>
@@ -4311,75 +4329,146 @@ export default function App() {
 
                   </div>
 
-                  <div className="custom-table-container">
-                    <table className="custom-table">
-                      <thead>
-                        <tr>
-                          <th style={{ width: '50px', textAlign: 'center' }}>Done</th>
-                          <th>Task Details</th>
-                          <th>Linked Lead/Deal</th>
-                          <th>Due Date</th>
-                          <th>Priority</th>
-                          <th>Assignee</th>
-                          <th>Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {displayTasks.map(t => {
-                          const isOverdue = new Date(t.dueDate) < new Date('2026-07-16') && t.status === 'Open';
-                          return (
-                            <tr key={t.id} style={{ opacity: t.status === 'Completed' ? 0.65 : 1 }}>
-                              <td style={{ textAlign: 'center' }}>
-                                <input 
-                                  type="checkbox" 
-                                  checked={t.status === 'Completed'} 
-                                  onChange={() => toggleTaskStatus(t.id)} 
-                                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                                />
-                              </td>
-                              <td>
-                                <div style={{ fontWeight: '700', textDecoration: t.status === 'Completed' ? 'line-through' : 'none', color: '#0f172a' }}>
-                                  {t.title}
-                                </div>
-                                <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>{t.description}</div>
-                              </td>
-                              <td style={{ fontSize: '12px', fontWeight: '500' }}>
-                                {t.linkedTo ? `🔗 ${t.linkedTo}` : '—'}
-                              </td>
-                              <td style={{ color: isOverdue ? 'var(--danger)' : '#334155', fontWeight: isOverdue ? 'bold' : 'normal', fontSize: '12px' }}>
-                                {t.dueDate} {isOverdue && <span style={{ fontSize: '10px', color: 'var(--danger)', background: '#fee2e2', padding: '2px 6px', borderRadius: '4px', marginLeft: '6px' }}>OVERDUE</span>}
-                              </td>
-                              <td>
-                                <span className={`badge ${t.priority === 'High' ? 'badge-hot' : t.priority === 'Medium' ? 'badge-warm' : 'badge-cold'}`}>
-                                  {t.priority}
-                                </span>
-                              </td>
-                              <td style={{ fontSize: '12px', fontWeight: '600' }}>{t.assignee}</td>
-                              <td>
-                                <button 
-                                  className="btn btn-secondary" 
-                                  style={{ padding: '3px 8px', fontSize: '11px', color: 'var(--danger)', borderColor: '#fee2e2' }}
-                                  onClick={() => {
-                                    if (confirm(`Are you sure you want to delete task "${t.title}"?`)) {
-                                      setTasks(tasks.filter(tk => tk.id !== t.id));
-                                    }
-                                  }}
-                                >
-                                  🗑️ Delete
-                                </button>
+                  {/* DESKTOP TASK TABLE */}
+                  <div className="desktop-only-table">
+                    <div className="custom-table-container">
+                      <table className="custom-table">
+                        <thead>
+                          <tr>
+                            <th style={{ width: '50px', textAlign: 'center' }}>Done</th>
+                            <th>Task Details</th>
+                            <th>Linked Lead/Deal</th>
+                            <th>Due Date</th>
+                            <th>Priority</th>
+                            <th>Assignee</th>
+                            <th>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {displayTasks.map(t => {
+                            const isOverdue = new Date(t.dueDate) < new Date('2026-07-16') && t.status === 'Open';
+                            return (
+                              <tr key={t.id} style={{ opacity: t.status === 'Completed' ? 0.65 : 1 }}>
+                                <td style={{ textAlign: 'center' }}>
+                                  <input 
+                                    type="checkbox" 
+                                    checked={t.status === 'Completed'} 
+                                    onChange={() => toggleTaskStatus(t.id)} 
+                                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                                  />
+                                </td>
+                                <td>
+                                  <div style={{ fontWeight: '700', textDecoration: t.status === 'Completed' ? 'line-through' : 'none', color: '#0f172a' }}>
+                                    {t.title}
+                                  </div>
+                                  <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>{t.description}</div>
+                                </td>
+                                <td style={{ fontSize: '12px', fontWeight: '500' }}>
+                                  {t.linkedTo ? `🔗 ${t.linkedTo}` : '—'}
+                                </td>
+                                <td style={{ color: isOverdue ? 'var(--danger)' : '#334155', fontWeight: isOverdue ? 'bold' : 'normal', fontSize: '12px' }}>
+                                  {t.dueDate} {isOverdue && <span style={{ fontSize: '10px', color: 'var(--danger)', background: '#fee2e2', padding: '2px 6px', borderRadius: '4px', marginLeft: '6px' }}>OVERDUE</span>}
+                                </td>
+                                <td>
+                                  <span className={`badge ${t.priority === 'High' ? 'badge-hot' : t.priority === 'Medium' ? 'badge-warm' : 'badge-cold'}`}>
+                                    {t.priority}
+                                  </span>
+                                </td>
+                                <td style={{ fontSize: '12px', fontWeight: '600' }}>{t.assignee}</td>
+                                <td>
+                                  <button 
+                                    className="btn btn-secondary" 
+                                    style={{ padding: '3px 8px', fontSize: '11px', color: 'var(--danger)', borderColor: '#fee2e2' }}
+                                    onClick={() => {
+                                      if (confirm(`Are you sure you want to delete task "${t.title}"?`)) {
+                                        setTasks(tasks.filter(tk => tk.id !== t.id));
+                                      }
+                                    }}
+                                  >
+                                    🗑️ Delete
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                          {displayTasks.length === 0 && (
+                            <tr>
+                              <td colSpan={7} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)', fontSize: '13px' }}>
+                                No tasks match the active filters and workspace settings.
                               </td>
                             </tr>
-                          );
-                        })}
-                        {displayTasks.length === 0 && (
-                          <tr>
-                            <td colSpan={7} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)', fontSize: '13px' }}>
-                              No tasks match the active filters and workspace settings.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* MOBILE TASK CARDS */}
+                  <div className="mobile-only-cards">
+                    {displayTasks.map(t => {
+                      const isOverdue = new Date(t.dueDate) < new Date('2026-07-16') && t.status === 'Open';
+                      return (
+                        <div 
+                          key={t.id} 
+                          className="mobile-contact-card"
+                          style={{ opacity: t.status === 'Completed' ? 0.7 : 1 }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, cursor: 'pointer', margin: 0 }}>
+                              <input 
+                                type="checkbox" 
+                                checked={t.status === 'Completed'} 
+                                onChange={() => toggleTaskStatus(t.id)} 
+                                style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#10b981' }}
+                              />
+                              <div>
+                                <div style={{ fontWeight: '700', fontSize: '13.5px', textDecoration: t.status === 'Completed' ? 'line-through' : 'none', color: '#0f172a' }}>
+                                  {t.title}
+                                </div>
+                                {t.description && (
+                                  <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                    {t.description}
+                                  </div>
+                                )}
+                              </div>
+                            </label>
+
+                            <span className={`badge ${t.priority === 'High' ? 'badge-hot' : t.priority === 'Medium' ? 'badge-warm' : 'badge-cold'}`} style={{ fontSize: '10px', flexShrink: 0 }}>
+                              {t.priority}
+                            </span>
+                          </div>
+
+                          <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '8px 10px', fontSize: '11.5px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid var(--border-subtle)' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>
+                              {t.linkedTo ? `🔗 ${t.linkedTo}` : `👤 ${t.assignee}`}
+                            </span>
+                            <span style={{ color: isOverdue ? 'var(--danger)' : '#334155', fontWeight: isOverdue ? 'bold' : '600', fontSize: '11px' }}>
+                              📅 {t.dueDate} {isOverdue && <span style={{ fontSize: '9.5px', color: 'var(--danger)', background: '#fee2e2', padding: '2px 5px', borderRadius: '4px', marginLeft: '4px' }}>OVERDUE</span>}
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                            <button 
+                              className="btn btn-secondary" 
+                              style={{ padding: '4px 10px', fontSize: '11px', color: 'var(--danger)', borderColor: '#fee2e2', minHeight: '30px' }}
+                              onClick={() => {
+                                if (confirm(`Are you sure you want to delete task "${t.title}"?`)) {
+                                  setTasks(tasks.filter(tk => tk.id !== t.id));
+                                }
+                              }}
+                            >
+                              🗑️ Delete Task
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {displayTasks.length === 0 && (
+                      <div className="panel-card" style={{ textAlign: 'center', padding: '28px 16px', color: '#64748b' }}>
+                        <div style={{ fontSize: '24px', marginBottom: '6px' }}>📋</div>
+                        <p style={{ margin: 0, fontWeight: '600', fontSize: '12.5px' }}>No tasks match the active filters.</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

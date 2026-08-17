@@ -6,7 +6,7 @@ import { normalizePhone } from '@/lib/phone';
 import { scoreDuplicate } from '@/lib/dedup';
 import { mergeContactRecords, ContactRecord } from '@/lib/contactMerge';
 
-export function mapContactFromSupabase(row: any) {
+function mapContactFromSupabase(row: any) {
   if (!row) return null;
   return {
     id: row.id,

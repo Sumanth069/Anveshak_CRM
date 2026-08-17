@@ -1311,6 +1311,11 @@ button {
 
   .top-bar-actions {
     gap: 6px !important;
+    align-items: center;
+  }
+
+  .top-bar-actions > button {
+    display: none !important;
   }
 
   .top-user-text {
@@ -1350,29 +1355,38 @@ button {
   .page-header-row {
     flex-direction: column !important;
     align-items: stretch !important;
-    text-align: center !important;
+    text-align: left !important;
     gap: 12px !important;
     margin-bottom: 16px !important;
   }
 
   .page-header-row .page-title-text {
-    text-align: center !important;
+    text-align: left !important;
   }
 
   .page-header-row .page-title-text div {
-    justify-content: center !important;
+    justify-content: flex-start !important;
   }
 
-  .page-header-row > div:last-child {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
+  .page-header-actions {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
     gap: 8px !important;
+    width: 100% !important;
   }
 
-  .page-header-row button {
+  .page-header-actions .primary-action-full {
+    grid-column: 1 / -1 !important;
+    height: 42px !important;
+    font-size: 13.5px !important;
+  }
+
+  .page-header-actions button {
     width: 100% !important;
     justify-content: center !important;
+    min-height: 38px !important;
+    padding: 6px 10px !important;
+    font-size: 12px !important;
   }
 
   /* Mobile Contacts Directory & Tables */
@@ -1448,21 +1462,32 @@ button {
     border-radius: 14px !important;
   }
 
-  /* Kanban Board on Mobile */
+  /* Kanban Board on Mobile (Vertical Columns Stacking) */
   .kanban-board {
     display: flex !important;
-    overflow-x: auto !important;
-    scroll-snap-type: x mandatory;
+    flex-direction: column !important;
+    width: 100% !important;
+    overflow-x: visible !important;
     gap: 14px !important;
-    padding: 4px 4px 16px 4px !important;
-    -webkit-overflow-scrolling: touch;
+    padding: 0 !important;
   }
 
   .kanban-col {
-    min-width: 85vw !important;
-    max-width: 85vw !important;
-    scroll-snap-align: center;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+    background: #ffffff !important;
+    border: 1px solid var(--border-color) !important;
     border-radius: 14px !important;
+    padding: 14px !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03) !important;
+    scroll-snap-align: unset !important;
+  }
+
+  .kanban-cards-container {
+    max-height: none !important;
+    overflow-y: visible !important;
   }
 
   /* Mobile Bottom App Navigation Bar */

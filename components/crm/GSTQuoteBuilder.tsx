@@ -334,53 +334,100 @@ export default function GSTQuoteBuilder({
           </div>
         )}
 
-        {/* Sub-view 2: Repository Table */}
+        {/* Sub-view 2: Repository Table & Mobile Cards */}
         {subView === 'repository' && (
-          <div className="custom-table-container">
-            <table className="custom-table">
-              <thead>
-                <tr>
-                  <th>Quote ID</th>
-                  <th>Client Company</th>
-                  <th>Attention</th>
-                  <th>GST Type</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {quotes.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No quotations draft found.</td>
-                  </tr>
-                ) : (
-                  quotes.map(quote => (
-                    <tr key={quote.id}>
-                      <td style={{ fontWeight: 'bold' }}>{quote.id}</td>
-                      <td>{quote.company}</td>
-                      <td>{quote.contact}</td>
-                      <td>{quote.gstType === 'intra' ? 'Intra-State' : 'Inter-State'}</td>
-                      <td>
-                        <span className={`badge ${quote.status === 'Accepted' ? 'badge-success' : quote.status === 'Rejected' ? 'badge-danger' : 'badge-warm'}`}>
-                          {quote.status}
-                        </span>
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={() => onOpenPortalSandbox(quote)}>
-                            🌐 Open Portal Preview
-                          </button>
-                          <button className="btn btn-secondary" style={{ color: 'var(--danger)', padding: '4px 8px', fontSize: '11px' }} onClick={() => onDeleteQuote(quote.id)}>
-                            Delete
-                          </button>
-                        </div>
-                      </td>
+          <>
+            <div className="desktop-only-table">
+              <div className="custom-table-container">
+                <table className="custom-table">
+                  <thead>
+                    <tr>
+                      <th>Quote ID</th>
+                      <th>Client Company</th>
+                      <th>Attention</th>
+                      <th>GST Type</th>
+                      <th>Status</th>
+                      <th>Actions</th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody>
+                    {quotes.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No quotations draft found.</td>
+                      </tr>
+                    ) : (
+                      quotes.map(quote => (
+                        <tr key={quote.id}>
+                          <td style={{ fontWeight: 'bold' }}>{quote.id}</td>
+                          <td>{quote.company}</td>
+                          <td>{quote.contact}</td>
+                          <td>{quote.gstType === 'intra' ? 'Intra-State' : 'Inter-State'}</td>
+                          <td>
+                            <span className={`badge ${quote.status === 'Accepted' ? 'badge-success' : quote.status === 'Rejected' ? 'badge-danger' : 'badge-warm'}`}>
+                              {quote.status}
+                            </span>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={() => onOpenPortalSandbox(quote)}>
+                                🌐 Open Portal Preview
+                              </button>
+                              <button className="btn btn-secondary" style={{ color: 'var(--danger)', padding: '4px 8px', fontSize: '11px' }} onClick={() => onDeleteQuote(quote.id)}>
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="mobile-only-cards">
+              {quotes.length === 0 ? (
+                <div className="panel-card" style={{ textAlign: 'center', padding: '28px 16px', color: '#64748b' }}>
+                  <div style={{ fontSize: '24px', marginBottom: '6px' }}>📄</div>
+                  <p style={{ margin: 0, fontWeight: '600', fontSize: '12.5px' }}>No quotations draft found.</p>
+                </div>
+              ) : (
+                quotes.map(quote => (
+                  <div key={quote.id} className="mobile-contact-card">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: '800', fontSize: '13px', color: '#0f172a' }}>{quote.id}</span>
+                      <span className={`badge ${quote.status === 'Accepted' ? 'badge-success' : quote.status === 'Rejected' ? 'badge-danger' : 'badge-warm'}`} style={{ fontSize: '10.5px' }}>
+                        {quote.status}
+                      </span>
+                    </div>
+
+                    <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '8px 10px', fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '3px', border: '1px solid var(--border-subtle)' }}>
+                      <div>Client: <strong>{quote.company}</strong></div>
+                      {quote.contact && <div style={{ color: 'var(--text-muted)' }}>Attn: {quote.contact}</div>}
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Type: {quote.gstType === 'intra' ? 'Intra-State GST' : 'Inter-State IGST'}</div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '8px' }}>
+                      <button 
+                        className="btn btn-secondary" 
+                        style={{ fontSize: '11.5px', padding: '6px 8px', justifyContent: 'center', minHeight: '34px' }} 
+                        onClick={() => onOpenPortalSandbox(quote)}
+                      >
+                        🌐 Portal Preview
+                      </button>
+                      <button 
+                        className="btn btn-secondary" 
+                        style={{ color: 'var(--danger)', borderColor: '#fee2e2', padding: '6px 10px', minHeight: '34px' }} 
+                        onClick={() => onDeleteQuote(quote.id)}
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </>
         )}
       </div>
     </div>
