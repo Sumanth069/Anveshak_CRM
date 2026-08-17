@@ -40,6 +40,9 @@ async function main() {
     await prisma.quote.deleteMany({});
     await prisma.auditLog.deleteMany({});
     await prisma.user.deleteMany({});
+    await (prisma as any).contact?.deleteMany?.({}).catch?.(() => {});
+    await (prisma as any).communication?.deleteMany?.({}).catch?.(() => {});
+    await (prisma as any).importBatch?.deleteMany?.({}).catch?.(() => {});
 
     console.log('Inserting Companies...');
     await prisma.company.createMany({ data: initialCompanies });
@@ -55,6 +58,58 @@ async function main() {
 
     console.log('Inserting Users...');
     await prisma.user.createMany({ data: initialUsers });
+
+    try {
+      console.log('Inserting Centralized Contacts...');
+      await (prisma as any).contact?.createMany?.({
+        data: [
+          {
+            name: 'Sathyanarayana B V',
+            preferredPhone: '+919980003627',
+            alternatePhones: ['+918023456789'],
+            email: 'ceo@derbifoundation.com',
+            company: 'Derbi Foundation',
+            designation: 'Chief Executive Officer',
+            city: 'Bengaluru',
+            state: 'Karnataka',
+            category: 'Customer',
+            sourceType: 'Visiting Card',
+            sourceEvent: 'Bengaluru Tech Summit 2026',
+            notes: 'Met at incubation accelerator summit. Looking for IoT infrastructure.',
+            owner: 'Balasaraswathi'
+          },
+          {
+            name: 'Ramesh Patel',
+            preferredPhone: '+919845011223',
+            email: 'ramesh@patellogistics.in',
+            company: 'Patel Logistics Solutions',
+            designation: 'Managing Director',
+            city: 'Bengaluru',
+            state: 'Karnataka',
+            category: 'Prospect',
+            sourceType: 'Visiting Card',
+            notes: 'Interested in fleet telemetry.',
+            owner: 'KP Sumanth'
+          },
+          {
+            name: 'Ananya Deshmukh',
+            preferredPhone: '+919988765432',
+            email: 'ananya@deshmukh.co.in',
+            company: 'Deshmukh Innovations Ltd',
+            designation: 'VP Procurement',
+            city: 'Mumbai',
+            state: 'Maharashtra',
+            category: 'VIP',
+            sourceType: 'Event / Expo',
+            sourceEvent: 'AgriTech Expo 2026',
+            notes: 'Key decision maker for multi-site deployments.',
+            owner: 'KP Sumanth'
+          }
+        ]
+      });
+    } catch (cErr) {
+      console.warn('Note: Contacts table insert skipped if client not yet regenerated:', cErr);
+    }
 
     console.log('SUCCESSFULLY SEEDED SUPABASE POSTGRESQL DATABASE VIA PRISMA ORM!');
   } catch (err) {

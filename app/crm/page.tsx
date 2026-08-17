@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Tesseract from 'tesseract.js';
 import KanbanBoard from '@/components/crm/KanbanBoard';
 import GSTQuoteBuilder from '@/components/crm/GSTQuoteBuilder';
@@ -8,6 +8,13 @@ import SystemDiagnostics from '@/components/crm/SystemDiagnostics';
 import AuditDiffModal from '@/components/crm/AuditDiffModal';
 import SupabaseSettings from '@/components/crm/SupabaseSettings';
 import OwnerFeedbackWidget from '@/components/crm/OwnerFeedbackWidget';
+import ContactFiltersBar from '@/components/crm/contacts/ContactFiltersBar';
+import Contact360Modal from '@/components/crm/contacts/Contact360Modal';
+import ContactMergeModal from '@/components/crm/contacts/ContactMergeModal';
+import ExcelImportModal from '@/components/crm/contacts/ExcelImportModal';
+import QuickCommModal from '@/components/crm/contacts/QuickCommModal';
+import { normalizePhone, formatPhoneDisplay } from '@/lib/phone';
+import { scoreDuplicate } from '@/lib/dedup';
 import { updateSupabaseConfig, isSupabaseConnected } from '@/lib/supabase';
 
 // Type Definitions
@@ -716,8 +723,69 @@ export default function App() {
     email: '',
     phone: '',
     designation: '',
-    city: ''
+    city: '',
+    category: 'Prospect',
+    sourceType: 'Direct',
+    notes: ''
   });
+
+  // Centralized Contact Management States
+  const [contactSearch, setContactSearch] = useState('');
+  const [contactCategory, setContactCategory] = useState('all');
+  const [contactSourceType, setContactSourceType] = useState('all');
+  const [contactRecency, setContactRecency] = useState<'all' | 'never' | 'month' | 'older'>('all');
+  const [selectedContactFor360, setSelectedContactFor360] = useState<string | null>(null);
+  const [showExcelImportModal, setShowExcelImportModal] = useState(false);
+  const [showMergeModal, setShowMergeModal] = useState(false);
+  const [mergePair, setMergePair] = useState<{ primary: any; secondary: any; score: number; signals: any[] } | null>(null);
+  const [showQuickCommContact, setShowQuickCommContact] = useState<any | null>(null);
+  const [importBatches, setImportBatches] = useState<any[]>([]);
+
+  // Filtered contacts calculation
+  const filteredContacts = useMemo(() => {
+    return contactsList.filter(cnt => {
+      // 1. Search Query
+      if (contactSearch.trim()) {
+        const q = contactSearch.toLowerCase().trim();
+        const matchesName = cnt.name && cnt.name.toLowerCase().includes(q);
+        const matchesCompany = cnt.company && cnt.company.toLowerCase().includes(q);
+        const matchesEmail = cnt.email && cnt.email.toLowerCase().includes(q);
+        const matchesPhone = (cnt.phone || cnt.preferredPhone) && (cnt.phone || cnt.preferredPhone).toLowerCase().includes(q);
+        const matchesCity = cnt.city && cnt.city.toLowerCase().includes(q);
+        const matchesDesignation = cnt.designation && cnt.designation.toLowerCase().includes(q);
+        if (!matchesName && !matchesCompany && !matchesEmail && !matchesPhone && !matchesCity && !matchesDesignation) {
+          return false;
+        }
+      }
+
+      // 2. Category
+      if (contactCategory !== 'all' && (cnt.category || 'Prospect') !== contactCategory) {
+        return false;
+      }
+
+      // 3. Source Type
+      if (contactSourceType !== 'all' && (cnt.sourceType || 'Direct') !== contactSourceType) {
+        return false;
+      }
+
+      // 4. Recency
+      if (contactRecency === 'never' && cnt.lastContactedAt) {
+        return false;
+      }
+      if (contactRecency === 'month') {
+        if (!cnt.lastContactedAt) return false;
+        const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+        if (new Date(cnt.lastContactedAt).getTime() < thirtyDaysAgo) return false;
+      }
+      if (contactRecency === 'older') {
+        if (!cnt.lastContactedAt) return false;
+        const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+        if (new Date(cnt.lastContactedAt).getTime() >= thirtyDaysAgo) return false;
+      }
+
+      return true;
+    });
+  }, [contactsList, contactSearch, contactCategory, contactSourceType, contactRecency]);
 
   // Visiting Card OCR Scanner States
   const [showScanModal, setShowScanModal] = useState(false);
@@ -1405,11 +1473,32 @@ export default function App() {
           setCompanies(res.data.companies ? res.data.companies.map(mapCompanyFromDb) : []);
           setQuotes(res.data.quotes ? res.data.quotes.map(mapQuoteFromDb) : []);
           setAuditLogs(res.data.auditLogs ? res.data.auditLogs.map(mapAuditLogFromDb) : []);
-          
-          console.log('Successfully loaded state from Prisma ORM!');
-          setIsInitialLoadDone(true);
-          return;
         }
+
+        // Fetch Centralized Contacts & Import Batches from database
+        try {
+          const { fetchContactsListAction, fetchImportBatchesAction } = await import('@/app/actions/contacts');
+          const [contactsRes, batchesRes] = await Promise.all([
+            fetchContactsListAction(),
+            fetchImportBatchesAction()
+          ]);
+          if (contactsRes.success && contactsRes.contacts && contactsRes.contacts.length > 0) {
+            setContactsList(contactsRes.contacts.map((c: any) => ({
+              ...c,
+              phone: c.preferredPhone || c.phone,
+              dateAdded: c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-IN') : '10/08/2026'
+            })));
+          }
+          if (batchesRes.success && batchesRes.batches) {
+            setImportBatches(batchesRes.batches);
+          }
+        } catch (cErr) {
+          console.warn('Could not fetch contacts from database, using fallback cache:', cErr);
+        }
+
+        console.log('Successfully loaded state from Prisma ORM & Supabase!');
+        setIsInitialLoadDone(true);
+        return;
       } catch (err) {
         console.error('Failed to load from Prisma ORM, checking local fallbacks:', err);
       }
@@ -3132,15 +3221,21 @@ export default function App() {
             </div>
           )}
 
-          {/* TAB: DAILY CONTACTS (VISITING CARDS & COLD COLLECTION) */}
+          {/* TAB: CENTRALIZED CONTACTS (ONE PERSON = ONE RECORD) */}
           {activeTab === 'contacts' && (
             <div className="animate-fade">
-              <div className="page-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              {/* Header Row with Actions */}
+              <div className="page-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
                 <div className="page-title-text">
-                  <h2>Daily Contacts (Visiting Cards & Cold Collection)</h2>
-                  <p>Log raw visiting cards & daily customer entries. Promote qualified contacts into your Leads Queue at any time.</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <h2>Centralized Contacts Directory</h2>
+                    <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}>
+                      One Person = One Record
+                    </span>
+                  </div>
+                  <p>Enterprise unified directory with deduplication scoring, E.164 phone validation, 1-click outreach, and 360° profile views.</p>
                 </div>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
                   <button 
                     className="btn btn-primary" 
                     style={{ 
@@ -3148,15 +3243,12 @@ export default function App() {
                       borderColor: '#0284c7', 
                       display: 'inline-flex', 
                       alignItems: 'center', 
-                      justifyContent: 'center', 
                       gap: '8px', 
-                      height: '42px', 
-                      padding: '0 18px', 
+                      height: '40px', 
+                      padding: '0 16px', 
                       fontSize: '13px', 
                       fontWeight: '600', 
-                      whiteSpace: 'nowrap', 
-                      borderRadius: '8px',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                      borderRadius: '8px'
                     }} 
                     onClick={() => {
                       setScannedImagePreview(null);
@@ -3165,139 +3257,323 @@ export default function App() {
                       setShowScanModal(true);
                     }}
                   >
-                    <CameraIcon /> Scan Visiting Card (Camera / Upload)
+                    <CameraIcon /> Scan Visiting Card (OCR)
                   </button>
+
+                  <button 
+                    className="btn btn-primary" 
+                    style={{ 
+                      backgroundColor: '#059669', 
+                      borderColor: '#059669', 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      gap: '6px', 
+                      height: '40px', 
+                      padding: '0 16px', 
+                      fontSize: '13px', 
+                      fontWeight: '600', 
+                      borderRadius: '8px'
+                    }} 
+                    onClick={() => setShowExcelImportModal(true)}
+                  >
+                    📥 Import Excel / CSV
+                  </button>
+
                   <button 
                     className="btn btn-secondary" 
                     style={{ 
                       display: 'inline-flex', 
                       alignItems: 'center', 
-                      justifyContent: 'center', 
                       gap: '6px', 
-                      height: '42px', 
-                      padding: '0 18px', 
+                      height: '40px', 
+                      padding: '0 16px', 
                       fontSize: '13px', 
                       fontWeight: '600', 
-                      whiteSpace: 'nowrap', 
                       borderRadius: '8px'
                     }} 
                     onClick={() => setShowAddContactModal(true)}
                   >
                     + Manual Add Contact
                   </button>
+
+                  <button
+                    className="btn btn-secondary"
+                    style={{ height: '40px', padding: '0 14px', fontSize: '13px' }}
+                    onClick={() => {
+                      const csvHeader = 'Name,Company,Designation,Phone,Email,City,Category,Source,Last Contacted\n';
+                      const csvRows = filteredContacts.map(c => 
+                        `"${c.name || ''}","${c.company || ''}","${c.designation || ''}","${c.preferredPhone || c.phone || ''}","${c.email || ''}","${c.city || ''}","${c.category || 'Prospect'}","${c.sourceType || 'Direct'}","${c.lastContactedAt || 'Never'}"`
+                      ).join('\n');
+                      const blob = new Blob([csvHeader + csvRows], { type: 'text/csv;charset=utf-8;' });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement('a');
+                      link.setAttribute('href', url);
+                      link.setAttribute('download', `Contacts_Export_${new Date().toISOString().slice(0, 10)}.csv`);
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      triggerToast('Exported contacts to CSV file!', 'success');
+                    }}
+                  >
+                    📤 Export CSV
+                  </button>
                 </div>
               </div>
 
-              <div className="panel-card">
+              {/* Filters Bar */}
+              <ContactFiltersBar
+                search={contactSearch}
+                setSearch={setContactSearch}
+                category={contactCategory}
+                setCategory={setContactCategory}
+                sourceType={contactSourceType}
+                setSourceType={setContactSourceType}
+                recency={contactRecency}
+                setRecency={setContactRecency}
+                totalCount={contactsList.length}
+                filteredCount={filteredContacts.length}
+                onReset={() => {
+                  setContactSearch('');
+                  setContactCategory('all');
+                  setContactSourceType('all');
+                  setContactRecency('all');
+                }}
+              />
+
+              {/* Contacts Table */}
+              <div className="panel-card" style={{ padding: '0', overflow: 'hidden' }}>
                 <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
-                    <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
-                      <th style={{ padding: '12px' }}>Contact Name</th>
-                      <th style={{ padding: '12px' }}>Company</th>
-                      <th style={{ padding: '12px' }}>Designation</th>
-                      <th style={{ padding: '12px' }}>Phone / Email</th>
-                      <th style={{ padding: '12px' }}>City</th>
-                      <th style={{ padding: '12px' }}>Date Added</th>
-                      <th style={{ padding: '12px' }}>Status</th>
-                      <th style={{ padding: '12px', textAlign: 'right' }}>Actions</th>
+                    <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
+                      <th style={{ padding: '12px 16px' }}>Person / Contact</th>
+                      <th style={{ padding: '12px' }}>Company & Designation</th>
+                      <th style={{ padding: '12px' }}>Phone & Email</th>
+                      <th style={{ padding: '12px' }}>Category</th>
+                      <th style={{ padding: '12px' }}>Source Channel</th>
+                      <th style={{ padding: '12px' }}>Last Contacted</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'right' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {contactsList.length === 0 ? (
+                    {filteredContacts.length === 0 ? (
                       <tr>
-                        <td colSpan={8} style={{ textAlign: 'center', padding: '32px', color: '#64748b' }}>
-                          No daily contacts logged yet. Click "+ Add Visiting Card / Contact" to start building your daily list.
+                        <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                          <div style={{ fontSize: '28px', marginBottom: '8px' }}>🔍</div>
+                          <p style={{ margin: '0 0 8px', fontWeight: '600' }}>No matching contacts found</p>
+                          <p style={{ margin: 0, fontSize: '12px' }}>Try clearing filters or add a new contact above.</p>
                         </td>
                       </tr>
                     ) : (
-                      contactsList.map(cnt => (
-                        <tr key={cnt.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                          <td style={{ padding: '12px', fontWeight: '600' }}>{cnt.name}</td>
-                          <td style={{ padding: '12px' }}>{cnt.company || '—'}</td>
-                          <td style={{ padding: '12px' }}>{cnt.designation || '—'}</td>
-                          <td style={{ padding: '12px' }}>
-                            <div style={{ fontSize: '13px', fontWeight: 'bold' }}>{cnt.phone}</div>
-                            <div style={{ fontSize: '11px', color: '#64748b' }}>{cnt.email}</div>
-                          </td>
-                          <td style={{ padding: '12px' }}>{cnt.city || '—'}</td>
-                          <td style={{ padding: '12px', fontSize: '12px' }}>{cnt.dateAdded}</td>
-                          <td style={{ padding: '12px' }}>
-                            {cnt.isConverted ? (
-                              <span className="badge badge-hot" style={{ background: '#10b981', color: '#fff' }}>Converted to Lead</span>
-                            ) : (
-                              <span className="badge badge-cold">Raw Contact</span>
-                            )}
-                          </td>
-                          <td style={{ padding: '12px', textAlign: 'right' }}>
-                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                              {!cnt.isConverted ? (
-                                <button 
-                                  className="btn btn-primary" 
-                                  style={{ padding: '6px 12px', fontSize: '11px' }}
-                                  onClick={async () => {
-                                    try {
-                                      const { createLeadAction } = await import('@/app/actions/crm');
-                                      const res = await createLeadAction({
-                                        name: cnt.name,
-                                        company: cnt.company,
-                                        email: cnt.email,
-                                        phone: cnt.phone,
-                                        status: 'New',
-                                        score: 15,
-                                        owner: currentUser?.fullName || 'KP Sumanth'
-                                      });
-                                      if (res.success && res.data) {
-                                        const newLead: Lead = {
-                                          id: res.data.id,
-                                          name: res.data.name,
-                                          company: res.data.company || '',
-                                          email: res.data.email || '',
-                                          phone: res.data.phone || '',
-                                          status: (res.data.status as any) || 'New',
-                                          score: res.data.score || 15,
-                                          owner: res.data.owner || 'KP Sumanth',
-                                          activities: []
-                                        };
-                                        setLeads(prev => [newLead, ...prev]);
-                                        setContactsList(prev => prev.map(c => c.id === cnt.id ? { ...c, isConverted: true, convertedLeadId: newLead.id } : c));
-                                        triggerToast(`Contact ${cnt.name} converted to Lead in Supabase!`, 'success');
-                                      } else {
-                                        alert(res.error || 'Failed to convert contact.');
+                      filteredContacts.map(cnt => {
+                        const rawPhone = cnt.preferredPhone || cnt.phone;
+                        const normPhone = normalizePhone(rawPhone);
+
+                        return (
+                          <tr key={cnt.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                            {/* Contact Name & 360 Trigger */}
+                            <td style={{ padding: '12px 16px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{
+                                  width: '34px',
+                                  height: '34px',
+                                  borderRadius: '8px',
+                                  background: '#0284c7',
+                                  color: '#fff',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '13px',
+                                  fontWeight: 'bold',
+                                  flexShrink: 0
+                                }}>
+                                  {(cnt.name || 'C').charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                  <button
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      padding: 0,
+                                      fontWeight: '600',
+                                      fontSize: '13px',
+                                      color: '#0284c7',
+                                      cursor: 'pointer',
+                                      textAlign: 'left',
+                                      textDecoration: 'hover:underline'
+                                    }}
+                                    onClick={() => setSelectedContactFor360(cnt.id)}
+                                  >
+                                    {cnt.name}
+                                  </button>
+                                  {cnt.city && (
+                                    <div style={{ fontSize: '11px', color: '#64748b' }}>{cnt.city}</div>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Company & Designation */}
+                            <td style={{ padding: '12px' }}>
+                              <div style={{ fontWeight: '600', fontSize: '13px', color: '#0f172a' }}>
+                                {cnt.company || '—'}
+                              </div>
+                              <div style={{ fontSize: '11px', color: '#64748b' }}>
+                                {cnt.designation || '—'}
+                              </div>
+                            </td>
+
+                            {/* Phone & Email */}
+                            <td style={{ padding: '12px' }}>
+                              <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#0f172a' }}>
+                                {normPhone.isValid ? normPhone.display : (rawPhone || '—')}
+                              </div>
+                              <div style={{ fontSize: '11px', color: '#64748b' }}>
+                                {cnt.email || '—'}
+                              </div>
+                            </td>
+
+                            {/* Category */}
+                            <td style={{ padding: '12px' }}>
+                              <span style={{
+                                background: cnt.category === 'Customer' ? '#dcfce7' : cnt.category === 'VIP' ? '#fef3c7' : '#e0f2fe',
+                                color: cnt.category === 'Customer' ? '#15803d' : cnt.category === 'VIP' ? '#b45309' : '#0369a1',
+                                padding: '2px 8px',
+                                borderRadius: '10px',
+                                fontSize: '11px',
+                                fontWeight: '600'
+                              }}>
+                                {cnt.category || 'Prospect'}
+                              </span>
+                            </td>
+
+                            {/* Source Provenance */}
+                            <td style={{ padding: '12px' }}>
+                              <span style={{
+                                background: '#f1f5f9',
+                                color: '#475569',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                fontSize: '11px'
+                              }}>
+                                {cnt.sourceType || 'Direct'}
+                              </span>
+                              {cnt.sourceEvent && (
+                                <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={cnt.sourceEvent}>
+                                  {cnt.sourceEvent}
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Last Contacted Recency */}
+                            <td style={{ padding: '12px', fontSize: '12px', color: '#64748b' }}>
+                              {cnt.lastContactedAt ? (
+                                <span style={{ color: '#0f172a', fontWeight: '500' }}>
+                                  {new Date(cnt.lastContactedAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
+                                </span>
+                              ) : (
+                                <span style={{ color: '#94a3b8' }}>Never</span>
+                              )}
+                            </td>
+
+                            {/* Actions Toolbar */}
+                            <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                {/* 1-Click Comm Modal Trigger */}
+                                <button
+                                  className="btn btn-primary"
+                                  style={{ padding: '4px 10px', fontSize: '11px', backgroundColor: '#25D366', borderColor: '#25D366', color: '#fff' }}
+                                  title="Quick WhatsApp / Call / Email"
+                                  onClick={() => setShowQuickCommContact(cnt)}
+                                >
+                                  💬 Contact
+                                </button>
+
+                                {/* 360 Profile Trigger */}
+                                <button
+                                  className="btn btn-secondary"
+                                  style={{ padding: '4px 10px', fontSize: '11px' }}
+                                  onClick={() => setSelectedContactFor360(cnt.id)}
+                                >
+                                  360° View
+                                </button>
+
+                                {/* Convert to Lead Button */}
+                                {!cnt.isConverted ? (
+                                  <button 
+                                    className="btn btn-primary" 
+                                    style={{ padding: '4px 10px', fontSize: '11px', backgroundColor: '#0284c7', borderColor: '#0284c7' }}
+                                    onClick={async () => {
+                                      try {
+                                        const { createLeadAction } = await import('@/app/actions/crm');
+                                        const res = await createLeadAction({
+                                          name: cnt.name,
+                                          company: cnt.company,
+                                          email: cnt.email,
+                                          phone: cnt.preferredPhone || cnt.phone,
+                                          status: 'New',
+                                          score: 25,
+                                          owner: currentUser?.fullName || 'KP Sumanth'
+                                        });
+                                        if (res.success && res.data) {
+                                          const newLead: Lead = {
+                                            id: res.data.id,
+                                            name: res.data.name,
+                                            company: res.data.company || '',
+                                            email: res.data.email || '',
+                                            phone: res.data.phone || '',
+                                            status: (res.data.status as any) || 'New',
+                                            score: res.data.score || 25,
+                                            owner: res.data.owner || 'KP Sumanth',
+                                            activities: []
+                                          };
+                                          setLeads(prev => [newLead, ...prev]);
+                                          setContactsList(prev => prev.map(c => c.id === cnt.id ? { ...c, isConverted: true, convertedLeadId: newLead.id } : c));
+                                          triggerToast(`Contact ${cnt.name} converted to Lead in Supabase!`, 'success');
+                                        } else {
+                                          alert(res.error || 'Failed to convert contact.');
+                                        }
+                                      } catch (err) {
+                                        console.error('Error converting contact:', err);
                                       }
-                                    } catch (err) {
-                                      console.error('Error converting contact:', err);
+                                    }}
+                                  >
+                                    Lead →
+                                  </button>
+                                ) : (
+                                  <button 
+                                    className="btn btn-secondary" 
+                                    style={{ padding: '4px 8px', fontSize: '10px', color: '#10b981', borderColor: '#a7f3d0' }}
+                                    onClick={() => setActiveTab('leads')}
+                                  >
+                                    In Leads ✓
+                                  </button>
+                                )}
+
+                                {/* Delete Contact */}
+                                <button 
+                                  className="btn btn-secondary" 
+                                  style={{ padding: '4px 8px', fontSize: '11px', color: '#ef4444', borderColor: '#fca5a5', backgroundColor: '#fef2f2' }}
+                                  title="Delete Contact"
+                                  onClick={async () => {
+                                    if (confirm(`Are you sure you want to delete contact "${cnt.name}"?`)) {
+                                      try {
+                                        const { deleteContactAction } = await import('@/app/actions/contacts');
+                                        await deleteContactAction(cnt.id, currentUser?.fullName || 'CRM User');
+                                        setContactsList(prev => prev.filter(c => c.id !== cnt.id));
+                                        triggerToast(`Contact ${cnt.name} deleted`, 'info');
+                                      } catch (dErr) {
+                                        setContactsList(prev => prev.filter(c => c.id !== cnt.id));
+                                      }
                                     }
                                   }}
                                 >
-                                  Convert to Lead →
+                                  ✕
                                 </button>
-                              ) : (
-                                <button 
-                                  className="btn btn-secondary" 
-                                  style={{ padding: '4px 10px', fontSize: '11px' }}
-                                  onClick={() => setActiveTab('leads')}
-                                >
-                                  View Lead Queue →
-                                </button>
-                              )}
-
-                              <button 
-                                className="btn btn-secondary" 
-                                style={{ padding: '6px 10px', fontSize: '11px', color: '#ef4444', borderColor: '#fca5a5', backgroundColor: '#fef2f2' }}
-                                title="Delete Contact"
-                                onClick={() => {
-                                  if (confirm(`Are you sure you want to delete contact "${cnt.name}"?`)) {
-                                    setContactsList(prev => prev.filter(c => c.id !== cnt.id));
-                                    triggerToast(`Contact ${cnt.name} deleted`, 'info');
-                                  }
-                                }}
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -4427,62 +4703,149 @@ export default function App() {
 
           {/* TAB 8: AUDIT GOVERNANCE REGISTRY */}
           {activeTab === 'audit' && (
-            <div className="panel-card animate-fade">
-              <div className="panel-title">
-                <h3>Governance Audit Registry</h3>
-              </div>
-              
-              <div className="custom-table-container">
-                <table className="custom-table">
-                  <thead>
-                    <tr>
-                      <th>Time stamp</th>
-                      <th>User</th>
-                      <th>Operation Event</th>
-                      <th>Affected Record</th>
-                      <th>State Logs</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {auditLogs.map(log => (
-                      <tr key={log.id}>
-                        <td style={{ color: 'var(--text-muted)', fontFamily: 'monospace' }}>{log.timestamp}</td>
-                        <td style={{ fontWeight: '600' }}>{log.user}</td>
-                        <td>
-                          <span className={`badge ${log.action.includes('Transition') ? 'badge-warm' : log.action.includes('Created') ? 'badge-hot' : 'badge-cold'}`}>
-                            {log.action}
-                          </span>
-                        </td>
-                        <td>{log.entity}</td>
-                        <td>
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <button 
-                              className="audit-diff-trigger"
-                              onClick={() => setExpandedLogId(expandedLogId === log.id ? null : log.id)}
-                            >
-                              {expandedLogId === log.id ? 'Close State' : 'View Inline'}
-                            </button>
-                            <button 
-                              className="btn btn-secondary" 
-                              style={{ padding: '2px 8px', fontSize: '11.5px', whiteSpace: 'nowrap' }}
-                              onClick={() => setSelectedAuditLogForDiff(log)}
-                            >
-                              🔍 Compare Diff (Side-by-Side)
-                            </button>
+            <div className="animate-fade">
+              {/* Batch Import & Rollback Management Card */}
+              <div className="panel-card" style={{ marginBottom: '24px' }}>
+                <div className="panel-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <h3>📥 Contact Batch Imports & Rollback Registry</h3>
+                    <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b' }}>
+                      Audit history of spreadsheet imports with 1-click safe batch rollbacks.
+                    </p>
+                  </div>
+                </div>
+
+                {importBatches.length === 0 ? (
+                  <p style={{ fontSize: '12px', color: '#64748b', margin: '14px 0 0' }}>No Excel or CSV batch imports executed yet.</p>
+                ) : (
+                  <div style={{ marginTop: '16px', display: 'grid', gap: '12px' }}>
+                    {importBatches.map(batch => (
+                      <div key={batch.id} style={{
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '8px',
+                        padding: '14px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: '10px'
+                      }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <strong style={{ fontSize: '13px', color: '#0f172a' }}>{batch.fileName}</strong>
+                            <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '1px 6px', borderRadius: '4px', fontSize: '10px' }}>
+                              {batch.sourceType || 'Excel Import'}
+                            </span>
+                            {batch.sourceEvent && (
+                              <span style={{ background: '#fef3c7', color: '#b45309', padding: '1px 6px', borderRadius: '4px', fontSize: '10px' }}>
+                                {batch.sourceEvent}
+                              </span>
+                            )}
                           </div>
-                          
-                          {expandedLogId === log.id && (
-                            <div className="audit-diff-block" style={{ marginTop: '6px' }}>
-                              <span style={{ color: 'var(--danger)' }}>BEFORE:</span> {log.beforeState}
-                              <br />
-                              <span style={{ color: 'var(--success)' }}>AFTER:</span> {log.afterState}
-                            </div>
+                          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+                            Total: <strong>{batch.totalRows}</strong> | Imported: <strong style={{ color: '#16a34a' }}>{batch.importedCount}</strong> | Merged: <strong style={{ color: '#d97706' }}>{batch.mergedCount}</strong> | Uploaded by: {batch.uploadedBy || 'User'} ({new Date(batch.createdAt).toLocaleString('en-IN')})
+                          </div>
+                        </div>
+
+                        <div>
+                          {batch.isRolledBack ? (
+                            <span style={{ background: '#fee2e2', color: '#991b1b', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold' }}>
+                              Rolled Back (Undone)
+                            </span>
+                          ) : (
+                            <button
+                              className="btn btn-secondary"
+                              style={{ color: '#dc2626', borderColor: '#fca5a5', fontSize: '11px', padding: '4px 12px' }}
+                              onClick={async () => {
+                                if (confirm(`Are you sure you want to undo and rollback batch "${batch.fileName}"? All uncontacted records from this batch will be removed.`)) {
+                                  try {
+                                    const { rollbackImportBatchAction } = await import('@/app/actions/contacts');
+                                    const res = await rollbackImportBatchAction(batch.id, currentUser?.fullName || 'CRM User');
+                                    if (res.success) {
+                                      setImportBatches(prev => prev.map(b => b.id === batch.id ? { ...b, isRolledBack: true } : b));
+                                      // Reload contacts
+                                      const { fetchContactsListAction } = await import('@/app/actions/contacts');
+                                      const cRes = await fetchContactsListAction();
+                                      if (cRes.success && cRes.contacts) setContactsList(cRes.contacts);
+                                      triggerToast(`Successfully rolled back import batch (${res.removedCount} contacts removed)`, 'info');
+                                    } else {
+                                      alert(res.error || 'Failed to rollback batch.');
+                                    }
+                                  } catch (rErr: any) {
+                                    alert('Rollback error: ' + rErr.message);
+                                  }
+                                }
+                              }}
+                            >
+                              ⎌ Undo Batch Import
+                            </button>
                           )}
-                        </td>
-                      </tr>
+                        </div>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Standard Audit Registry */}
+              <div className="panel-card">
+                <div className="panel-title">
+                  <h3>System Operation Logs</h3>
+                </div>
+                
+                <div className="custom-table-container">
+                  <table className="custom-table">
+                    <thead>
+                      <tr>
+                        <th>Time stamp</th>
+                        <th>User</th>
+                        <th>Operation Event</th>
+                        <th>Affected Record</th>
+                        <th>State Logs</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {auditLogs.map(log => (
+                        <tr key={log.id}>
+                          <td style={{ color: 'var(--text-muted)', fontFamily: 'monospace' }}>{log.timestamp}</td>
+                          <td style={{ fontWeight: '600' }}>{log.user}</td>
+                          <td>
+                            <span className={`badge ${log.action.includes('Transition') ? 'badge-warm' : log.action.includes('Created') ? 'badge-hot' : 'badge-cold'}`}>
+                              {log.action}
+                            </span>
+                          </td>
+                          <td>{log.entity}</td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button 
+                                className="audit-diff-trigger"
+                                onClick={() => setExpandedLogId(expandedLogId === log.id ? null : log.id)}
+                              >
+                                {expandedLogId === log.id ? 'Close State' : 'View Inline'}
+                              </button>
+                              <button 
+                                className="btn btn-secondary" 
+                                style={{ padding: '2px 8px', fontSize: '11.5px', whiteSpace: 'nowrap' }}
+                                onClick={() => setSelectedAuditLogForDiff(log)}
+                              >
+                                🔍 Compare Diff (Side-by-Side)
+                              </button>
+                            </div>
+                            
+                            {expandedLogId === log.id && (
+                              <div className="audit-diff-block" style={{ marginTop: '6px' }}>
+                                <span style={{ color: 'var(--danger)' }}>BEFORE:</span> {log.beforeState}
+                                <br />
+                                <span style={{ color: 'var(--success)' }}>AFTER:</span> {log.afterState}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
@@ -6495,7 +6858,15 @@ export default function App() {
             {globalSearchQuery.trim().length > 0 ? (() => {
               const query = globalSearchQuery.toLowerCase();
               
-              const matchedContacts = leads.filter(l => 
+              const matchedContacts = contactsList.filter(c => 
+                (c.name && c.name.toLowerCase().includes(query)) || 
+                (c.company && c.company.toLowerCase().includes(query)) ||
+                (c.email && c.email.toLowerCase().includes(query)) ||
+                (c.phone && c.phone.toLowerCase().includes(query)) ||
+                (c.preferredPhone && c.preferredPhone.toLowerCase().includes(query))
+              );
+
+              const matchedLeads = leads.filter(l => 
                 l.name.toLowerCase().includes(query) || 
                 l.company.toLowerCase().includes(query) ||
                 l.email.toLowerCase().includes(query)
@@ -6516,7 +6887,7 @@ export default function App() {
                 q.company.toLowerCase().includes(query)
               );
 
-              const hasResults = matchedContacts.length > 0 || matchedDeals.length > 0 || matchedTasks.length > 0 || matchedQuotes.length > 0;
+              const hasResults = matchedContacts.length > 0 || matchedLeads.length > 0 || matchedDeals.length > 0 || matchedTasks.length > 0 || matchedQuotes.length > 0;
 
               return (
                 <div style={{ maxHeight: '350px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -6526,24 +6897,48 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* Contacts */}
+                  {/* Centralized Contacts */}
                   {matchedContacts.length > 0 && (
                     <div>
-                      <div style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#64748b', marginBottom: '6px' }}>👤 Contacts Directory</div>
+                      <div style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#64748b', marginBottom: '6px' }}>📇 Centralized Contacts</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         {matchedContacts.map(c => (
                           <div 
                             key={c.id} 
+                            style={{ padding: '8px 12px', background: '#f8fafc', borderRadius: '6px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid var(--border-color)' }}
+                            onClick={() => {
+                              setSelectedContactFor360(c.id);
+                              setActiveTab('contacts');
+                              setShowGlobalSearch(false);
+                              setGlobalSearchQuery('');
+                            }}
+                          >
+                            <span style={{ fontWeight: '600', fontSize: '13px' }}>{c.name} {c.company ? `(${c.company})` : ''}</span>
+                            <span className="badge badge-secondary" style={{ fontSize: '9px' }}>{c.category || 'Contact'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Leads */}
+                  {matchedLeads.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#64748b', marginBottom: '6px' }}>🎯 Leads Queue</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {matchedLeads.map(l => (
+                          <div 
+                            key={l.id} 
                             style={{ padding: '8px 12px', background: '#f8fafc', borderRadius: '6px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', border: '1px solid var(--border-color)' }}
                             onClick={() => {
-                              setSelectedLeadDetail(c);
+                              setSelectedLeadDetail(l);
                               setActiveTab('leads');
                               setShowGlobalSearch(false);
                               setGlobalSearchQuery('');
                             }}
                           >
-                            <span style={{ fontWeight: '600', fontSize: '13px' }}>{c.name} ({c.company})</span>
-                            <span className="badge badge-secondary" style={{ fontSize: '9px' }}>Score: {c.score}</span>
+                            <span style={{ fontWeight: '600', fontSize: '13px' }}>{l.name} ({l.company})</span>
+                            <span className="badge badge-secondary" style={{ fontSize: '9px' }}>Score: {l.score}</span>
                           </div>
                         ))}
                       </div>
@@ -7031,24 +7426,63 @@ export default function App() {
               <h3>Log Daily Visiting Card / Contact</h3>
               <button className="modal-close-btn" onClick={() => setShowAddContactModal(false)}>×</button>
             </div>
-            <form onSubmit={(e) => {
+      {/* ADD DAILY CONTACT / VISITING CARD MODAL */}
+      {showAddContactModal && (
+        <div className="modal-overlay" style={{ zIndex: 1300 }} onClick={() => setShowAddContactModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+            <div className="modal-header">
+              <h3>Create Centralized Contact Record</h3>
+              <button className="modal-close-btn" onClick={() => setShowAddContactModal(false)}>×</button>
+            </div>
+            <form onSubmit={async (e) => {
               e.preventDefault();
-              if (!newContactForm.name || !newContactForm.phone) return;
-              const newEntry = {
-                id: `CNT-${Date.now().toString().slice(-4)}`,
-                name: newContactForm.name,
-                company: newContactForm.company || 'Unlisted Business',
-                email: newContactForm.email || 'notpassed@email.com',
-                phone: newContactForm.phone,
-                designation: newContactForm.designation || 'Contact Person',
-                city: newContactForm.city || 'Bengaluru',
-                dateAdded: new Date().toLocaleDateString('en-IN'),
-                isConverted: false
+              if (!newContactForm.name) return;
+
+              const normPhone = normalizePhone(newContactForm.phone);
+              const cleanPhone = normPhone.isValid ? normPhone.e164 : (newContactForm.phone || '');
+
+              const candidate = {
+                name: newContactForm.name.trim(),
+                preferredPhone: cleanPhone,
+                email: newContactForm.email.trim(),
+                company: newContactForm.company.trim(),
+                designation: newContactForm.designation.trim(),
+                city: newContactForm.city.trim(),
+                category: newContactForm.category || 'Prospect',
+                sourceType: newContactForm.sourceType || 'Direct',
+                notes: newContactForm.notes
               };
-              setContactsList(prev => [newEntry, ...prev]);
+
+              // Duplicate Detection Check
+              const dedup = scoreDuplicate(candidate, contactsList);
+              if (dedup.status === 'duplicate' || dedup.status === 'review') {
+                setShowAddContactModal(false);
+                setMergePair({
+                  primary: dedup.existingContact,
+                  secondary: { ...candidate, id: `NEW-ENTRY-${Date.now()}` },
+                  score: dedup.totalScore,
+                  signals: dedup.signals
+                });
+                setShowMergeModal(true);
+                return;
+              }
+
+              // Save directly to database
+              try {
+                const { createContactAction } = await import('@/app/actions/contacts');
+                const res = await createContactAction(candidate, currentUser?.fullName || 'CRM User');
+                if (res.success && res.contact) {
+                  setContactsList(prev => [{ ...res.contact, phone: res.contact.preferredPhone, dateAdded: 'Today' }, ...prev]);
+                  triggerToast(`Contact "${candidate.name}" created!`, 'success');
+                } else {
+                  setContactsList(prev => [{ id: `CNT-${Date.now().toString().slice(-4)}`, ...candidate, phone: cleanPhone, dateAdded: 'Today' }, ...prev]);
+                }
+              } catch (err) {
+                setContactsList(prev => [{ id: `CNT-${Date.now().toString().slice(-4)}`, ...candidate, phone: cleanPhone, dateAdded: 'Today' }, ...prev]);
+              }
+
               setShowAddContactModal(false);
-              setNewContactForm({ name: '', company: '', email: '', phone: '', designation: '', city: '' });
-              triggerToast(`Daily contact ${newEntry.name} saved!`, 'success');
+              setNewContactForm({ name: '', company: '', email: '', phone: '', designation: '', city: '', category: 'Prospect', sourceType: 'Direct', notes: '' });
             }}>
               <div className="form-group">
                 <label>Contact Full Name *</label>
@@ -7061,41 +7495,58 @@ export default function App() {
                 />
               </div>
               <div className="form-group">
-                <label>Phone Number *</label>
+                <label>Primary Phone Number (Auto-normalized to E.164)</label>
                 <input 
                   type="text" 
-                  required 
                   value={newContactForm.phone} 
                   onChange={(e) => setNewContactForm({ ...newContactForm, phone: e.target.value })} 
-                  placeholder="e.g. +91 98450 11223"
+                  placeholder="e.g. +91 98450 11223 or 9845011223"
                 />
               </div>
-              <div className="form-group">
-                <label>Company / Firm Name</label>
-                <input 
-                  type="text" 
-                  value={newContactForm.company} 
-                  onChange={(e) => setNewContactForm({ ...newContactForm, company: e.target.value })} 
-                  placeholder="e.g. Patel Logistics Ltd"
-                />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="form-group">
+                  <label>Company / Firm Name</label>
+                  <input 
+                    type="text" 
+                    value={newContactForm.company} 
+                    onChange={(e) => setNewContactForm({ ...newContactForm, company: e.target.value })} 
+                    placeholder="e.g. Patel Logistics Ltd"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Designation / Role</label>
+                  <input 
+                    type="text" 
+                    value={newContactForm.designation} 
+                    onChange={(e) => setNewContactForm({ ...newContactForm, designation: e.target.value })} 
+                    placeholder="e.g. Managing Director"
+                  />
+                </div>
               </div>
-              <div className="form-group">
-                <label>Designation / Role</label>
-                <input 
-                  type="text" 
-                  value={newContactForm.designation} 
-                  onChange={(e) => setNewContactForm({ ...newContactForm, designation: e.target.value })} 
-                  placeholder="e.g. Managing Director"
-                />
-              </div>
-              <div className="form-group">
-                <label>Email Address</label>
-                <input 
-                  type="email" 
-                  value={newContactForm.email} 
-                  onChange={(e) => setNewContactForm({ ...newContactForm, email: e.target.value })} 
-                  placeholder="e.g. ramesh@patellogistics.in"
-                />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="form-group">
+                  <label>Email Address</label>
+                  <input 
+                    type="email" 
+                    value={newContactForm.email} 
+                    onChange={(e) => setNewContactForm({ ...newContactForm, email: e.target.value })} 
+                    placeholder="e.g. ramesh@patellogistics.in"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Category</label>
+                  <select
+                    value={newContactForm.category}
+                    onChange={(e) => setNewContactForm({ ...newContactForm, category: e.target.value })}
+                  >
+                    <option value="Prospect">Prospect</option>
+                    <option value="Customer">Customer</option>
+                    <option value="Partner">Partner</option>
+                    <option value="Vendor">Vendor</option>
+                    <option value="VIP">VIP</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
               </div>
               <div className="form-group">
                 <label>City / Location</label>
@@ -7108,9 +7559,12 @@ export default function App() {
               </div>
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '20px' }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setShowAddContactModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Save Daily Contact →</button>
+                <button type="submit" className="btn btn-primary">Save Contact Record →</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
           </div>
         </div>
       )}
@@ -7234,27 +7688,46 @@ export default function App() {
                     return;
                   }
 
+                  const normPhone = normalizePhone(scannedResultForm.phone);
+                  const cleanPhone = normPhone.isValid ? normPhone.e164 : (scannedResultForm.phone || '');
+
+                  const candidate = {
+                    name: contactFullName,
+                    company: scannedResultForm.company || '',
+                    email: scannedResultForm.email || '',
+                    preferredPhone: cleanPhone,
+                    designation: scannedResultForm.designation || '',
+                    address: scannedResultForm.address || '',
+                    city: scannedResultForm.city || '',
+                    category: 'Prospect',
+                    sourceType: 'Visiting Card',
+                    owner: currentUser?.fullName || 'KP Sumanth'
+                  };
+
+                  // Duplicate check before saving scanned card
+                  const dedup = scoreDuplicate(candidate, contactsList);
+                  if (dedup.status === 'duplicate' || dedup.status === 'review') {
+                    setShowScanModal(false);
+                    setScannedImagePreview(null);
+                    setMergePair({
+                      primary: dedup.existingContact,
+                      secondary: { ...candidate, id: `SCANNED-${Date.now()}` },
+                      score: dedup.totalScore,
+                      signals: dedup.signals
+                    });
+                    setShowMergeModal(true);
+                    return;
+                  }
+
                   let dbId = `CNT-${Date.now().toString().slice(-4)}`;
 
                   // Persist Scanned Contact to Supabase Database via Server Action
                   try {
-                    const { saveScannedContactAction } = await import('@/app/actions/crm');
-                    const res = await saveScannedContactAction({
-                      name: contactFullName,
-                      company: scannedResultForm.company,
-                      email: scannedResultForm.email,
-                      phone: scannedResultForm.phone,
-                      designation: scannedResultForm.designation,
-                      address: scannedResultForm.address,
-                      city: scannedResultForm.city,
-                      pincode: scannedResultForm.pincode,
-                      website: scannedResultForm.website,
-                      linkedin: scannedResultForm.linkedin,
-                      owner: currentUser?.fullName || 'KP Sumanth'
-                    });
-                    if (res && res.success && res.data) {
-                      dbId = res.data.id;
-                      triggerToast(`Scanned contact ${contactFullName} saved to Supabase DB!`, 'success');
+                    const { createContactAction } = await import('@/app/actions/contacts');
+                    const res = await createContactAction(candidate, currentUser?.fullName || 'KP Sumanth');
+                    if (res && res.success && res.contact) {
+                      dbId = res.contact.id;
+                      triggerToast(`Scanned contact ${contactFullName} saved to database!`, 'success');
                     }
                   } catch (dbErr) {
                     console.error('Database save error for scanned contact:', dbErr);
@@ -7263,11 +7736,14 @@ export default function App() {
                   const newEntry = {
                     id: dbId,
                     name: contactFullName,
-                    company: scannedResultForm.company || '',
-                    email: scannedResultForm.email || '',
-                    phone: scannedResultForm.phone || '',
-                    designation: scannedResultForm.designation || '',
-                    city: scannedResultForm.city || '',
+                    company: candidate.company,
+                    email: candidate.email,
+                    phone: cleanPhone,
+                    preferredPhone: cleanPhone,
+                    designation: candidate.designation,
+                    city: candidate.city,
+                    category: 'Prospect',
+                    sourceType: 'Visiting Card',
                     dateAdded: new Date().toLocaleDateString('en-IN'),
                     isConverted: false
                   };
@@ -7555,6 +8031,139 @@ export default function App() {
           <span>Menu</span>
         </button>
       </nav>
+
+      {/* Centralized Contact 360 Drawer Modal */}
+      {selectedContactFor360 && (
+        <Contact360Modal
+          contactId={selectedContactFor360}
+          initialContact={contactsList.find(c => c.id === selectedContactFor360)}
+          allDeals={deals}
+          allTasks={tasks}
+          currentUser={currentUser}
+          onClose={() => setSelectedContactFor360(null)}
+          onContactUpdated={(updated) => {
+            setContactsList(prev => prev.map(c => c.id === updated.id ? { ...c, ...updated, phone: updated.preferredPhone || updated.phone } : c));
+          }}
+          onContactDeleted={(deletedId) => {
+            setContactsList(prev => prev.filter(c => c.id !== deletedId));
+            setSelectedContactFor360(null);
+          }}
+          onConvertToLead={async (cnt) => {
+            try {
+              const { createLeadAction } = await import('@/app/actions/crm');
+              const res = await createLeadAction({
+                name: cnt.name,
+                company: cnt.company,
+                email: cnt.email,
+                phone: cnt.preferredPhone || cnt.phone,
+                status: 'New',
+                score: 25,
+                owner: currentUser?.fullName || 'KP Sumanth'
+              });
+              if (res.success && res.data) {
+                const newLead: Lead = {
+                  id: res.data.id,
+                  name: res.data.name,
+                  company: res.data.company || '',
+                  email: res.data.email || '',
+                  phone: res.data.phone || '',
+                  status: (res.data.status as any) || 'New',
+                  score: res.data.score || 25,
+                  owner: res.data.owner || 'KP Sumanth',
+                  activities: []
+                };
+                setLeads(prev => [newLead, ...prev]);
+                setContactsList(prev => prev.map(c => c.id === cnt.id ? { ...c, isConverted: true, convertedLeadId: newLead.id } : c));
+                triggerToast(`Contact ${cnt.name} converted to Lead in Supabase!`, 'success');
+                setSelectedContactFor360(null);
+              }
+            } catch (err) {
+              console.error('Convert to lead error:', err);
+            }
+          }}
+          triggerToast={triggerToast}
+        />
+      )}
+
+      {/* Interactive Contact Merge Modal */}
+      {showMergeModal && mergePair && (
+        <ContactMergeModal
+          primaryContact={mergePair.primary}
+          secondaryContact={mergePair.secondary}
+          matchScore={mergePair.score}
+          signals={mergePair.signals}
+          currentUser={currentUser}
+          onClose={() => {
+            setShowMergeModal(false);
+            setMergePair(null);
+          }}
+          onMergeSuccess={(merged) => {
+            setContactsList(prev => {
+              const filtered = prev.filter(c => c.id !== mergePair.secondary.id);
+              return filtered.map(c => c.id === merged.id ? { ...c, ...merged, phone: merged.preferredPhone || merged.phone } : c);
+            });
+            setShowMergeModal(false);
+            setMergePair(null);
+          }}
+          triggerToast={triggerToast}
+        />
+      )}
+
+      {/* Excel / CSV Batch Import Modal */}
+      {showExcelImportModal && (
+        <ExcelImportModal
+          existingContacts={contactsList}
+          currentUser={currentUser}
+          onClose={() => setShowExcelImportModal(false)}
+          onImportSuccess={async (result) => {
+            if (result.importedContacts && result.importedContacts.length > 0) {
+              setContactsList(prev => {
+                const newIds = new Set(result.importedContacts.map((c: any) => c.id));
+                const filtered = prev.filter(c => !newIds.has(c.id));
+                return [...result.importedContacts, ...filtered];
+              });
+            }
+            if (result.batch) {
+              setImportBatches(prev => [result.batch, ...prev.filter(b => b.id !== result.batch.id)]);
+            }
+
+            // Reload fresh contact list & batches from database if available
+            try {
+              const { fetchContactsListAction, fetchImportBatchesAction } = await import('@/app/actions/contacts');
+              const [cRes, bRes] = await Promise.all([
+                fetchContactsListAction(),
+                fetchImportBatchesAction()
+              ]);
+              if (cRes.success && cRes.contacts && cRes.contacts.length > 0) {
+                setContactsList(cRes.contacts.map((c: any) => ({
+                  ...c,
+                  phone: c.preferredPhone || c.phone,
+                  dateAdded: c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-IN') : 'Today'
+                })));
+              }
+              if (bRes.success && bRes.batches && bRes.batches.length > 0) {
+                setImportBatches(bRes.batches);
+              }
+            } catch (err) {
+              console.warn('DB background reload skipped:', err);
+            }
+          }}
+          triggerToast={triggerToast}
+        />
+      )}
+
+      {/* Quick Communication Modal (1-Click Outreach) */}
+      {showQuickCommContact && (
+        <QuickCommModal
+          contact={showQuickCommContact}
+          currentUser={currentUser}
+          onClose={() => setShowQuickCommContact(null)}
+          onCommunicationLogged={(comm) => {
+            setContactsList(prev => prev.map(c => c.id === showQuickCommContact.id ? { ...c, lastContactedAt: new Date().toISOString() } : c));
+          }}
+          triggerToast={triggerToast}
+        />
+      )}
 
       {/* Floating Owner Feedback & Requirements Widget */}
       <OwnerFeedbackWidget activeTab={activeTab} currentUser={currentUser} />

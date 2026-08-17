@@ -111,6 +111,86 @@ CREATE TABLE IF NOT EXISTS terms_templates (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
+-- 10. OWNER_FEEDBACK TABLE
+CREATE TABLE IF NOT EXISTS owner_feedback (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    page_tab VARCHAR(50) NOT NULL,
+    category VARCHAR(50) DEFAULT 'Requirement',
+    note_text TEXT NOT NULL,
+    author_name VARCHAR(100) DEFAULT 'CRM Owner',
+    status VARCHAR(20) DEFAULT 'New',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+-- 11. CONTACTS TABLE (Centralized One Person = One Record)
+CREATE TABLE IF NOT EXISTS contacts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    preferred_phone TEXT,
+    alternate_phones JSONB DEFAULT '[]'::jsonb,
+    email TEXT,
+    alternate_emails JSONB DEFAULT '[]'::jsonb,
+    company TEXT,
+    designation TEXT,
+    city TEXT,
+    state TEXT,
+    address TEXT,
+    category TEXT DEFAULT 'Prospect',
+    source_type TEXT DEFAULT 'Direct',
+    source_event TEXT,
+    source_history JSONB DEFAULT '[]'::jsonb,
+    do_not_contact BOOLEAN DEFAULT false,
+    consent_given BOOLEAN DEFAULT true,
+    notes TEXT,
+    tags JSONB DEFAULT '[]'::jsonb,
+    custom_fields JSONB DEFAULT '{}'::jsonb,
+    owner TEXT,
+    last_contacted_at TIMESTAMP WITH TIME ZONE,
+    import_batch_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+-- 12. COMMUNICATIONS TABLE
+CREATE TABLE IF NOT EXISTS communications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    contact_id UUID NOT NULL,
+    type TEXT NOT NULL,
+    direction TEXT DEFAULT 'Outbound',
+    subject TEXT,
+    notes TEXT,
+    template_used TEXT,
+    auto_logged BOOLEAN DEFAULT false,
+    logged_by TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+-- 13. IMPORT_BATCHES TABLE
+CREATE TABLE IF NOT EXISTS import_batches (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    file_name TEXT NOT NULL,
+    source_type TEXT DEFAULT 'Excel Import',
+    source_event TEXT,
+    total_rows INTEGER DEFAULT 0,
+    imported_count INTEGER DEFAULT 0,
+    merged_count INTEGER DEFAULT 0,
+    failed_count INTEGER DEFAULT 0,
+    uploaded_by TEXT,
+    is_rolled_back BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+-- 14. CONTACT_MERGE_LOGS TABLE
+CREATE TABLE IF NOT EXISTS contact_merge_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    primary_contact_id UUID NOT NULL,
+    secondary_contact_id TEXT,
+    merged_from_snapshot JSONB NOT NULL,
+    field_overrides JSONB DEFAULT '{}'::jsonb,
+    merged_by TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
 -- Turn off Row Level Security (or customize it) to allow plug-and-play local tests
 ALTER TABLE companies DISABLE ROW LEVEL SECURITY;
 ALTER TABLE leads DISABLE ROW LEVEL SECURITY;
@@ -121,3 +201,9 @@ ALTER TABLE quotes DISABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs DISABLE ROW LEVEL SECURITY;
 ALTER TABLE custom_fields DISABLE ROW LEVEL SECURITY;
 ALTER TABLE terms_templates DISABLE ROW LEVEL SECURITY;
+ALTER TABLE owner_feedback DISABLE ROW LEVEL SECURITY;
+ALTER TABLE contacts DISABLE ROW LEVEL SECURITY;
+ALTER TABLE communications DISABLE ROW LEVEL SECURITY;
+ALTER TABLE import_batches DISABLE ROW LEVEL SECURITY;
+ALTER TABLE contact_merge_logs DISABLE ROW LEVEL SECURITY;
+
