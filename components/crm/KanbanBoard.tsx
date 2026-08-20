@@ -53,8 +53,7 @@ export default function KanbanBoard({
       {/* Header Row */}
       <div className="page-header-row kanban-header-wrap">
         <div className="page-title-text">
-          <h2>Pipeline Velocity</h2>
-          <p>Real-time visualization of your active sales funnel across all territories.</p>
+          <h2>Deals Pipeline</h2>
         </div>
         <div className="kanban-controls-row">
           {/* Layout Toggle Option */}
