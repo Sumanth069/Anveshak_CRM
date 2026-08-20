@@ -1430,8 +1430,8 @@ export default function App() {
   const [rotationDegrees, setRotationDegrees] = useState(0);
   
   // Form Inputs
-  const [newLead, setNewLead] = useState({ firstName: '', lastName: '', email: '', phone: '', alternatePhone: '', company: '', designation: '', city: 'Bangalore', state: 'Karnataka', leadSource: 'Cold Call', owner: 'KP Sumanth', tags: 'B2G' });
-  const [newCompany, setNewCompany] = useState({ name: '', industry: 'Manufacturing / B2G', website: '', city: 'Bangalore', state: 'Karnataka', address: '' });
+  const [newLead, setNewLead] = useState({ firstName: '', lastName: '', email: '', phone: '', alternatePhone: '', company: '', designation: '', city: '', state: '', leadSource: 'Website', owner: 'KP Sumanth', tags: 'B2G' });
+  const [newCompany, setNewCompany] = useState({ name: '', industry: 'Manufacturing / B2G', website: '', city: '', state: '', address: '' });
   const [newUser, setNewUser] = useState({ fullName: '', email: '', role: 'SALES_REP' as SystemUser['role'] });
   const [newCustomValues, setNewCustomValues] = useState<{ [key: string]: string }>({});
   const [duplicateConflictedLead, setDuplicateConflictedLead] = useState<Lead | null>(null);
@@ -5839,34 +5839,34 @@ export default function App() {
                 )}
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div className="modal-grid-2col">
                 <div className="form-group">
                   <label>First Name *</label>
-                  <input type="text" required placeholder="Ramesh" value={newLead.firstName} onChange={(e) => setNewLead({ ...newLead, firstName: e.target.value })} />
+                  <input type="text" required placeholder="e.g. Ramesh" value={newLead.firstName} onChange={(e) => setNewLead({ ...newLead, firstName: e.target.value })} />
                 </div>
                 <div className="form-group">
                   <label>Last Name *</label>
-                  <input type="text" required placeholder="Gowda" value={newLead.lastName} onChange={(e) => setNewLead({ ...newLead, lastName: e.target.value })} />
+                  <input type="text" required placeholder="e.g. Gowda" value={newLead.lastName} onChange={(e) => setNewLead({ ...newLead, lastName: e.target.value })} />
                 </div>
               </div>
 
               <div className="form-group">
                 <label>Work Email Address *</label>
-                <input type="email" required placeholder="ramesh@mysoreagro.in" value={newLead.email} onChange={(e) => setNewLead({ ...newLead, email: e.target.value })} />
+                <input type="email" required placeholder="e.g. name@company.com" value={newLead.email} onChange={(e) => setNewLead({ ...newLead, email: e.target.value })} />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div className="modal-grid-2col">
                 <div className="form-group">
                   <label>Primary Phone *</label>
-                  <input type="text" required placeholder="+91 99887 76655" value={newLead.phone} onChange={(e) => setNewLead({ ...newLead, phone: e.target.value })} />
+                  <input type="text" required placeholder="e.g. +91 98450 12345" value={newLead.phone} onChange={(e) => setNewLead({ ...newLead, phone: e.target.value })} />
                 </div>
                 <div className="form-group">
                   <label>Alternate Phone</label>
-                  <input type="text" placeholder="Alternate phone" value={newLead.alternatePhone} onChange={(e) => setNewLead({ ...newLead, alternatePhone: e.target.value })} />
+                  <input type="text" placeholder="e.g. +91 98450 67890" value={newLead.alternatePhone} onChange={(e) => setNewLead({ ...newLead, alternatePhone: e.target.value })} />
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div className="modal-grid-2col">
                 <div className="form-group">
                   <label>Company / Account Entity *</label>
                   <select value={newLead.company} onChange={(e) => setNewLead({ ...newLead, company: e.target.value })}>
@@ -5888,18 +5888,18 @@ export default function App() {
                 <input type="text" placeholder="e.g. Purchase Director" value={newLead.designation} onChange={(e) => setNewLead({ ...newLead, designation: e.target.value })} />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div className="modal-grid-2col">
                 <div className="form-group">
                   <label>City *</label>
-                  <input type="text" required placeholder="Bangalore" value={newLead.city} onChange={(e) => setNewLead({ ...newLead, city: e.target.value })} />
+                  <input type="text" required placeholder="e.g. Bangalore" value={newLead.city} onChange={(e) => setNewLead({ ...newLead, city: e.target.value })} />
                 </div>
                 <div className="form-group">
                   <label>State *</label>
-                  <input type="text" required placeholder="Karnataka" value={newLead.state} onChange={(e) => setNewLead({ ...newLead, state: e.target.value })} />
+                  <input type="text" required placeholder="e.g. Karnataka" value={newLead.state} onChange={(e) => setNewLead({ ...newLead, state: e.target.value })} />
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div className="modal-grid-2col">
                 <div className="form-group">
                   <label>Lead Source *</label>
                   <select value={newLead.leadSource} onChange={(e) => setNewLead({ ...newLead, leadSource: e.target.value })}>
@@ -5943,7 +5943,7 @@ export default function App() {
                 </div>
               ))}
 
-              <div className="modal-actions" style={{ position: 'sticky', bottom: 0, backgroundColor: '#ffffff', padding: '12px 0', borderTop: '1px solid var(--border-color)', zIndex: 10 }}>
+              <div className="modal-actions" style={{ position: 'sticky', bottom: 0, backgroundColor: '#ffffff', padding: '14px 0 0 0', borderTop: '1px solid var(--border-color)', zIndex: 10, marginTop: '16px' }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setShowLeadModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary">Create Record</button>
               </div>
@@ -6955,19 +6955,21 @@ export default function App() {
             }}>
               <div className="form-group">
                 <label>Company Name *</label>
-                <input type="text" required value={newCompany.name} onChange={(e) => setNewCompany({ ...newCompany, name: e.target.value })} />
+                <input type="text" required placeholder="e.g. Acme Industries Ltd" value={newCompany.name} onChange={(e) => setNewCompany({ ...newCompany, name: e.target.value })} />
               </div>
               <div className="form-group">
                 <label>Industry Sector</label>
-                <input type="text" value={newCompany.industry} onChange={(e) => setNewCompany({ ...newCompany, industry: e.target.value })} />
+                <input type="text" placeholder="e.g. Manufacturing & Enterprise" value={newCompany.industry} onChange={(e) => setNewCompany({ ...newCompany, industry: e.target.value })} />
               </div>
-              <div className="form-group">
-                <label>City</label>
-                <input type="text" value={newCompany.city} onChange={(e) => setNewCompany({ ...newCompany, city: e.target.value })} />
-              </div>
-              <div className="form-group">
-                <label>State</label>
-                <input type="text" value={newCompany.state} onChange={(e) => setNewCompany({ ...newCompany, state: e.target.value })} />
+              <div className="modal-grid-2col">
+                <div className="form-group">
+                  <label>City</label>
+                  <input type="text" placeholder="e.g. Bangalore" value={newCompany.city} onChange={(e) => setNewCompany({ ...newCompany, city: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>State</label>
+                  <input type="text" placeholder="e.g. Karnataka" value={newCompany.state} onChange={(e) => setNewCompany({ ...newCompany, state: e.target.value })} />
+                </div>
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowCompanyModal(false)}>Cancel</button>
@@ -7832,7 +7834,7 @@ export default function App() {
                   placeholder="e.g. +91 98450 11223 or 9845011223"
                 />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div className="modal-grid-2col">
                 <div className="form-group">
                   <label>Company / Firm Name</label>
                   <input 
@@ -7852,7 +7854,7 @@ export default function App() {
                   />
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div className="modal-grid-2col">
                 <div className="form-group">
                   <label>Email Address</label>
                   <input 
@@ -8083,14 +8085,14 @@ export default function App() {
                 }}
                 style={{ display: 'flex', flexDirection: 'column', gap: '12px', boxSizing: 'border-box', width: '100%' }}
               >
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="modal-grid-2col">
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label>First Name</label>
                     <input 
                       type="text" 
                       value={scannedResultForm.firstName} 
                       onChange={(e) => setScannedResultForm({ ...scannedResultForm, firstName: e.target.value })} 
-                      placeholder=""
+                      placeholder="e.g. Ramesh"
                       style={{ width: '100%', boxSizing: 'border-box' }}
                     />
                   </div>
@@ -8100,20 +8102,20 @@ export default function App() {
                       type="text" 
                       value={scannedResultForm.lastName} 
                       onChange={(e) => setScannedResultForm({ ...scannedResultForm, lastName: e.target.value })} 
-                      placeholder=""
+                      placeholder="e.g. Gowda"
                       style={{ width: '100%', boxSizing: 'border-box' }}
                     />
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="modal-grid-2col">
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label>Company / Organization</label>
                     <input 
                       type="text" 
                       value={scannedResultForm.company} 
                       onChange={(e) => setScannedResultForm({ ...scannedResultForm, company: e.target.value })} 
-                      placeholder=""
+                      placeholder="e.g. Acme Corp"
                       style={{ width: '100%', boxSizing: 'border-box' }}
                     />
                   </div>
@@ -8123,20 +8125,20 @@ export default function App() {
                       type="text" 
                       value={scannedResultForm.designation} 
                       onChange={(e) => setScannedResultForm({ ...scannedResultForm, designation: e.target.value })} 
-                      placeholder=""
+                      placeholder="e.g. Operations Manager"
                       style={{ width: '100%', boxSizing: 'border-box' }}
                     />
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="modal-grid-2col">
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label>Phone Number</label>
                     <input 
                       type="text" 
                       value={scannedResultForm.phone} 
                       onChange={(e) => setScannedResultForm({ ...scannedResultForm, phone: e.target.value })} 
-                      placeholder=""
+                      placeholder="e.g. +91 98450 12345"
                       style={{ width: '100%', boxSizing: 'border-box' }}
                     />
                   </div>
@@ -8146,20 +8148,20 @@ export default function App() {
                       type="email" 
                       value={scannedResultForm.email} 
                       onChange={(e) => setScannedResultForm({ ...scannedResultForm, email: e.target.value })} 
-                      placeholder=""
+                      placeholder="e.g. ramesh@company.com"
                       style={{ width: '100%', boxSizing: 'border-box' }}
                     />
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="modal-grid-2col">
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label>Website / URL</label>
                     <input 
                       type="text" 
                       value={scannedResultForm.website} 
                       onChange={(e) => setScannedResultForm({ ...scannedResultForm, website: e.target.value })} 
-                      placeholder=""
+                      placeholder="e.g. https://company.com"
                       style={{ width: '100%', boxSizing: 'border-box' }}
                     />
                   </div>
@@ -8169,7 +8171,7 @@ export default function App() {
                       type="text" 
                       value={scannedResultForm.linkedin} 
                       onChange={(e) => setScannedResultForm({ ...scannedResultForm, linkedin: e.target.value })} 
-                      placeholder=""
+                      placeholder="e.g. linkedin.com/in/username"
                       style={{ width: '100%', boxSizing: 'border-box' }}
                     />
                   </div>
@@ -8181,19 +8183,19 @@ export default function App() {
                     type="text" 
                     value={scannedResultForm.address} 
                     onChange={(e) => setScannedResultForm({ ...scannedResultForm, address: e.target.value })} 
-                    placeholder=""
+                    placeholder="e.g. 123 Industrial Area"
                     style={{ width: '100%', boxSizing: 'border-box' }}
                   />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="modal-grid-2col">
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label>City</label>
                     <input 
                       type="text" 
                       value={scannedResultForm.city} 
                       onChange={(e) => setScannedResultForm({ ...scannedResultForm, city: e.target.value })} 
-                      placeholder=""
+                      placeholder="e.g. Bangalore"
                       style={{ width: '100%', boxSizing: 'border-box' }}
                     />
                   </div>
@@ -8203,13 +8205,13 @@ export default function App() {
                       type="text" 
                       value={scannedResultForm.pincode} 
                       onChange={(e) => setScannedResultForm({ ...scannedResultForm, pincode: e.target.value })} 
-                      placeholder=""
+                      placeholder="e.g. 560001"
                       style={{ width: '100%', boxSizing: 'border-box' }}
                     />
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '16px' }}>
+                <div className="modal-actions" style={{ marginTop: '16px' }}>
                   <button type="button" className="btn btn-secondary" onClick={() => setShowScanModal(false)}>Cancel</button>
                   <button type="submit" className="btn btn-primary" disabled={isScanningCard}>Save Scanned Contact →</button>
                 </div>
