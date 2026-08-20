@@ -4694,33 +4694,33 @@ export default function App() {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: selectedCalendarDay ? '3fr 2fr' : '1fr', gap: '20px' }}>
-                  <div className="panel-card" style={{ padding: '20px' }}>
+                <div className="calendar-split-container" style={{ display: 'grid', gridTemplateColumns: selectedCalendarDay ? '3fr 2fr' : '1fr', gap: '20px', width: '100%', maxWidth: '100%' }}>
+                  <div className="panel-card" style={{ padding: '16px', width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
                     
                     {/* Calendar Controls */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <div className="calendar-controls-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
                       <div style={{ display: 'flex', gap: '6px' }}>
                         <button 
                           className="btn btn-secondary" 
-                          style={{ padding: '4px 10px', fontSize: '12px' }}
+                          style={{ padding: '6px 12px', fontSize: '12px' }}
                           onClick={() => {
                             if (calendarMonth === 'July') setCalendarMonth('June');
                             if (calendarMonth === 'August') setCalendarMonth('July');
                           }}
                           disabled={calendarMonth === 'June'}
                         >
-                          ◀ Previous Month
+                          ◀ Prev
                         </button>
                         <button 
                           className="btn btn-secondary" 
-                          style={{ padding: '4px 10px', fontSize: '12px' }}
+                          style={{ padding: '6px 12px', fontSize: '12px' }}
                           onClick={() => {
                             if (calendarMonth === 'June') setCalendarMonth('July');
                             if (calendarMonth === 'July') setCalendarMonth('August');
                           }}
                           disabled={calendarMonth === 'August'}
                         >
-                          Next Month ▶
+                          Next ▶
                         </button>
                       </div>
                       
@@ -4738,11 +4738,11 @@ export default function App() {
 
                     {calendarViewMode === 'month' ? (
                       <>
-                        <div className="calendar-grid-header" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center', fontWeight: 'bold', fontSize: '12px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '8px' }}>
+                        <div className="calendar-grid-header" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center', fontWeight: 'bold', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '8px', width: '100%' }}>
                           <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
                         </div>
 
-                        <div className="calendar-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px' }}>
+                        <div className="calendar-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', width: '100%' }}>
                           {cells.map((day, idx) => {
                             if (!day) return <div key={idx} style={{ background: '#f8fafc', borderRadius: '6px', minHeight: '90px', opacity: 0.4 }}></div>;
                             const isToday = calendarMonth === 'July' && day === 16;
@@ -5008,140 +5008,114 @@ export default function App() {
             </div>
           )}
           {activeTab === 'scoring' && (
-            <div className="panel-card animate-fade" style={{ maxWidth: '600px' }}>
-              <div className="panel-title">
+            <div className="panel-card animate-fade" style={{ maxWidth: '650px' }}>
+              <div className="panel-title" style={{ marginBottom: '16px' }}>
                 <h3>Lead Scoring Point Values</h3>
               </div>
               
-              <table className="scoring-config-table">
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
-                    <th style={{ paddingBottom: '10px' }}>Action Trigger</th>
-                    <th style={{ paddingBottom: '10px', textAlign: 'center' }}>Points Value</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td style={{ padding: '12px 0' }}>
-                      <div style={{ fontWeight: '600' }}>Request Product Demo</div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Points awarded when a customer triggers a demo request.</div>
-                    </td>
-                    <td style={{ textAlign: 'left', padding: '12px 0' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <input 
-                          type="range" 
-                          min="0" 
-                          max="100" 
-                          className="scoring-slider" 
-                          value={rules.demoRequested} 
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value) || 0;
-                            setRules({ ...rules, demoRequested: val });
-                          }}
-                          style={{ flex: 1 }}
-                        />
-                        <span style={{ fontWeight: 'bold', minWidth: '50px', fontSize: '13px', color: '#1e40af' }}>{rules.demoRequested} pts</span>
-                      </div>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '12px 0' }}>
-                      <div style={{ fontWeight: '600' }}>Schedule Callback/Meeting</div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Points awarded when a follow-up call/meeting is scheduled.</div>
-                    </td>
-                    <td style={{ textAlign: 'left', padding: '12px 0' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <input 
-                          type="range" 
-                          min="0" 
-                          max="100" 
-                          className="scoring-slider" 
-                          value={rules.meetingScheduled} 
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value) || 0;
-                            setRules({ ...rules, meetingScheduled: val });
-                          }}
-                          style={{ flex: 1 }}
-                        />
-                        <span style={{ fontWeight: 'bold', minWidth: '50px', fontSize: '13px', color: '#1e40af' }}>{rules.meetingScheduled} pts</span>
-                      </div>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '12px 0' }}>
-                      <div style={{ fontWeight: '600' }}>Outbound Call - Answered</div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Points awarded for outbound customer calls that are successfully answered.</div>
-                    </td>
-                    <td style={{ textAlign: 'left', padding: '12px 0' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <input 
-                          type="range" 
-                          min="0" 
-                          max="100" 
-                          className="scoring-slider" 
-                          value={rules.callAnswered} 
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value) || 0;
-                            setRules({ ...rules, callAnswered: val });
-                          }}
-                          style={{ flex: 1 }}
-                        />
-                        <span style={{ fontWeight: 'bold', minWidth: '50px', fontSize: '13px', color: '#1e40af' }}>{rules.callAnswered} pts</span>
-                      </div>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '12px 0' }}>
-                      <div style={{ fontWeight: '600' }}>Outbound Call - No Answer</div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Points deduction/addition for missed calls or no-answer trials.</div>
-                    </td>
-                    <td style={{ textAlign: 'left', padding: '12px 0' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <input 
-                          type="range" 
-                          min="-50" 
-                          max="50" 
-                          className="scoring-slider" 
-                          value={rules.callNoAnswer} 
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value) || 0;
-                            setRules({ ...rules, callNoAnswer: val });
-                          }}
-                          style={{ flex: 1 }}
-                        />
-                        <span style={{ fontWeight: 'bold', minWidth: '50px', fontSize: '13px', color: '#b45309' }}>{rules.callNoAnswer} pts</span>
-                      </div>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '12px 0' }}>
-                      <div style={{ fontWeight: '600' }}>Marked as "Not Interested"</div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Deduction penalty when a prospect rejects callback requests.</div>
-                    </td>
-                    <td style={{ textAlign: 'left', padding: '12px 0' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <input 
-                          type="range" 
-                          min="-100" 
-                          max="0" 
-                          className="scoring-slider" 
-                          value={rules.notInterested} 
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value) || 0;
-                            setRules({ ...rules, notInterested: val });
-                          }}
-                          style={{ flex: 1 }}
-                        />
-                        <span style={{ fontWeight: 'bold', minWidth: '50px', fontSize: '13px', color: '#ef4444' }}>{rules.notInterested} pts</span>
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {/* Rule 1 */}
+                <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div>
+                    <div style={{ fontWeight: '700', fontSize: '13.5px', color: '#0f172a' }}>Request Product Demo</div>
+                    <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>Points awarded when a customer triggers a demo request.</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <input 
+                      type="range" 
+                      min="0" 
+                      max="100" 
+                      className="scoring-slider" 
+                      value={rules.demoRequested} 
+                      onChange={(e) => setRules({ ...rules, demoRequested: parseInt(e.target.value) || 0 })}
+                      style={{ flex: 1 }}
+                    />
+                    <span style={{ fontWeight: 'bold', minWidth: '60px', textAlign: 'right', fontSize: '13px', color: '#1e40af' }}>{rules.demoRequested} pts</span>
+                  </div>
+                </div>
 
-              {/* Pipeline Stage Customization Editor (PIP-04) removed */}
+                {/* Rule 2 */}
+                <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div>
+                    <div style={{ fontWeight: '700', fontSize: '13.5px', color: '#0f172a' }}>Schedule Callback/Meeting</div>
+                    <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>Points awarded when a follow-up call/meeting is scheduled.</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <input 
+                      type="range" 
+                      min="0" 
+                      max="100" 
+                      className="scoring-slider" 
+                      value={rules.meetingScheduled} 
+                      onChange={(e) => setRules({ ...rules, meetingScheduled: parseInt(e.target.value) || 0 })}
+                      style={{ flex: 1 }}
+                    />
+                    <span style={{ fontWeight: 'bold', minWidth: '60px', textAlign: 'right', fontSize: '13px', color: '#1e40af' }}>{rules.meetingScheduled} pts</span>
+                  </div>
+                </div>
 
-              <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+                {/* Rule 3 */}
+                <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div>
+                    <div style={{ fontWeight: '700', fontSize: '13.5px', color: '#0f172a' }}>Outbound Call - Answered</div>
+                    <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>Points awarded for outbound customer calls that are successfully answered.</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <input 
+                      type="range" 
+                      min="0" 
+                      max="100" 
+                      className="scoring-slider" 
+                      value={rules.callAnswered} 
+                      onChange={(e) => setRules({ ...rules, callAnswered: parseInt(e.target.value) || 0 })}
+                      style={{ flex: 1 }}
+                    />
+                    <span style={{ fontWeight: 'bold', minWidth: '60px', textAlign: 'right', fontSize: '13px', color: '#1e40af' }}>{rules.callAnswered} pts</span>
+                  </div>
+                </div>
+
+                {/* Rule 4 */}
+                <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div>
+                    <div style={{ fontWeight: '700', fontSize: '13.5px', color: '#0f172a' }}>Outbound Call - No Answer</div>
+                    <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>Points deduction/addition for missed calls or no-answer trials.</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <input 
+                      type="range" 
+                      min="-50" 
+                      max="50" 
+                      className="scoring-slider" 
+                      value={rules.callNoAnswer} 
+                      onChange={(e) => setRules({ ...rules, callNoAnswer: parseInt(e.target.value) || 0 })}
+                      style={{ flex: 1 }}
+                    />
+                    <span style={{ fontWeight: 'bold', minWidth: '60px', textAlign: 'right', fontSize: '13px', color: '#b45309' }}>{rules.callNoAnswer} pts</span>
+                  </div>
+                </div>
+
+                {/* Rule 5 */}
+                <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div>
+                    <div style={{ fontWeight: '700', fontSize: '13.5px', color: '#0f172a' }}>Marked as "Not Interested"</div>
+                    <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>Deduction penalty when a prospect rejects callback requests.</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <input 
+                      type="range" 
+                      min="-100" 
+                      max="0" 
+                      className="scoring-slider" 
+                      value={rules.notInterested} 
+                      onChange={(e) => setRules({ ...rules, notInterested: parseInt(e.target.value) || 0 })}
+                      style={{ flex: 1 }}
+                    />
+                    <span style={{ fontWeight: 'bold', minWidth: '60px', textAlign: 'right', fontSize: '13px', color: '#ef4444' }}>{rules.notInterested} pts</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '20px', flexWrap: 'wrap' }}>
                 <button className="btn btn-primary" onClick={() => triggerRecalculateScores()}>
                   Save & Recalculate
                 </button>
@@ -5477,10 +5451,7 @@ export default function App() {
                 {/* SUBTAB 2: TERMS AND CONDITIONS */}
                 {settingsSubTab === 'terms' && (
                   <div className="panel-card animate-fade" style={{ padding: '24px' }}>
-                    <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '12px' }}>📜 Quote Terms & Conditions Templates Customizer</h3>
-                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-                      Manage standard contract clause files loaded dynamically during GST invoicing.
-                    </p>
+                    <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '18px' }}>📜 Legal Clauses & Contract Terms</h3>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {termsTemplates.map((template) => (

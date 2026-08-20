@@ -22,27 +22,27 @@ export default function UserProfileCard({
   profileSettings,
   setProfileSettings,
   triggerToast,
-  dealsCount = 8,
-  totalPipelineValue = 2450000,
-  completedTasksCount = 14,
-  winRatePercent = 68
+  dealsCount = 0,
+  totalPipelineValue = 0,
+  completedTasksCount = 0,
+  winRatePercent = 0
 }: UserProfileCardProps) {
   const currentProfile = profileSettings[currentRole] || {
-    fullName: currentUser?.fullName || 'KP Sumanth',
-    email: currentUser?.email || 'sumanth@anveshakhub.com',
-    title: 'Regional Director & System Administrator',
+    fullName: currentUser?.fullName || '',
+    email: currentUser?.email || '',
+    title: currentUser?.title || '',
     avatarColor: '#d97706',
     notify: true,
-    phone: '+91 98450 12345',
-    department: 'B2G & Industrial Enterprise Sales'
+    phone: currentUser?.phone || '',
+    department: currentUser?.department || ''
   };
 
   const [formState, setFormState] = useState({
-    fullName: currentProfile.fullName || '',
-    email: currentProfile.email || '',
-    title: currentProfile.title || '',
-    phone: currentProfile.phone || '+91 98450 12345',
-    department: currentProfile.department || 'B2G & Industrial Enterprise Sales',
+    fullName: currentProfile.fullName || currentUser?.fullName || '',
+    email: currentProfile.email || currentUser?.email || '',
+    title: currentProfile.title || currentUser?.title || '',
+    phone: currentProfile.phone || currentUser?.phone || '',
+    department: currentProfile.department || currentUser?.department || '',
     notify: currentProfile.notify !== false,
     avatarUrl: currentProfile.avatarUrl || ''
   });
@@ -169,7 +169,7 @@ export default function UserProfileCard({
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
                 <h2 style={{ fontSize: '22px', fontWeight: '800', margin: 0, color: '#ffffff', letterSpacing: '-0.02em' }}>
-                  {formState.fullName || 'KP Sumanth'}
+                  {formState.fullName || currentUser?.fullName || 'User Profile'}
                 </h2>
                 <span style={{
                   background: 'rgba(16, 185, 129, 0.2)',
@@ -185,13 +185,13 @@ export default function UserProfileCard({
               </div>
 
               <div style={{ color: '#94a3b8', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                <span>💼 {formState.title || 'Regional Director'}</span>
+                <span>💼 {formState.title || (currentRole.toUpperCase() + ' Specialist')}</span>
                 <span>•</span>
-                <span style={{ color: '#cbd5e1' }}>🏢 {formState.department || 'Enterprise Sales'}</span>
+                <span style={{ color: '#cbd5e1' }}>🏢 {formState.department || 'Enterprise Solutions'}</span>
               </div>
 
               <div style={{ marginTop: '6px', fontSize: '12px', color: '#60a5fa', fontFamily: 'monospace' }}>
-                ✉️ {formState.email || 'sumanth@anveshakhub.com'}
+                ✉️ {formState.email || currentUser?.email || 'user@anveshakhub.com'}
               </div>
             </div>
           </div>
@@ -218,25 +218,33 @@ export default function UserProfileCard({
         <div className="profile-stats-grid">
           <div className="profile-stat-box">
             <div style={{ fontSize: '20px', fontWeight: '800', color: '#60a5fa' }}>{dealsCount}</div>
-            <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px', fontWeight: '600' }}>Deals Managed</div>
+            <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', marginTop: '2px', fontWeight: '600' }}>
+              Deals Managed
+            </div>
           </div>
           <div className="profile-stat-box">
             <div style={{ fontSize: '20px', fontWeight: '800', color: '#34d399' }}>{formatLakhs(totalPipelineValue)}</div>
-            <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px', fontWeight: '600' }}>Pipeline Value</div>
+            <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', marginTop: '2px', fontWeight: '600' }}>
+              Pipeline Value
+            </div>
           </div>
           <div className="profile-stat-box">
             <div style={{ fontSize: '20px', fontWeight: '800', color: '#fbbf24' }}>{completedTasksCount}</div>
-            <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px', fontWeight: '600' }}>Tasks Cleared</div>
+            <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', marginTop: '2px', fontWeight: '600' }}>
+              Tasks Cleared
+            </div>
           </div>
           <div className="profile-stat-box">
             <div style={{ fontSize: '20px', fontWeight: '800', color: '#a78bfa' }}>{winRatePercent}%</div>
-            <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px', fontWeight: '600' }}>Win Rate</div>
+            <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', marginTop: '2px', fontWeight: '600' }}>
+              Win Rate
+            </div>
           </div>
         </div>
       </div>
 
-      {/* 2. Profile Details & Settings Form */}
-      <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {/* 2. Profile Settings Form */}
+      <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         
         {/* Card: Personal & Work Info */}
         <div className="profile-card-section">
@@ -257,7 +265,7 @@ export default function UserProfileCard({
                 required 
                 value={formState.fullName} 
                 onChange={(e) => setFormState({ ...formState, fullName: e.target.value })}
-                placeholder="Your full name"
+                placeholder="Enter full name"
                 style={{ width: '100%', boxSizing: 'border-box', borderRadius: '10px' }}
               />
             </div>
@@ -284,7 +292,7 @@ export default function UserProfileCard({
                 type="text" 
                 value={formState.phone} 
                 onChange={(e) => setFormState({ ...formState, phone: e.target.value })}
-                placeholder="+91 98450 12345"
+                placeholder="e.g. +91 98450 12345"
                 style={{ width: '100%', boxSizing: 'border-box', borderRadius: '10px' }}
               />
             </div>
@@ -295,10 +303,9 @@ export default function UserProfileCard({
               </label>
               <input 
                 type="text" 
-                required
                 value={formState.title} 
                 onChange={(e) => setFormState({ ...formState, title: e.target.value })}
-                placeholder="e.g. Regional Director"
+                placeholder="e.g. Regional Sales Director"
                 style={{ width: '100%', boxSizing: 'border-box', borderRadius: '10px' }}
               />
             </div>
@@ -311,7 +318,7 @@ export default function UserProfileCard({
                 type="text" 
                 value={formState.department} 
                 onChange={(e) => setFormState({ ...formState, department: e.target.value })}
-                placeholder="e.g. B2G & Industrial Enterprise Sales"
+                placeholder="e.g. Enterprise Sales"
                 style={{ width: '100%', boxSizing: 'border-box', borderRadius: '10px' }}
               />
             </div>
@@ -345,23 +352,23 @@ export default function UserProfileCard({
         </div>
 
         {/* Action Buttons */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '8px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '14px', marginTop: '12px', flexWrap: 'wrap' }}>
           <button 
             type="button" 
             className="btn btn-secondary"
             onClick={() => {
               setFormState({
-                fullName: currentProfile.fullName || '',
-                email: currentProfile.email || '',
+                fullName: currentProfile.fullName || currentUser?.fullName || '',
+                email: currentProfile.email || currentUser?.email || '',
                 title: currentProfile.title || '',
-                phone: currentProfile.phone || '+91 98450 12345',
-                department: currentProfile.department || 'B2G & Industrial Enterprise Sales',
+                phone: currentProfile.phone || '',
+                department: currentProfile.department || '',
                 notify: currentProfile.notify !== false,
                 avatarUrl: currentProfile.avatarUrl || ''
               });
-              triggerToast('Profile changes reset to previous values.', 'info');
+              triggerToast('Profile changes reset.', 'info');
             }}
-            style={{ borderRadius: '12px', padding: '10px 20px', fontSize: '13.5px' }}
+            style={{ borderRadius: '12px', padding: '10px 22px', fontSize: '13.5px', minHeight: '42px' }}
           >
             Reset Changes
           </button>
@@ -381,7 +388,9 @@ export default function UserProfileCard({
               boxShadow: '0 4px 14px rgba(79, 70, 229, 0.35)',
               display: 'inline-flex',
               alignItems: 'center',
+              justifyContent: 'center',
               gap: '8px',
+              minHeight: '42px',
               transition: 'all 0.2s ease'
             }}
           >

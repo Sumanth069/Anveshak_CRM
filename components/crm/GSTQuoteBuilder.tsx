@@ -164,7 +164,7 @@ export default function GSTQuoteBuilder({
         {subView === 'builder' && (
           <div>
             {/* Wizard Step Stepper */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', marginBottom: '24px' }}>
+            <div className="quote-wizard-stepper" style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginBottom: '24px' }}>
               <div style={{ flex: 1, padding: '8px', borderBottom: '3px solid', borderColor: wizardStep >= 1 ? 'var(--primary)' : 'var(--border-color)', textAlign: 'center', fontWeight: 'bold', fontSize: '12px', color: wizardStep >= 1 ? 'var(--primary)' : 'var(--text-muted)' }}>
                 1. Context & GST Config
               </div>
@@ -201,7 +201,7 @@ export default function GSTQuoteBuilder({
                   </select>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
                   <div className="form-group">
                     <label>Client Entity (Company)</label>
                     <input type="text" value={company} onChange={(e) => setCompany(e.target.value)} />
@@ -263,66 +263,95 @@ export default function GSTQuoteBuilder({
                 <h4 style={{ fontSize: '13px', marginBottom: '8px' }}>Create Commercial Quote Items Table:</h4>
                 
                 {/* Form to append Line Items */}
-                <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr 1.5fr 1.2fr auto', gap: '8px', alignItems: 'end', marginBottom: '16px', background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px dashed var(--border-color)' }}>
-                  <div className="form-group" style={{ margin: 0 }}>
+                <div className="quote-item-add-box">
+                  <div className="form-group" style={{ margin: 0, width: '100%' }}>
                     <label style={{ fontSize: '10.5px' }}>Item / Service Description</label>
                     <input type="text" value={itemDesc} onChange={(e) => setItemDesc(e.target.value)} placeholder="e.g. Enterprise License" style={{ width: '100%' }} />
                   </div>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label style={{ fontSize: '10.5px' }}>Qty</label>
-                    <input type="number" value={itemQty} onChange={(e) => setItemQty(Number(e.target.value))} style={{ width: '100%' }} />
+                  <div className="quote-item-inputs-row">
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label style={{ fontSize: '10.5px' }}>Qty</label>
+                      <input type="number" value={itemQty} onChange={(e) => setItemQty(Number(e.target.value))} style={{ width: '100%' }} />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label style={{ fontSize: '10.5px' }}>Unit Price (INR)</label>
+                      <input type="number" value={itemPrice} onChange={(e) => setItemPrice(Number(e.target.value))} style={{ width: '100%' }} />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label style={{ fontSize: '10.5px' }}>GST Rate</label>
+                      <select value={itemGst} onChange={(e) => setItemGst(Number(e.target.value))} style={{ width: '100%' }}>
+                        <option value={18}>18% Std</option>
+                        <option value={12}>12% Red</option>
+                        <option value={5}>5% Merch</option>
+                        <option value={0}>0% Exm</option>
+                      </select>
+                    </div>
                   </div>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label style={{ fontSize: '10.5px' }}>Unit Price (INR)</label>
-                    <input type="number" value={itemPrice} onChange={(e) => setItemPrice(Number(e.target.value))} style={{ width: '100%' }} />
-                  </div>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label style={{ fontSize: '10.5px' }}>GST Rate</label>
-                    <select value={itemGst} onChange={(e) => setItemGst(Number(e.target.value))} style={{ width: '100%' }}>
-                      <option value={18}>18% Standard</option>
-                      <option value={12}>12% Reduced</option>
-                      <option value={5}>5% Merchandised</option>
-                      <option value={0}>0% Exempted</option>
-                    </select>
-                  </div>
-                  <button className="btn btn-primary" onClick={handleAddLineItem} style={{ height: '35px' }}>+ Add Row</button>
+                  <button className="btn btn-primary" onClick={handleAddLineItem} style={{ height: '38px', minWidth: '90px' }}>+ Add Row</button>
                 </div>
 
-                {/* Added Items table */}
-                <table className="custom-table" style={{ marginBottom: '20px' }}>
-                  <thead>
-                    <tr>
-                      <th>Description</th>
-                      <th>Qty</th>
-                      <th>Unit Price</th>
-                      <th>GST</th>
-                      <th>Subtotal</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {quoteItems.length === 0 ? (
+                {/* Added Items: Desktop Table View */}
+                <div className="desktop-only-table">
+                  <table className="custom-table" style={{ marginBottom: '20px' }}>
+                    <thead>
                       <tr>
-                        <td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No items added yet. Append items above.</td>
+                        <th>Description</th>
+                        <th>Qty</th>
+                        <th>Unit Price</th>
+                        <th>GST</th>
+                        <th>Subtotal</th>
+                        <th>Action</th>
                       </tr>
-                    ) : (
-                      quoteItems.map(item => (
-                        <tr key={item.id}>
-                          <td>{item.description}</td>
-                          <td>{item.qty}</td>
-                          <td>{formatCurrency(item.price)}</td>
-                          <td>{item.gst}%</td>
-                          <td style={{ fontWeight: 'bold' }}>{formatCurrency(item.qty * item.price)}</td>
-                          <td>
-                            <button className="btn btn-secondary" style={{ color: 'var(--danger)', padding: '2px 8px', fontSize: '11px' }} onClick={() => handleRemoveLineItem(item.id)}>Remove</button>
-                          </td>
+                    </thead>
+                    <tbody>
+                      {quoteItems.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No items added yet. Append items above.</td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                      ) : (
+                        quoteItems.map(item => (
+                          <tr key={item.id}>
+                            <td>{item.description}</td>
+                            <td>{item.qty}</td>
+                            <td>{formatCurrency(item.price)}</td>
+                            <td>{item.gst}%</td>
+                            <td style={{ fontWeight: 'bold' }}>{formatCurrency(item.qty * item.price)}</td>
+                            <td>
+                              <button className="btn btn-secondary" style={{ color: 'var(--danger)', padding: '2px 8px', fontSize: '11px' }} onClick={() => handleRemoveLineItem(item.id)}>Remove</button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px' }}>
+                {/* Added Items: Mobile Card List View */}
+                <div className="mobile-only-cards" style={{ marginBottom: '20px' }}>
+                  {quoteItems.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)', background: '#f8fafc', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+                      No items added yet. Append items above.
+                    </div>
+                  ) : (
+                    quoteItems.map(item => (
+                      <div key={item.id} className="quote-item-card">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <strong style={{ fontSize: '13px', color: '#0f172a' }}>{item.description}</strong>
+                          <button className="btn btn-secondary" style={{ color: 'var(--danger)', borderColor: '#fee2e2', padding: '2px 8px', fontSize: '11px' }} onClick={() => handleRemoveLineItem(item.id)}>Remove</button>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                          <span>Qty: {item.qty} × {formatCurrency(item.price)}</span>
+                          <span>GST: {item.gst}%</span>
+                        </div>
+                        <div style={{ textAlign: 'right', fontWeight: 'bold', fontSize: '13px', color: '#10b981', marginTop: '2px' }}>
+                          Subtotal: {formatCurrency(item.qty * item.price)}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px', gap: '10px' }}>
                   <button className="btn btn-secondary" onClick={() => setWizardStep(2)}>← Back</button>
                   <button className="btn btn-primary" onClick={handleFinalizeAndSave} style={{ backgroundColor: '#10b981' }}>
                     ✔ Finalize & Save Quote
