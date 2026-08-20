@@ -1683,30 +1683,55 @@ button {
   }
 
   .modal-content {
-    width: 100vw !important;
-    max-width: 100vw !important;
-    max-height: 92vh !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 90vh !important;
     margin: 0 !important;
-    padding: 18px 16px 28px !important;
+    padding: 20px 16px 32px !important;
     border-radius: 20px 20px 0 0 !important;
     overflow-y: auto !important;
-    box-shadow: 0 -10px 25px rgba(0, 0, 0, 0.25) !important;
+    box-sizing: border-box !important;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.3) !important;
     -webkit-overflow-scrolling: touch;
   }
 
   .modal-content.wide {
-    width: 100vw !important;
-    max-width: 100vw !important;
-    max-height: 94vh !important;
-    height: 94vh !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 92vh !important;
+    height: auto !important;
     border-radius: 20px 20px 0 0 !important;
+  }
+
+  .modal-grid-2col {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    width: 100% !important;
+  }
+
+  .modal-actions {
+    display: grid !important;
+    grid-template-columns: 1fr 1.5fr !important;
+    gap: 10px !important;
+    width: 100% !important;
+    padding-top: 14px !important;
+  }
+
+  .modal-actions .btn {
+    width: 100% !important;
+    min-height: 44px !important;
+    font-size: 13.5px !important;
+    justify-content: center !important;
   }
 
   .modal-content input, 
   .modal-content select, 
   .modal-content textarea {
     font-size: 14px !important;
-    padding: 11px 14px !important;
+    padding: 10px 12px !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
   }
 
   /* Mobile Touch Targets */
@@ -1714,6 +1739,14 @@ button {
     min-height: 40px;
     touch-action: manipulation;
   }
+}
+
+/* Modal 2-Column Desktop Grid */
+.modal-grid-2col {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  width: 100%;
 }
 
 /* Executive User Profile Styling System */
