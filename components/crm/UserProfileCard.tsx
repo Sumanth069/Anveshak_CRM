@@ -244,7 +244,6 @@ export default function UserProfileCard({
             <span style={{ fontSize: '18px' }}>👤</span>
             <div>
               <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#0f172a' }}>Personal & Corporate Information</h3>
-              <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>Configure your identity and contact parameters displayed across CRM modules</p>
             </div>
           </div>
 
@@ -324,8 +323,7 @@ export default function UserProfileCard({
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px' }}>
             <span style={{ fontSize: '18px' }}>🔔</span>
             <div>
-              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#0f172a' }}>Workspace Audio & Telemetry Preferences</h3>
-              <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>Control real-time acoustic cues and lead arrival telemetry</p>
+              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#0f172a' }}>Workspace Audio & Alerts</h3>
             </div>
           </div>
 
@@ -333,10 +331,7 @@ export default function UserProfileCard({
             <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', cursor: 'pointer' }}>
               <div>
                 <div style={{ fontWeight: '700', fontSize: '13.5px', color: '#1e293b' }}>
-                  🔊 Real-Time Audio Telemetry
-                </div>
-                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-                  Play futuristic acoustic feedback chords on toast notifications and successful database commits
+                  🔊 Audio Cues & Sound Alerts
                 </div>
               </div>
               <input 

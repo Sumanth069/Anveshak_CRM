@@ -138,8 +138,7 @@ export default function GSTQuoteBuilder({
       {/* Header with Sub-tabs */}
       <div className="page-header-row" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '16px', marginBottom: '20px', padding: '20px 20px 0 20px' }}>
         <div className="page-title-text">
-          <h2>Quotes & Documents Engine</h2>
-          <p>Draft GST-compliant commercial contracts and simulate customer acceptance portals</p>
+          <h2>Quotations & Invoices</h2>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button 
@@ -149,13 +148,13 @@ export default function GSTQuoteBuilder({
               setWizardStep(1);
             }}
           >
-            + Draft New Quote (QTE-01)
+            + Draft New Quote
           </button>
           <button 
             className={`btn ${subView === 'repository' ? 'btn-primary' : 'btn-secondary'}`} 
             onClick={() => setSubView('repository')}
           >
-            📂 Quote Repository ({quotes.length}) (QTE-03)
+            📂 Quote Repository ({quotes.length})
           </button>
         </div>
       </div>

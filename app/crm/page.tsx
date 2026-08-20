@@ -3236,13 +3236,7 @@ export default function App() {
               {/* Header Row with Actions */}
               <div className="page-header-row">
                 <div className="page-title-text">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                    <h2>Centralized Contacts Directory</h2>
-                    <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}>
-                      One Person = One Record
-                    </span>
-                  </div>
-                  <p>Enterprise unified directory with deduplication scoring, E.164 phone validation, 1-click outreach, and 360° profile views.</p>
+                  <h2>Contacts Directory</h2>
                 </div>
                 <div className="page-header-actions">
                   <button 
@@ -3837,8 +3831,7 @@ export default function App() {
             <div className="animate-fade">
               <div className="page-header-row">
                 <div className="page-title-text">
-                  <h2>Leads Queue & Scoring Management</h2>
-                  <p>Centralized database of qualified leads synced with Supabase PostgreSQL</p>
+                  <h2>Leads Queue</h2>
                 </div>
                 <div className="page-header-actions">
                   <button className="btn btn-secondary" onClick={() => handleCSVExport('Leads')}>Export CSV</button>
@@ -4234,13 +4227,12 @@ export default function App() {
             </div>
           )}
 
-          {/* TAB 3: COMPANIES & ACCOUNTS DIRECTORY (CON-04) */}
+          {/* TAB 3: COMPANIES & ACCOUNTS DIRECTORY */}
           {activeTab === 'companies' && (
             <div className="animate-fade">
               <div className="page-header-row">
                 <div className="page-title-text">
-                  <h2>Companies & Accounts Directory</h2>
-                  <p>Corporate and B2G government organizations with consolidated deal roll-ups</p>
+                  <h2>Companies & Accounts</h2>
                 </div>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                   {/* View Mode Toggle Switch */}
@@ -4296,7 +4288,7 @@ export default function App() {
 
                       <div style={{ marginTop: 'auto', paddingTop: '14px' }}>
                         <button className="btn btn-secondary" style={{ width: '100%', fontSize: '11px', justifyContent: 'center' }} onClick={() => setSelectedCompanyDetail(comp)}>
-                          Inspect Account Profile (CON-05)
+                          Inspect Account Profile
                         </button>
                       </div>
                     </div>
@@ -4386,8 +4378,7 @@ export default function App() {
               <div className="animate-fade">
                 <div className="page-header-row">
                   <div className="page-title-text">
-                    <h2>Operational Task Queue (TSK-01)</h2>
-                    <p>Manage standard follow-ups, checklist items, and project milestones</p>
+                    <h2>Task Queue</h2>
                   </div>
                   <div className="page-header-actions">
                     <button className="btn btn-primary" onClick={() => setShowTaskModal(true)}>
@@ -4690,8 +4681,7 @@ export default function App() {
               <div className="animate-fade">
                 <div className="page-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                   <div className="page-title-text">
-                    <h2>Operational Scheduler Calendar (CAL-01)</h2>
-                    <p>Track team meetings, task deadlines, and expected deal closing dates side-by-side</p>
+                    <h2>Schedule & Calendar</h2>
                   </div>
                   
                   <div style={{ display: 'flex', gap: '8px' }}>
@@ -4952,13 +4942,12 @@ export default function App() {
           )}
 
 
-          {/* TAB 8: USER PROVISIONING & RBAC MANAGEMENT (ADM-01) */}
+          {/* TAB 8: USER PROVISIONING & ROLES */}
           {activeTab === 'users' && (
             <div className="animate-fade">
               <div className="page-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <div className="page-title-text">
-                  <h2>User RBA Management & Provisioning</h2>
-                  <p>Create and manage system Administrators, Managers, and Sales Representatives synced with Supabase PostgreSQL</p>
+                  <h2>User Provisioning & Roles</h2>
                 </div>
                 {currentUser?.role === 'ADMIN' && (
                   <button className="btn btn-primary" onClick={() => setShowAddUserModal(true)}>+ Add User / Admin</button>
@@ -5170,10 +5159,7 @@ export default function App() {
               <div className="panel-card" style={{ marginBottom: '24px' }}>
                 <div className="panel-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <h3>📥 Contact Batch Imports & Rollback Registry</h3>
-                    <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b' }}>
-                      Audit history of spreadsheet imports with 1-click safe batch rollbacks.
-                    </p>
+                    <h3>Contact Batch Imports</h3>
                   </div>
                 </div>
 
@@ -5429,8 +5415,7 @@ export default function App() {
               <div className="animate-fade" style={{ maxWidth: '900px' }}>
                 <div className="page-header-row" style={{ marginBottom: '20px' }}>
                   <div className="page-title-text">
-                    <h2>CRM Workspace Settings & Utilities</h2>
-                    <p>Manage system diagnostics, dynamic database fields, legal clauses, and backup archives</p>
+                    <h2>Workspace Settings</h2>
                   </div>
                 </div>
 
@@ -5452,19 +5437,19 @@ export default function App() {
                     className={`swipe-pill ${settingsSubTab === 'fields' ? 'active' : ''}`}
                     onClick={() => setSettingsSubTab('fields')}
                   >
-                    ⚙️ Dynamic Fields (ADM-02)
+                    ⚙️ Dynamic Fields
                   </button>
                   <button 
                     className={`swipe-pill ${settingsSubTab === 'backup' ? 'active' : ''}`}
                     onClick={() => setSettingsSubTab('backup')}
                   >
-                    💾 ZIP Backup (ADM-04)
+                    💾 Backup & Export
                   </button>
                   <button 
                     className={`swipe-pill ${settingsSubTab === 'diagnostics' ? 'active' : ''}`}
                     onClick={() => setSettingsSubTab('diagnostics')}
                   >
-                    📊 Health Checks (ADM-07)
+                    📊 System Health
                   </button>
                   <button 
                     className={`swipe-pill ${settingsSubTab === 'supabase' ? 'active' : ''}`}
@@ -5567,13 +5552,10 @@ export default function App() {
                   </div>
                 )}
 
-                {/* SUBTAB 3: DYNAMIC CUSTOM FIELDS (ADM-02) */}
+                {/* SUBTAB 3: DYNAMIC CUSTOM FIELDS */}
                 {settingsSubTab === 'fields' && (
                   <div className="panel-card animate-fade" style={{ padding: '24px' }}>
-                    <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '12px' }}>⚙️ Dynamic Custom Fields Registry (ADM-02)</h3>
-                    <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginBottom: '20px' }}>
-                      Register custom entity attributes (e.g. GSTIN, Segment, PAN) which inject dynamically into CRM creation forms.
-                    </p>
+                    <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '18px' }}>⚙️ Dynamic Custom Fields</h3>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                       <div>
@@ -5634,13 +5616,10 @@ export default function App() {
                   </div>
                 )}
 
-                {/* SUBTAB 4: DATA BACKUP & ZIP EXPORTER (ADM-04) */}
+                {/* SUBTAB 4: DATA BACKUP & EXPORT */}
                 {settingsSubTab === 'backup' && (
                   <div className="panel-card animate-fade" style={{ padding: '24px' }}>
-                    <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '12px' }}>💾 Database ZIP Export & Restore Simulator (ADM-04)</h3>
-                    <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginBottom: '20px' }}>
-                      Export a secure offline backup of the entire CRM workspace state or restore data from an existing JSON backup.
-                    </p>
+                    <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '18px' }}>💾 Database Backup & Export</h3>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
                       <div style={{ borderRight: '1px solid var(--border-color)', paddingRight: '24px' }}>
@@ -5828,7 +5807,7 @@ export default function App() {
         <div className="modal-overlay">
           <div className="modal-content" style={{ maxHeight: '85vh', overflowY: 'auto' }}>
             <div className="modal-header">
-              <h3>Create New Contact / Lead (CON-03)</h3>
+              <h3>Create New Contact</h3>
               <button className="modal-close-btn" onClick={() => setShowLeadModal(false)}>×</button>
             </div>
             <form onSubmit={handleLeadSubmit}>
@@ -6490,7 +6469,7 @@ export default function App() {
                       setActiveTab('quote');
                     }}
                   >
-                    + Draft GST Quote (QTE-01)
+                    + Draft GST Quote
                   </button>
                 </div>
               </div>
@@ -6668,12 +6647,12 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL: LEAD 360° INSPECTION VIEW (LED-02 / CON-02) */}
+      {/* MODAL: LEAD 360° INSPECTION VIEW */}
       {selectedLeadDetail && (
         <div className="modal-overlay">
           <div className="modal-content wide">
             <div className="modal-header">
-              <h3>Prospect 360° Profile View (CON-02 / LED-02)</h3>
+              <h3>Prospect 360° Profile</h3>
               <button className="modal-close-btn" onClick={() => setSelectedLeadDetail(null)}>×</button>
             </div>
 
@@ -6713,7 +6692,7 @@ export default function App() {
                     setNewActivity({ ...newActivity, entityName: selectedLeadDetail.company });
                     setShowActivityModal(true);
                   }}>
-                    📞 Log Activity (ACT-01)
+                    📞 Log Activity
                   </button>
                   <button className="btn btn-secondary" style={{ fontSize: '11.5px', justifyContent: 'center' }} onClick={() => {
                     setNewTask({ ...newTask, linkedTo: selectedLeadDetail.company });
@@ -6887,7 +6866,7 @@ export default function App() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, overflowY: 'auto' }}>
                     <div style={{ background: '#ffffff', padding: '14px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                       <h4 style={{ fontSize: '12px', fontWeight: 'bold', margin: '0 0 10px 0', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                        Dynamic Custom Fields (ADM-02)
+                        Dynamic Custom Fields
                       </h4>
                       {customFields.length === 0 ? (
                         <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>
@@ -6919,12 +6898,12 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL: COMPANY ACCOUNT PROFILE VIEW (CON-05) */}
+      {/* MODAL: COMPANY ACCOUNT PROFILE VIEW */}
       {selectedCompanyDetail && (
         <div className="modal-overlay">
           <div className="modal-content wide">
             <div className="modal-header">
-              <h3>Company Account Profile (CON-05)</h3>
+              <h3>Company Account Profile</h3>
               <button className="modal-close-btn" onClick={() => setSelectedCompanyDetail(null)}>×</button>
             </div>
 
@@ -6975,12 +6954,12 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL: ADD COMPANY SLIDE-OVER DRAWER (CON-03) */}
+      {/* MODAL: ADD COMPANY SLIDE-OVER DRAWER */}
       {showCompanyModal && (
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
-              <h3>Create Company Account (CON-03)</h3>
+              <h3>Create Company Account</h3>
               <button className="modal-close-btn" onClick={() => setShowCompanyModal(false)}>×</button>
             </div>
             <form onSubmit={async (e) => {
@@ -7028,12 +7007,12 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL: INVITE USER (ADM-01) */}
+      {/* MODAL: INVITE USER */}
       {showInviteModal && (
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
-              <h3>Invite Team Member (ADM-01)</h3>
+              <h3>Invite Team Member</h3>
               <button className="modal-close-btn" onClick={() => setShowInviteModal(false)}>×</button>
             </div>
             <form onSubmit={(e) => {

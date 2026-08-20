@@ -233,8 +233,7 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
                 <MessageSquareIcon />
               </div>
               <div>
-                <h4>Owner Feedback & Requirements</h4>
-                <p>Internal Notes & Requirement Collector</p>
+                <h4>Feedback & Notes</h4>
               </div>
             </div>
             <button className="feedback-close-btn" onClick={() => setIsOpen(false)}>
