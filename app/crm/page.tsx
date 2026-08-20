@@ -13,6 +13,7 @@ import Contact360Modal from '@/components/crm/contacts/Contact360Modal';
 import ContactMergeModal from '@/components/crm/contacts/ContactMergeModal';
 import ExcelImportModal from '@/components/crm/contacts/ExcelImportModal';
 import QuickCommModal from '@/components/crm/contacts/QuickCommModal';
+import UserProfileCard from '@/components/crm/UserProfileCard';
 import { normalizePhone, formatPhoneDisplay } from '@/lib/phone';
 import { scoreDuplicate } from '@/lib/dedup';
 import { updateSupabaseConfig, isSupabaseConnected } from '@/lib/supabase';
@@ -3918,8 +3919,24 @@ export default function App() {
               {/* Contact Cards Grid */}
               <div className="contacts-grid">
                 {filteredLeads.map(contact => (
-                  <div key={contact.id} className="contact-card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <div 
+                    key={contact.id} 
+                    className="contact-card"
+                    style={{
+                      background: '#ffffff',
+                      borderRadius: '18px',
+                      padding: '20px 16px',
+                      border: '1px solid #e2e8f0',
+                      boxShadow: '0 4px 18px -2px rgba(15, 23, 42, 0.05)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      position: 'relative',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    {/* Header Row: Checkbox + Score Pill */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: '12px' }}>
                       <input 
                         type="checkbox" 
                         checked={selectedContactIds.includes(contact.id)} 
@@ -3930,51 +3947,179 @@ export default function App() {
                             setSelectedContactIds(selectedContactIds.filter(id => id !== contact.id));
                           }
                         }}
-                        style={{ cursor: 'pointer' }}
+                        style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#4f46e5' }}
                       />
-                      <span className={`badge ${contact.score >= 61 ? 'badge-hot' : contact.score >= 31 ? 'badge-warm' : 'badge-cold'}`}>
-                        {contact.score >= 61 ? 'HOT' : contact.score >= 31 ? 'WARM' : 'COLD'}
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '3px 10px',
+                        borderRadius: '9999px',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        background: contact.score >= 61 ? '#fef2f2' : contact.score >= 31 ? '#fffbeb' : '#f1f5f9',
+                        color: contact.score >= 61 ? '#dc2626' : contact.score >= 31 ? '#b45309' : '#475569',
+                        border: `1px solid ${contact.score >= 61 ? '#fca5a5' : contact.score >= 31 ? '#fde68a' : '#cbd5e1'}`
+                      }}>
+                        {contact.score >= 61 ? '🔥 HOT' : contact.score >= 31 ? '⚡ WARM' : '❄️ COLD'} ({contact.score})
                       </span>
                     </div>
 
-                    <div className="contact-avatar" style={{ margin: '0 auto 10px auto', backgroundColor: '#151c2e', color: '#f5d396', border: '2px solid #d49b38' }}>
-                      {contact.name.split(' ').map(n=>n[0]).join('')}
+                    {/* Avatar Ring */}
+                    <div style={{
+                      width: '60px',
+                      height: '60px',
+                      borderRadius: '50%',
+                      background: 'linear-gradient(135deg, #1e293b, #0f172a)',
+                      color: '#f5d396',
+                      border: '2.5px solid #d49b38',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '18px',
+                      fontWeight: '800',
+                      boxShadow: '0 4px 12px rgba(15, 23, 42, 0.15)',
+                      marginBottom: '10px'
+                    }}>
+                      {contact.name.split(' ').map(n=>n[0]).join('').slice(0, 2).toUpperCase()}
                     </div>
-                    <div className="contact-name" style={{ fontSize: '15px', fontWeight: '800' }}>{contact.name}</div>
-                    <div className="contact-company" style={{ color: '#d49b38', fontWeight: '700', fontSize: '11px', textTransform: 'uppercase' }}>
-                      {contact.company}
+
+                    {/* Contact Details */}
+                    <div style={{ fontSize: '15.5px', fontWeight: '800', color: '#0f172a', textAlign: 'center', letterSpacing: '-0.01em' }}>
+                      {contact.name}
+                    </div>
+
+                    <div style={{
+                      color: '#d49b38',
+                      fontWeight: '700',
+                      fontSize: '11.5px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.04em',
+                      marginTop: '2px',
+                      textAlign: 'center'
+                    }}>
+                      🏢 {contact.company}
                     </div>
                     
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px' }}>
-                      Owner: <strong>{contact.owner}</strong>
+                    <div style={{
+                      fontSize: '11.5px',
+                      color: '#64748b',
+                      marginTop: '8px',
+                      background: '#f8fafc',
+                      padding: '4px 10px',
+                      borderRadius: '8px',
+                      border: '1px solid #f1f5f9',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}>
+                      <span>👤</span> Owner: <strong style={{ color: '#1e293b' }}>{contact.owner}</strong>
                     </div>
 
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', justifyContent: 'center', marginTop: '8px' }}>
-                      {(contact.tags || []).map(t => (
-                        <span key={t} className="badge badge-cold" style={{ fontSize: '9.5px', padding: '2px 6px' }}>{t}</span>
-                      ))}
-                    </div>
+                    {contact.tags && contact.tags.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', justifyContent: 'center', marginTop: '8px' }}>
+                        {contact.tags.map(t => (
+                          <span key={t} className="badge badge-cold" style={{ fontSize: '10px', padding: '2px 7px', borderRadius: '6px' }}>{t}</span>
+                        ))}
+                      </div>
+                    )}
 
-                     <div className="contact-actions" style={{ marginTop: '14px', display: 'flex', gap: '4px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                       <button className="btn btn-secondary" style={{ padding: '6px 8px', fontSize: '10.5px' }} onClick={() => openEmailComposer(contact.name, contact.email)}>Email</button>
-                       <button className="btn btn-secondary" style={{ padding: '6px 8px', fontSize: '10.5px', color: '#10b981', borderColor: '#a7f3d0' }} onClick={() => openWhatsAppModalForContact(contact.name, contact.phone)}>WhatsApp</button>
-                       <button className="btn btn-secondary" style={{ padding: '6px 8px', fontSize: '10.5px' }} onClick={() => startVoIPCall(contact.name, contact.phone)}>Call</button>
-                       <button 
-                         className="btn btn-primary" 
-                         style={{ padding: '6px 8px', fontSize: '10.5px', backgroundColor: '#10b981', borderColor: '#10b981', color: '#fff' }} 
-                         onClick={() => {
-                           setSelectedLeadForConversion(contact);
-                           setConvertDealForm({
-                             dealName: `${contact.company || contact.name} - Expansion Deal`,
-                             dealValue: '500000',
-                             stage: 'Discovered'
-                           });
-                           setShowConvertLeadModal(true);
-                         }}
-                       >
-                         Convert to Deal →
-                       </button>
-                     </div>
+                    {/* Quick Outreach & Conversion Actions */}
+                    <div style={{ width: '100%', marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', width: '100%' }}>
+                        <button 
+                          className="btn btn-secondary" 
+                          style={{
+                            padding: '8px 4px',
+                            fontSize: '11.5px',
+                            fontWeight: '600',
+                            borderRadius: '10px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '4px',
+                            minHeight: '36px'
+                          }} 
+                          onClick={() => openEmailComposer(contact.name, contact.email)}
+                          title={`Email ${contact.name}`}
+                        >
+                          ✉️ Email
+                        </button>
+                        
+                        <button 
+                          className="btn btn-secondary" 
+                          style={{
+                            padding: '8px 4px',
+                            fontSize: '11.5px',
+                            fontWeight: '600',
+                            borderRadius: '10px',
+                            color: '#059669',
+                            borderColor: '#a7f3d0',
+                            background: '#ecfdf5',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '4px',
+                            minHeight: '36px'
+                          }} 
+                          onClick={() => openWhatsAppModalForContact(contact.name, contact.phone)}
+                          title={`WhatsApp ${contact.name}`}
+                        >
+                          💬 Chat
+                        </button>
+                        
+                        <button 
+                          className="btn btn-secondary" 
+                          style={{
+                            padding: '8px 4px',
+                            fontSize: '11.5px',
+                            fontWeight: '600',
+                            borderRadius: '10px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '4px',
+                            minHeight: '36px'
+                          }} 
+                          onClick={() => startVoIPCall(contact.name, contact.phone)}
+                          title={`Call ${contact.name}`}
+                        >
+                          📞 Call
+                        </button>
+                      </div>
+
+                      <button 
+                        style={{
+                          width: '100%',
+                          background: 'linear-gradient(135deg, #059669, #10b981)',
+                          color: '#ffffff',
+                          border: 'none',
+                          padding: '10px 14px',
+                          borderRadius: '10px',
+                          fontSize: '12.5px',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          boxShadow: '0 3px 10px rgba(16, 185, 129, 0.25)',
+                          transition: 'all 0.2s ease',
+                          minHeight: '38px'
+                        }} 
+                        onClick={() => {
+                          setSelectedLeadForConversion(contact);
+                          setConvertDealForm({
+                            dealName: `${contact.company || contact.name} - Expansion Deal`,
+                            dealValue: '500000',
+                            stage: 'Discovered'
+                          });
+                          setShowConvertLeadModal(true);
+                        }}
+                      >
+                        ⚡ Convert to Deal →
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -5038,66 +5183,89 @@ export default function App() {
                   <div style={{ marginTop: '16px', display: 'grid', gap: '12px' }}>
                     {importBatches.map(batch => (
                       <div key={batch.id} style={{
-                        background: '#f8fafc',
+                        background: '#ffffff',
                         border: '1px solid #e2e8f0',
-                        borderRadius: '8px',
-                        padding: '14px',
+                        borderRadius: '14px',
+                        padding: '16px',
                         display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        flexWrap: 'wrap',
-                        gap: '10px'
+                        flexDirection: 'column',
+                        gap: '12px',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
                       }}>
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <strong style={{ fontSize: '13px', color: '#0f172a' }}>{batch.fileName}</strong>
-                            <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '1px 6px', borderRadius: '4px', fontSize: '10px' }}>
-                              {batch.sourceType || 'Excel Import'}
-                            </span>
-                            {batch.sourceEvent && (
-                              <span style={{ background: '#fef3c7', color: '#b45309', padding: '1px 6px', borderRadius: '4px', fontSize: '10px' }}>
-                                {batch.sourceEvent}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <strong style={{ fontSize: '14px', color: '#0f172a' }}>📦 {batch.fileName || 'Spreadsheet Import'}</strong>
+                              <span className="badge badge-cold" style={{ fontSize: '10px' }}>
+                                {batch.sourceType || 'Excel Import'}
                               </span>
-                            )}
+                              {batch.sourceEvent && (
+                                <span style={{ background: '#fef3c7', color: '#b45309', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '600' }}>
+                                  {batch.sourceEvent}
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+                              Uploaded by <strong>{batch.uploadedBy || 'User'}</strong> • {new Date(batch.createdAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                            </div>
                           </div>
-                          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
-                            Total: <strong>{batch.totalRows}</strong> | Imported: <strong style={{ color: '#16a34a' }}>{batch.importedCount}</strong> | Merged: <strong style={{ color: '#d97706' }}>{batch.mergedCount}</strong> | Uploaded by: {batch.uploadedBy || 'User'} ({new Date(batch.createdAt).toLocaleString('en-IN')})
+
+                          <div>
+                            {batch.isRolledBack ? (
+                              <span style={{ background: '#fee2e2', color: '#991b1b', padding: '5px 12px', borderRadius: '6px', fontSize: '11.5px', fontWeight: 'bold' }}>
+                                Rolled Back (Undone)
+                              </span>
+                            ) : (
+                              <button
+                                className="btn btn-secondary"
+                                style={{ color: '#dc2626', borderColor: '#fca5a5', backgroundColor: '#fef2f2', fontSize: '11.5px', padding: '6px 14px', minHeight: '34px' }}
+                                onClick={async () => {
+                                  if (confirm(`Are you sure you want to undo and rollback batch "${batch.fileName}"? All uncontacted records from this batch will be removed.`)) {
+                                    try {
+                                      const { rollbackImportBatchAction } = await import('@/app/actions/contacts');
+                                      const res = await rollbackImportBatchAction(batch.id, currentUser?.fullName || 'CRM User');
+                                      if (res.success) {
+                                        setImportBatches(prev => prev.map(b => b.id === batch.id ? { ...b, isRolledBack: true } : b));
+                                        // Reload contacts
+                                        const { fetchContactsListAction } = await import('@/app/actions/contacts');
+                                        const cRes = await fetchContactsListAction();
+                                        if (cRes.success && cRes.contacts) {
+                                          setContactsList(cRes.contacts.map((c: any) => ({
+                                            ...c,
+                                            phone: c.preferredPhone || c.phone,
+                                            dateAdded: c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-IN') : 'Today'
+                                          })));
+                                        }
+                                        triggerToast(`Rollback complete: removed uncontacted records.`, 'success');
+                                      } else {
+                                        alert(res.error || 'Rollback failed.');
+                                      }
+                                    } catch (rErr: any) {
+                                      alert('Rollback error: ' + rErr.message);
+                                    }
+                                  }
+                                }}
+                              >
+                                ↺ Undo Batch Import
+                              </button>
+                            )}
                           </div>
                         </div>
 
-                        <div>
-                          {batch.isRolledBack ? (
-                            <span style={{ background: '#fee2e2', color: '#991b1b', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold' }}>
-                              Rolled Back (Undone)
-                            </span>
-                          ) : (
-                            <button
-                              className="btn btn-secondary"
-                              style={{ color: '#dc2626', borderColor: '#fca5a5', fontSize: '11px', padding: '4px 12px' }}
-                              onClick={async () => {
-                                if (confirm(`Are you sure you want to undo and rollback batch "${batch.fileName}"? All uncontacted records from this batch will be removed.`)) {
-                                  try {
-                                    const { rollbackImportBatchAction } = await import('@/app/actions/contacts');
-                                    const res = await rollbackImportBatchAction(batch.id, currentUser?.fullName || 'CRM User');
-                                    if (res.success) {
-                                      setImportBatches(prev => prev.map(b => b.id === batch.id ? { ...b, isRolledBack: true } : b));
-                                      // Reload contacts
-                                      const { fetchContactsListAction } = await import('@/app/actions/contacts');
-                                      const cRes = await fetchContactsListAction();
-                                      if (cRes.success && cRes.contacts) setContactsList(cRes.contacts);
-                                      triggerToast(`Successfully rolled back import batch (${res.removedCount} contacts removed)`, 'info');
-                                    } else {
-                                      alert(res.error || 'Failed to rollback batch.');
-                                    }
-                                  } catch (rErr: any) {
-                                    alert('Rollback error: ' + rErr.message);
-                                  }
-                                }
-                              }}
-                            >
-                              ⎌ Undo Batch Import
-                            </button>
-                          )}
+                        {/* KPI Stats Chips */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(75px, 1fr))', gap: '8px' }}>
+                          <div style={{ background: '#f8fafc', padding: '8px', borderRadius: '8px', textAlign: 'center', border: '1px solid #f1f5f9' }}>
+                            <div style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', fontWeight: '600' }}>Total</div>
+                            <div style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>{batch.totalRows}</div>
+                          </div>
+                          <div style={{ background: '#ecfdf5', padding: '8px', borderRadius: '8px', textAlign: 'center', border: '1px solid #d1fae5' }}>
+                            <div style={{ fontSize: '10px', color: '#047857', textTransform: 'uppercase', fontWeight: '600' }}>Imported</div>
+                            <div style={{ fontSize: '14px', fontWeight: '800', color: '#059669' }}>{batch.importedCount}</div>
+                          </div>
+                          <div style={{ background: '#fffbeb', padding: '8px', borderRadius: '8px', textAlign: 'center', border: '1px solid #fef3c7' }}>
+                            <div style={{ fontSize: '10px', color: '#b45309', textTransform: 'uppercase', fontWeight: '600' }}>Merged</div>
+                            <div style={{ fontSize: '14px', fontWeight: '800', color: '#d97706' }}>{batch.mergedCount}</div>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -5266,165 +5434,59 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Settings View Sub-Tabs */}
-                <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '24px', gap: '16px' }}>
+                {/* Settings View Touch Swipeable Sub-Tabs */}
+                <div className="mobile-swipe-tabs" style={{ marginBottom: '22px', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px' }}>
                   <button 
-                    className={`btn ${settingsSubTab === 'profile' ? 'btn-primary' : 'btn-secondary'}`}
+                    className={`swipe-pill ${settingsSubTab === 'profile' ? 'active' : ''}`}
                     onClick={() => setSettingsSubTab('profile')}
-                    style={{ padding: '8px 16px', borderRadius: '8px 8px 0 0', margin: 0, borderBottom: 'none' }}
                   >
-                    👤 Profile Card
+                    👤 Executive Profile
                   </button>
                   <button 
-                    className={`btn ${settingsSubTab === 'terms' ? 'btn-primary' : 'btn-secondary'}`}
+                    className={`swipe-pill ${settingsSubTab === 'terms' ? 'active' : ''}`}
                     onClick={() => setSettingsSubTab('terms')}
-                    style={{ padding: '8px 16px', borderRadius: '8px 8px 0 0', margin: 0, borderBottom: 'none' }}
                   >
                     📜 Legal Clauses
                   </button>
                   <button 
-                    className={`btn ${settingsSubTab === 'fields' ? 'btn-primary' : 'btn-secondary'}`}
+                    className={`swipe-pill ${settingsSubTab === 'fields' ? 'active' : ''}`}
                     onClick={() => setSettingsSubTab('fields')}
-                    style={{ padding: '8px 16px', borderRadius: '8px 8px 0 0', margin: 0, borderBottom: 'none' }}
                   >
                     ⚙️ Dynamic Fields (ADM-02)
                   </button>
                   <button 
-                    className={`btn ${settingsSubTab === 'backup' ? 'btn-primary' : 'btn-secondary'}`}
+                    className={`swipe-pill ${settingsSubTab === 'backup' ? 'active' : ''}`}
                     onClick={() => setSettingsSubTab('backup')}
-                    style={{ padding: '8px 16px', borderRadius: '8px 8px 0 0', margin: 0, borderBottom: 'none' }}
                   >
                     💾 ZIP Backup (ADM-04)
                   </button>
                   <button 
-                    className={`btn ${settingsSubTab === 'diagnostics' ? 'btn-primary' : 'btn-secondary'}`}
+                    className={`swipe-pill ${settingsSubTab === 'diagnostics' ? 'active' : ''}`}
                     onClick={() => setSettingsSubTab('diagnostics')}
-                    style={{ padding: '8px 16px', borderRadius: '8px 8px 0 0', margin: 0, borderBottom: 'none' }}
                   >
                     📊 Health Checks (ADM-07)
                   </button>
                   <button 
-                    className={`btn ${settingsSubTab === 'supabase' ? 'btn-primary' : 'btn-secondary'}`}
+                    className={`swipe-pill ${settingsSubTab === 'supabase' ? 'active' : ''}`}
                     onClick={() => setSettingsSubTab('supabase')}
-                    style={{ padding: '8px 16px', borderRadius: '8px 8px 0 0', margin: 0, borderBottom: 'none' }}
                   >
                     🔌 Supabase Link
                   </button>
                 </div>
 
-                {/* SUBTAB 1: PROFILE INFO */}
+                {/* SUBTAB 1: EXECUTIVE PROFILE CARD */}
                 {settingsSubTab === 'profile' && (
-                  <div className="panel-card animate-fade" style={{ padding: '24px' }}>
-                    <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '16px' }}>
-                      Profile Info for: <span className="badge badge-hot" style={{ fontSize: '11px', textTransform: 'uppercase' }}>{currentRole} Session</span>
-                    </h3>
-
-                    <form onSubmit={(e) => {
-                      e.preventDefault();
-                      alert('✅ CRM Profile settings saved successfully!');
-                    }}>
-                      <div className="form-group">
-                        <label>Full Name</label>
-                        <input 
-                          type="text" 
-                          required 
-                          value={profileSettings[currentRole]?.fullName || ''} 
-                          onChange={(e) => {
-                            setProfileSettings({
-                              ...profileSettings,
-                              [currentRole]: { ...profileSettings[currentRole], fullName: e.target.value }
-                            });
-                          }} 
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label>Work Email</label>
-                        <input 
-                          type="email" 
-                          required 
-                          value={profileSettings[currentRole]?.email || ''} 
-                          onChange={(e) => {
-                            setProfileSettings({
-                              ...profileSettings,
-                              [currentRole]: { ...profileSettings[currentRole], email: e.target.value }
-                            });
-                          }} 
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label>Title / Designation</label>
-                        <input 
-                          type="text" 
-                          required 
-                          value={profileSettings[currentRole]?.title || ''} 
-                          onChange={(e) => {
-                            setProfileSettings({
-                              ...profileSettings,
-                              [currentRole]: { ...profileSettings[currentRole], title: e.target.value }
-                            });
-                          }} 
-                        />
-                      </div>
-
-                      <div className="form-group" style={{ marginBottom: '20px' }}>
-                        <label>Upload Profile Avatar</label>
-                        <input 
-                          type="file" 
-                          accept="image/*"
-                          id="settings-avatar-upload-file-input"
-                          style={{ display: 'none' }}
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              const reader = new FileReader();
-                              reader.onload = () => {
-                                if (reader.result) {
-                                  setProfileSettings({
-                                    ...profileSettings,
-                                    [currentRole]: {
-                                      ...profileSettings[currentRole],
-                                      avatarUrl: reader.result as string
-                                    }
-                                  });
-                                }
-                              };
-                              reader.readAsDataURL(file);
-                            }
-                          }}
-                        />
-                        <label 
-                          htmlFor="settings-avatar-upload-file-input"
-                          style={{ border: '2px dashed #E2E8F0', padding: '12px', borderRadius: '8px', textAlign: 'center', fontSize: '12px', color: '#64748B', cursor: 'pointer', display: 'block' }}
-                        >
-                          {profileSettings[currentRole]?.avatarUrl ? '🔄 Click to replace profile image' : '📁 Click to browse image (JPG/PNG < 2MB)'}
-                        </label>
-                      </div>
-
-                      <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
-                        <input 
-                          type="checkbox" 
-                          checked={profileSettings[currentRole]?.notify || false} 
-                          onChange={(e) => {
-                            setProfileSettings({
-                              ...profileSettings,
-                              [currentRole]: { ...profileSettings[currentRole], notify: e.target.checked }
-                            });
-                          }} 
-                          style={{ cursor: 'pointer' }}
-                          id="notifyCheck"
-                        />
-                        <label htmlFor="notifyCheck" style={{ textTransform: 'none', cursor: 'pointer', margin: 0 }}>
-                          Enable workspace desktop sound notifications on new leads & quotes
-                        </label>
-                      </div>
-
-                      <div className="modal-actions" style={{ marginTop: '24px' }}>
-                        <button type="submit" className="btn btn-primary">Save Changes</button>
-                      </div>
-                    </form>
-                  </div>
+                  <UserProfileCard 
+                    currentUser={currentUser}
+                    currentRole={currentRole}
+                    profileSettings={profileSettings}
+                    setProfileSettings={setProfileSettings}
+                    triggerToast={triggerToast}
+                    dealsCount={deals.length}
+                    totalPipelineValue={deals.reduce((sum, d) => sum + d.value, 0)}
+                    completedTasksCount={tasks.filter(t => t.status === 'Completed').length}
+                    winRatePercent={winRatePercent}
+                  />
                 )}
 
                 {/* SUBTAB 2: TERMS AND CONDITIONS */}
@@ -8305,49 +8367,6 @@ export default function App() {
           ✓ Lead scores recalculated based on updated scoring weights!
         </div>
       )}
-
-      {/* Fixed Mobile Bottom App Navigation Bar */}
-      <nav className="mobile-bottom-nav">
-        <button 
-          className={`mobile-nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} 
-          onClick={() => setActiveTab('dashboard')}
-        >
-          <DashboardIcon />
-          <span>Home</span>
-        </button>
-
-        <button 
-          className={`mobile-nav-item ${activeTab === 'contacts' ? 'active' : ''}`} 
-          onClick={() => setActiveTab('contacts')}
-        >
-          <CardIcon />
-          <span>Contacts</span>
-        </button>
-
-        <button 
-          className={`mobile-nav-item ${activeTab === 'leads' ? 'active' : ''}`} 
-          onClick={() => setActiveTab('leads')}
-        >
-          <ContactsIcon />
-          <span>Leads</span>
-        </button>
-
-        <button 
-          className={`mobile-nav-item ${activeTab === 'kanban' ? 'active' : ''}`} 
-          onClick={() => setActiveTab('kanban')}
-        >
-          <PipelineIcon />
-          <span>Deals</span>
-        </button>
-
-        <button 
-          className="mobile-nav-item" 
-          onClick={() => setIsMobileMenuOpen(true)}
-        >
-          <SettingsIcon />
-          <span>Menu</span>
-        </button>
-      </nav>
 
       {/* Centralized Contact 360 Drawer Modal */}
       {selectedContactFor360 && (
