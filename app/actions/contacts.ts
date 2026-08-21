@@ -68,13 +68,23 @@ export async function fetchContactsListAction(params: {
   sourceType?: string;
   recency?: 'all' | 'never' | 'month' | 'older';
   limit?: number;
+  userEmail?: string;
+  userFullName?: string;
+  role?: string;
 } = {}) {
   try {
-    const { search, category, sourceType, recency, limit = 1000 } = params;
+    const { search, category, sourceType, recency, limit = 1000, userEmail, userFullName, role } = params;
+    const isSalesRole = role === 'SALES_REP' || role === 'MANAGER';
+    const activeName = (userFullName || '').trim().toLowerCase();
+    const activeEmail = (userEmail || '').trim().toLowerCase();
 
     // 1. Direct Supabase Query (Live database sync)
     try {
       let query = supabase.from('contacts').select('*');
+
+      if (isSalesRole && (activeName || activeEmail)) {
+        query = query.or(`owner.ilike.%${activeName}%,owner.ilike.%${activeEmail}%`);
+      }
 
       if (category && category !== 'all') {
         query = query.eq('category', category);
@@ -93,9 +103,13 @@ export async function fetchContactsListAction(params: {
         .order('created_at', { ascending: false })
         .limit(limit);
 
-      if (!supaErr && supaContacts && supaContacts.length > 0) {
-        const mapped = supaContacts.map(mapContactFromSupabase).filter(Boolean);
-        return { success: true, contacts: deduplicateContacts(mapped) };
+      if (!supaErr) {
+        if (supaContacts && supaContacts.length > 0) {
+          const mapped = supaContacts.map(mapContactFromSupabase).filter(Boolean);
+          return { success: true, contacts: deduplicateContacts(mapped) };
+        } else if (isSalesRole) {
+          return { success: true, contacts: [] };
+        }
       }
     } catch (supaEx) {
       console.warn('Direct Supabase fetch fallback to Prisma:', supaEx);
@@ -103,6 +117,12 @@ export async function fetchContactsListAction(params: {
 
     // 2. Prisma fallback
     const where: any = {};
+    if (isSalesRole && (activeName || activeEmail)) {
+      where.OR = [
+        ...(activeName ? [{ owner: { contains: activeName, mode: 'insensitive' } }] : []),
+        ...(activeEmail ? [{ owner: { contains: activeEmail, mode: 'insensitive' } }] : [])
+      ];
+    }
     if (category && category !== 'all') where.category = category;
     if (sourceType && sourceType !== 'all') where.sourceType = sourceType;
     if (search && search.trim()) {
