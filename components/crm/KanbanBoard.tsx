@@ -2,6 +2,18 @@
 
 import React, { useState } from 'react';
 
+export function normalizeDealStage(stage?: string): string {
+  if (!stage) return 'New';
+  const s = stage.trim().toLowerCase();
+  if (s === 'new' || s === 'discovered' || s === 'discovery' || s === 'lead' || s === 'inquiry') return 'New';
+  if (s === 'contacted' || s === 'engaged' || s === 'meeting' || s === 'scheduled') return 'Contacted';
+  if (s === 'proposal sent' || s === 'proposal' || s === 'quote shared' || s === 'quote' || s === 'pricing') return 'Proposal Sent';
+  if (s === 'negotiation' || s === 'terms' || s === 'in review') return 'Negotiation';
+  if (s === 'won' || s === 'closed won' || s === 'closed-won') return 'Won';
+  if (s === 'lost' || s === 'closed lost' || s === 'closed-lost' || s === 'rejected') return 'Lost';
+  return 'New';
+}
+
 interface Deal {
   id: string;
   name: string;
@@ -43,6 +55,23 @@ export default function KanbanBoard({
   formatCurrency
 }: KanbanBoardProps) {
   const [selectedMobileStage, setSelectedMobileStage] = useState<string>('All');
+
+  const normalizedUniqueDeals = React.useMemo(() => {
+    const list = filteredDeals && filteredDeals.length > 0 ? filteredDeals : deals;
+    const seen = new Set<string>();
+    const unique: Deal[] = [];
+    for (const d of list) {
+      if (!d) continue;
+      const comp = (d.company || '').trim().toLowerCase();
+      const nm = (d.name || '').trim().toLowerCase();
+      const key = comp ? `${comp}::${nm}` : (nm ? `name:${nm}` : `id:${d.id}`);
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push({ ...d, stage: normalizeDealStage(d.stage) });
+      }
+    }
+    return unique;
+  }, [filteredDeals, deals]);
 
   const visibleStages = selectedMobileStage === 'All' 
     ? stages 
@@ -139,7 +168,7 @@ export default function KanbanBoard({
             <div className="panel-title">
               <h3>Active Deals Pipeline</h3>
               <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
-                Showing {deals.length} active deals
+                Showing {normalizedUniqueDeals.length} active deals
               </div>
             </div>
 
@@ -155,14 +184,14 @@ export default function KanbanBoard({
                   </tr>
                 </thead>
                 <tbody>
-                  {deals.length === 0 ? (
+                  {normalizedUniqueDeals.length === 0 ? (
                     <tr>
                       <td colSpan={5} style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
                         No deals in pipeline. Click "+ New Deal" to create one.
                       </td>
                     </tr>
                   ) : (
-                    deals.map(deal => (
+                    normalizedUniqueDeals.map(deal => (
                       <tr key={deal.id} onClick={() => setSelectedDealDetail(deal)} style={{ cursor: 'pointer' }}>
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -205,10 +234,10 @@ export default function KanbanBoard({
                 className={`stage-pill-btn ${selectedMobileStage === 'All' ? 'active' : ''}`}
                 onClick={() => setSelectedMobileStage('All')}
               >
-                All ({filteredDeals.length})
+                All ({normalizedUniqueDeals.length})
               </button>
               {stages.map(s => {
-                const count = filteredDeals.filter(d => d.stage === s).length;
+                const count = normalizedUniqueDeals.filter(d => normalizeDealStage(d.stage) === s).length;
                 return (
                   <button
                     key={s}
@@ -225,7 +254,7 @@ export default function KanbanBoard({
           {/* Drag and Drop Stage Kanban Board */}
           <div className="kanban-board">
             {visibleStages.map(stage => {
-              const stageDeals = filteredDeals.filter(d => d.stage === stage);
+              const stageDeals = normalizedUniqueDeals.filter(d => normalizeDealStage(d.stage) === stage);
               const stageTotal = stageDeals.reduce((sum, d) => sum + d.value, 0);
 
               return (

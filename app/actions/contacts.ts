@@ -40,6 +40,28 @@ function mapContactFromSupabase(row: any) {
   };
 }
 
+function deduplicateContacts(contacts: any[]): any[] {
+  const seen = new Set<string>();
+  const unique: any[] = [];
+  for (const c of contacts) {
+    const p = (c.preferredPhone || c.phone || '').replace(/[^0-9]/g, '');
+    const e = (c.email || '').trim().toLowerCase();
+    const nc = `${(c.name || '').trim().toLowerCase()}::${(c.company || '').trim().toLowerCase()}`;
+    
+    let key = '';
+    if (p && p.length >= 7) key = `phone:${p.slice(-10)}`;
+    else if (e) key = `email:${e}`;
+    else if (nc !== '::') key = `name_comp:${nc}`;
+    else key = `id:${c.id}`;
+
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(c);
+    }
+  }
+  return unique;
+}
+
 export async function fetchContactsListAction(params: {
   search?: string;
   category?: string;
@@ -73,7 +95,7 @@ export async function fetchContactsListAction(params: {
 
       if (!supaErr && supaContacts && supaContacts.length > 0) {
         const mapped = supaContacts.map(mapContactFromSupabase).filter(Boolean);
-        return { success: true, contacts: mapped };
+        return { success: true, contacts: deduplicateContacts(mapped) };
       }
     } catch (supaEx) {
       console.warn('Direct Supabase fetch fallback to Prisma:', supaEx);
@@ -103,11 +125,11 @@ export async function fetchContactsListAction(params: {
 
     return { 
       success: true, 
-      contacts: contacts.map(c => ({
+      contacts: deduplicateContacts(contacts.map(c => ({
         ...c,
-        phone: c.preferredPhone || '',
+        phone: c.preferredPhone || null,
         dateAdded: c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-IN') : 'Today'
-      })) 
+      }))) 
     };
   } catch (error: any) {
     console.error('fetchContactsListAction error:', error);
@@ -231,16 +253,47 @@ export async function fetchContact360Action(contactId: string) {
 export async function createContactAction(data: any, authorName = 'System User') {
   const normPhone = data.preferredPhone ? normalizePhone(data.preferredPhone) : null;
   const preferredPhone = normPhone?.isValid ? normPhone.e164 : (data.preferredPhone || null);
+  const email = data.email ? data.email.trim().toLowerCase() : null;
+  const name = (data.name || '').trim();
+  const company = (data.company || '').trim();
 
-  // 1. Write to Supabase table contacts
+  // 1. Check for duplicate contact across Supabase
+  try {
+    if (preferredPhone || email || (name && company)) {
+      let query = supabase.from('contacts').select('*');
+      if (preferredPhone) {
+        query = query.eq('preferred_phone', preferredPhone);
+      } else if (email) {
+        query = query.eq('email', email);
+      } else if (name && company) {
+        query = query.ilike('name', name).ilike('company', company);
+      }
+      const { data: existingSupa } = await query.limit(1);
+      if (existingSupa && existingSupa.length > 0) {
+        const ext = mapContactFromSupabase(existingSupa[0]);
+        if (ext) {
+          return {
+            success: false,
+            isDuplicate: true,
+            error: `Contact "${ext.name}" (${ext.preferredPhone || ext.email || ext.company || 'same details'}) already exists in the database!`,
+            contact: ext
+          };
+        }
+      }
+    }
+  } catch (chkErr) {
+    console.warn('Supabase duplicate contact check fallback:', chkErr);
+  }
+
+  // 2. Write to Supabase table contacts
   try {
     const supaPayload: any = {
-      name: data.name.trim(),
+      name: name,
       preferred_phone: preferredPhone,
       alternate_phones: Array.isArray(data.alternatePhones) ? data.alternatePhones : [],
-      email: data.email ? data.email.trim().toLowerCase() : null,
+      email: email,
       alternate_emails: Array.isArray(data.alternateEmails) ? data.alternateEmails : [],
-      company: data.company ? data.company.trim() : null,
+      company: company || null,
       designation: data.designation ? data.designation.trim() : null,
       city: data.city ? data.city.trim() : null,
       state: data.state ? data.state.trim() : null,
