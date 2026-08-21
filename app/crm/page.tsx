@@ -2908,7 +2908,12 @@ export default function App() {
             </button>
             <button
               type="button"
-              onClick={() => { setAuthMode('register'); setLoginError(''); }}
+              onClick={() => {
+                setAuthMode('register');
+                setLoginError('');
+                if (loginEmail && !regEmail) setRegEmail(loginEmail);
+                if (loginPassword && !regPassword) setRegPassword(loginPassword);
+              }}
               style={{
                 flex: 1,
                 padding: '10px',
@@ -2927,16 +2932,32 @@ export default function App() {
           </div>
 
           {loginError && (
-            <div style={{
-              padding: '12px 16px',
-              borderRadius: '12px',
-              background: 'rgba(239, 68, 68, 0.15)',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-              color: '#fca5a5',
-              fontSize: '13px',
-              marginBottom: '20px'
-            }}>
+            <div 
+              style={{
+                padding: '12px 16px',
+                borderRadius: '12px',
+                background: 'rgba(239, 68, 68, 0.15)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                color: '#fca5a5',
+                fontSize: '13px',
+                marginBottom: '20px',
+                cursor: loginError.includes('Create Account') ? 'pointer' : 'default'
+              }}
+              onClick={() => {
+                if (loginError.includes('Create Account')) {
+                  setAuthMode('register');
+                  setLoginError('');
+                  if (loginEmail && !regEmail) setRegEmail(loginEmail);
+                  if (loginPassword && !regPassword) setRegPassword(loginPassword);
+                }
+              }}
+            >
               ⚠️ {loginError}
+              {loginError.includes('Create Account') && (
+                <div style={{ marginTop: '6px', fontWeight: '700', color: '#60a5fa', textDecoration: 'underline' }}>
+                  Click here to Create Account →
+                </div>
+              )}
             </div>
           )}
 
