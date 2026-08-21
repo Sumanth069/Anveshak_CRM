@@ -138,7 +138,40 @@ export async function loginAction(email: string, password: string) {
   }
 
   try {
-    // 1. Check direct PostgreSQL database record (Prisma)
+    // 1. Direct Supabase users_list lookup (Primary & Fast on Vercel)
+    try {
+      const { data: supaUsers, error } = await supabase
+        .from('users_list')
+        .select('*')
+        .eq('email', cleanEmail)
+        .limit(1);
+
+      if (!error && supaUsers && supaUsers.length > 0) {
+        const u = supaUsers[0];
+        if (u.is_active === false) {
+          return { success: false, error: 'Your account has been deactivated by an Administrator.' };
+        }
+        if (u.password === cleanPass) {
+          return {
+            success: true,
+            user: {
+              id: u.id,
+              fullName: u.full_name,
+              email: u.email,
+              role: u.role || 'SALES_REP',
+              isActive: u.is_active ?? true,
+              assignedCount: u.assigned_count || 0
+            }
+          };
+        } else {
+          return { success: false, error: 'Incorrect password. Please verify your credentials.' };
+        }
+      }
+    } catch (sErr) {
+      console.warn('Supabase login check warning:', sErr);
+    }
+
+    // 2. Direct PostgreSQL database record (Prisma)
     try {
       const dbUser = await prisma.user.findUnique({
         where: { email: cleanEmail }
@@ -168,7 +201,7 @@ export async function loginAction(email: string, password: string) {
       console.warn('Prisma lookup warning:', prismaErr);
     }
 
-    // 2. Authenticate with Native Supabase Auth
+    // 3. Authenticate with Native Supabase Auth
     try {
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
@@ -199,7 +232,7 @@ export async function loginAction(email: string, password: string) {
       console.warn('Supabase signInWithPassword warning:', supaErr);
     }
 
-    // 3. Fallback: Check if this is the default admin credentials
+    // 4. Fallback: Check if this is the default admin credentials
     if ((cleanEmail === 'admin@anveshak.com' || cleanEmail === 'admin@anveshakhub.com') && (cleanPass === '12345678' || cleanPass === 'admin123')) {
       return {
         success: true,
@@ -214,7 +247,7 @@ export async function loginAction(email: string, password: string) {
       };
     }
 
-    // 4. Return helpful guidance
+    // 5. Return helpful guidance
     return { 
       success: false, 
       error: 'No account found for this email. Please switch to "Create Account" tab above to register.' 
@@ -260,31 +293,7 @@ export async function signOutAction() {
  * Fetch all registered users from database
  */
 export async function getUsersListAction() {
-  // 1. Prisma Direct Query
-  try {
-    const users = await prisma.user.findMany({
-      orderBy: { createdAt: 'desc' }
-    });
-
-    if (users && users.length > 0) {
-      return {
-        success: true,
-        users: users.map(u => ({
-          id: u.id,
-          fullName: u.fullName,
-          email: u.email,
-          role: u.role || 'SALES_REP',
-          isActive: u.isActive ?? true,
-          assignedCount: u.assignedCount || 0,
-          createdAt: u.createdAt
-        }))
-      };
-    }
-  } catch (err) {
-    console.warn('Prisma getUsersListAction error, trying Supabase:', err);
-  }
-
-  // 2. Direct Supabase Fallback
+  // 1. Direct Supabase
   try {
     const { data, error } = await supabase
       .from('users_list')
@@ -306,7 +315,31 @@ export async function getUsersListAction() {
       };
     }
   } catch (err) {
-    console.warn('Supabase getUsersListAction error:', err);
+    console.warn('Supabase getUsersListAction error, trying Prisma:', err);
+  }
+
+  // 2. Prisma Fallback
+  try {
+    const users = await prisma.user.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
+
+    if (users && users.length > 0) {
+      return {
+        success: true,
+        users: users.map(u => ({
+          id: u.id,
+          fullName: u.fullName,
+          email: u.email,
+          role: u.role || 'SALES_REP',
+          isActive: u.isActive ?? true,
+          assignedCount: u.assignedCount || 0,
+          createdAt: u.createdAt
+        }))
+      };
+    }
+  } catch (err) {
+    console.warn('Prisma getUsersListAction error:', err);
   }
 
   return { success: true, users: [] };
