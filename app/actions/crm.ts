@@ -3,11 +3,59 @@
 import { prisma } from '@/lib/prisma';
 import { supabase } from '@/lib/supabase';
 
+function normalizeDealStage(stage?: string): string {
+  if (!stage) return 'New';
+  const s = stage.trim().toLowerCase();
+  if (s === 'new' || s === 'discovered' || s === 'discovery' || s === 'lead' || s === 'inquiry') return 'New';
+  if (s === 'contacted' || s === 'engaged' || s === 'meeting' || s === 'scheduled') return 'Contacted';
+  if (s === 'proposal sent' || s === 'proposal' || s === 'quote shared' || s === 'quote' || s === 'pricing') return 'Proposal Sent';
+  if (s === 'negotiation' || s === 'terms' || s === 'in review') return 'Negotiation';
+  if (s === 'won' || s === 'closed won' || s === 'closed-won') return 'Won';
+  if (s === 'lost' || s === 'closed lost' || s === 'closed-lost' || s === 'rejected') return 'Lost';
+  return 'New';
+}
+
+function deduplicateDeals(deals: any[]): any[] {
+  const seen = new Set<string>();
+  const unique: any[] = [];
+  for (const d of deals) {
+    const comp = (d.company || '').trim().toLowerCase();
+    const nm = (d.name || '').trim().toLowerCase();
+    const key = comp ? `${comp}::${nm}` : (nm ? `name:${nm}` : `id:${d.id}`);
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(d);
+    }
+  }
+  return unique;
+}
+
+function deduplicateLeads(leads: any[]): any[] {
+  const seen = new Set<string>();
+  const unique: any[] = [];
+  for (const l of leads) {
+    const ph = (l.phone || '').replace(/[^0-9]/g, '');
+    const em = (l.email || '').trim().toLowerCase();
+    const nm = (l.name || '').trim().toLowerCase();
+    let key = '';
+    if (ph && ph.length >= 7) key = `phone:${ph.slice(-10)}`;
+    else if (em) key = `email:${em}`;
+    else if (nm) key = `name:${nm}`;
+    else key = `id:${l.id}`;
+
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(l);
+    }
+  }
+  return unique;
+}
+
 export async function fetchCrmInitialState() {
   try {
     // 1. Try Prisma first
     try {
-      const [leads, deals, tasks, companies, quotes, auditLogs] = await Promise.all([
+      const [rawLeads, rawDeals, tasks, companies, quotes, auditLogs] = await Promise.all([
         prisma.lead.findMany({ orderBy: { createdAt: 'desc' } }),
         prisma.deal.findMany({ orderBy: { createdAt: 'desc' } }),
         prisma.task.findMany({ orderBy: { createdAt: 'desc' } }),
@@ -15,6 +63,9 @@ export async function fetchCrmInitialState() {
         prisma.quote.findMany({ orderBy: { createdAt: 'desc' } }),
         prisma.auditLog.findMany({ orderBy: { timestamp: 'desc' }, take: 100 })
       ]);
+
+      const deals = deduplicateDeals(rawDeals.map(d => ({ ...d, stage: normalizeDealStage(d.stage || undefined) })));
+      const leads = deduplicateLeads(rawLeads);
 
       if (leads.length > 0 || deals.length > 0 || tasks.length > 0 || companies.length > 0 || quotes.length > 0) {
         return {
@@ -36,37 +87,41 @@ export async function fetchCrmInitialState() {
       supabase.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(100)
     ]);
 
+    const mappedLeads = deduplicateLeads((lRes.data || []).map((l: any) => ({
+      id: l.id,
+      name: l.name,
+      company: l.company || '',
+      email: l.email || '',
+      phone: l.phone || '',
+      status: l.status || 'New',
+      score: l.score || 0,
+      owner: l.owner || 'KP Sumanth',
+      customValues: l.custom_values || {},
+      activities: l.activities || [],
+      createdAt: l.created_at,
+      updatedAt: l.updated_at
+    })));
+
+    const mappedDeals = deduplicateDeals((dRes.data || []).map((d: any) => ({
+      id: d.id,
+      name: d.name,
+      company: d.company,
+      value: Number(d.value) || 0,
+      stage: normalizeDealStage(d.stage),
+      probability: Number(d.probability) || 0,
+      expectedClose: d.expected_close,
+      owner: d.owner || 'KP Sumanth',
+      lostReason: d.lost_reason,
+      customValues: d.custom_values || {},
+      createdAt: d.created_at,
+      updatedAt: d.updated_at
+    })));
+
     return {
       success: true,
       data: {
-        leads: (lRes.data || []).map((l: any) => ({
-          id: l.id,
-          name: l.name,
-          company: l.company || '',
-          email: l.email || '',
-          phone: l.phone || '',
-          status: l.status || 'New',
-          score: l.score || 0,
-          owner: l.owner || 'KP Sumanth',
-          customValues: l.custom_values || {},
-          activities: l.activities || [],
-          createdAt: l.created_at,
-          updatedAt: l.updated_at
-        })),
-        deals: (dRes.data || []).map((d: any) => ({
-          id: d.id,
-          name: d.name,
-          company: d.company,
-          value: Number(d.value) || 0,
-          stage: d.stage || 'New',
-          probability: Number(d.probability) || 0,
-          expectedClose: d.expected_close,
-          owner: d.owner || 'KP Sumanth',
-          lostReason: d.lost_reason,
-          customValues: d.custom_values || {},
-          createdAt: d.created_at,
-          updatedAt: d.updated_at
-        })),
+        leads: mappedLeads,
+        deals: mappedDeals,
         tasks: (tRes.data || []).map((t: any) => ({
           id: t.id,
           title: t.title,
@@ -132,13 +187,62 @@ export async function fetchCrmInitialState() {
 
 export async function createLeadAction(lead: any) {
   try {
+    const email = (lead.email || '').trim().toLowerCase();
+    const phone = (lead.phone || '').trim();
+    const name = (lead.name || '').trim();
+
+    // 1. Check for duplicate lead in Prisma
+    try {
+      if (email || phone || name) {
+        const existing = await prisma.lead.findFirst({
+          where: {
+            OR: [
+              ...(email ? [{ email: { equals: email, mode: 'insensitive' as const } }] : []),
+              ...(phone ? [{ phone: { equals: phone, mode: 'insensitive' as const } }] : [])
+            ]
+          }
+        });
+        if (existing) {
+          return {
+            success: false,
+            isDuplicate: true,
+            error: `Lead "${existing.name}" with email "${existing.email || email}" or phone "${existing.phone || phone}" is already in the database.`,
+            data: existing
+          };
+        }
+      }
+    } catch (chkErr) {
+      console.warn('Prisma duplicate lead check fallback:', chkErr);
+    }
+
+    // 2. Check for duplicate in Supabase
+    try {
+      if (email || phone) {
+        let query = supabase.from('leads').select('*');
+        if (email) query = query.ilike('email', email);
+        else if (phone) query = query.ilike('phone', phone);
+        const { data: supaExisting } = await query.limit(1);
+        if (supaExisting && supaExisting.length > 0) {
+          const ext = supaExisting[0];
+          return {
+            success: false,
+            isDuplicate: true,
+            error: `Lead "${ext.name}" is already registered in the database.`,
+            data: ext
+          };
+        }
+      }
+    } catch (sErr) {
+      console.warn('Supabase duplicate lead check fallback:', sErr);
+    }
+
     const created = await prisma.lead.create({
       data: {
         id: lead.id || undefined,
-        name: lead.name,
+        name: name,
         company: lead.company || null,
-        email: lead.email || null,
-        phone: lead.phone || null,
+        email: email || null,
+        phone: phone || null,
         status: lead.status || 'New',
         score: lead.score || 0,
         owner: lead.owner || null,
@@ -178,22 +282,91 @@ export async function deleteLeadAction(id: string) {
 
 export async function createDealAction(deal: any) {
   try {
+    const normalizedStage = normalizeDealStage(deal.stage);
+    const company = (deal.company || '').trim();
+    const name = (deal.name || '').trim();
+
+    // 1. Check for duplicate deal in Prisma
+    try {
+      if (company || name) {
+        const existing = await prisma.deal.findFirst({
+          where: {
+            OR: [
+              ...(company ? [{ company: { equals: company, mode: 'insensitive' as const } }] : []),
+              ...(name ? [{ name: { equals: name, mode: 'insensitive' as const } }] : [])
+            ]
+          }
+        });
+        if (existing) {
+          return {
+            success: false,
+            isDuplicate: true,
+            error: `A deal for "${existing.company || existing.name}" is already in the pipeline (Stage: ${existing.stage || 'New'}).`,
+            data: { ...existing, stage: normalizeDealStage(existing.stage || undefined) }
+          };
+        }
+      }
+    } catch (chkErr) {
+      console.warn('Prisma duplicate deal check fallback:', chkErr);
+    }
+
+    // 2. Check for duplicate deal in Supabase
+    try {
+      if (company || name) {
+        let query = supabase.from('deals').select('*');
+        if (company) query = query.ilike('company', company);
+        else if (name) query = query.ilike('name', name);
+        const { data: supaExisting } = await query.limit(1);
+        if (supaExisting && supaExisting.length > 0) {
+          const ext = supaExisting[0];
+          return {
+            success: false,
+            isDuplicate: true,
+            error: `A deal for "${ext.company || ext.name}" is already in the pipeline (Stage: ${ext.stage || 'New'}).`,
+            data: { ...ext, stage: normalizeDealStage(ext.stage) }
+          };
+        }
+      }
+    } catch (sErr) {
+      console.warn('Supabase duplicate deal check fallback:', sErr);
+    }
+
     const created = await prisma.deal.create({
       data: {
         id: deal.id || undefined,
-        name: deal.name,
-        company: deal.company || null,
+        name: name,
+        company: company || null,
         value: Number(deal.value) || 0,
         probability: deal.probability || 0,
-        stage: deal.stage || 'New',
+        stage: normalizedStage,
         owner: deal.owner || null,
         expectedClose: deal.expectedClose || null,
         lostReason: deal.lostReason || null,
         daysInStage: deal.daysInStage || 0
       }
     });
-    return { success: true, data: created };
+    return { success: true, data: { ...created, stage: normalizeDealStage(created.stage || undefined) } };
   } catch (err: any) {
+    // If Prisma fails, try inserting to Supabase directly
+    try {
+      const normalizedStage = normalizeDealStage(deal.stage);
+      const { data: sCreated, error: sErr } = await supabase.from('deals').insert([{
+        name: (deal.name || '').trim(),
+        company: (deal.company || '').trim() || null,
+        value: Number(deal.value) || 0,
+        probability: deal.probability || 0,
+        stage: normalizedStage,
+        owner: deal.owner || null,
+        expected_close: deal.expectedClose || null,
+        lost_reason: deal.lostReason || null,
+        days_in_stage: deal.daysInStage || 0
+      }]).select().single();
+      if (!sErr && sCreated) {
+        return { success: true, data: { ...sCreated, stage: normalizeDealStage(sCreated.stage) } };
+      }
+    } catch (sEx) {
+      console.error('Supabase direct insert failed:', sEx);
+    }
     console.error('createDealAction error:', err);
     return { success: false, error: err.message };
   }

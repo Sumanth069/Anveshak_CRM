@@ -490,18 +490,78 @@ const mapLeadFromDb = (dbLead: any) => ({
   createdAt: dbLead.created_at || ''
 });
 
-const mapDealFromDb = (dbDeal: any) => ({
+export const normalizeDealStage = (stage?: string): string => {
+  if (!stage) return 'New';
+  const s = stage.trim().toLowerCase();
+  if (s === 'new' || s === 'discovered' || s === 'discovery' || s === 'lead' || s === 'inquiry') return 'New';
+  if (s === 'contacted' || s === 'engaged' || s === 'meeting' || s === 'scheduled') return 'Contacted';
+  if (s === 'proposal sent' || s === 'proposal' || s === 'quote shared' || s === 'quote' || s === 'pricing') return 'Proposal Sent';
+  if (s === 'negotiation' || s === 'terms' || s === 'in review') return 'Negotiation';
+  if (s === 'won' || s === 'closed won' || s === 'closed-won') return 'Won';
+  if (s === 'lost' || s === 'closed lost' || s === 'closed-lost' || s === 'rejected') return 'Lost';
+  return 'New';
+};
+
+export const deduplicateDealsLocal = (dList: any[]): Deal[] => {
+  const seen = new Set<string>();
+  const unique: Deal[] = [];
+  for (const d of dList) {
+    if (!d) continue;
+    const comp = (d.company || '').trim().toLowerCase();
+    const nm = (d.name || '').trim().toLowerCase();
+    const key = comp ? `${comp}::${nm}` : (nm ? `name:${nm}` : `id:${d.id}`);
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push({
+        id: d.id,
+        name: d.name,
+        company: d.company || '',
+        value: Number(d.value) || 0,
+        probability: d.probability || 0,
+        stage: normalizeDealStage(d.stage),
+        owner: d.owner || '',
+        expectedClose: d.expectedClose || d.expected_close || '',
+        lostReason: d.lostReason || d.lost_reason || '',
+        daysInStage: d.daysInStage || d.days_in_stage || 0
+      });
+    }
+  }
+  return unique;
+};
+
+export const deduplicateLeadsLocal = (lList: any[]): Lead[] => {
+  const seen = new Set<string>();
+  const unique: Lead[] = [];
+  for (const l of lList) {
+    if (!l) continue;
+    const ph = (l.phone || '').replace(/[^0-9]/g, '');
+    const em = (l.email || '').trim().toLowerCase();
+    const nm = (l.name || '').trim().toLowerCase();
+    let key = '';
+    if (ph && ph.length >= 7) key = `phone:${ph.slice(-10)}`;
+    else if (em) key = `email:${em}`;
+    else if (nm) key = `name:${nm}`;
+    else key = `id:${l.id}`;
+
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(l);
+    }
+  }
+  return unique;
+};
+
+const mapDealFromDb = (dbDeal: any): Deal => ({
   id: dbDeal.id,
   name: dbDeal.name,
   company: dbDeal.company || '',
   value: Number(dbDeal.value) || 0,
   probability: dbDeal.probability || 0,
-  stage: dbDeal.stage || 'New',
+  stage: normalizeDealStage(dbDeal.stage),
   owner: dbDeal.owner || '',
-  expectedClose: dbDeal.expected_close || '',
-  lostReason: dbDeal.lost_reason || '',
-  daysInStage: dbDeal.days_in_stage || 0,
-  createdAt: dbDeal.created_at || ''
+  expectedClose: dbDeal.expected_close || dbDeal.expectedClose || '',
+  lostReason: dbDeal.lost_reason || dbDeal.lostReason || '',
+  daysInStage: dbDeal.days_in_stage || dbDeal.daysInStage || 0
 });
 
 const mapTaskFromDb = (dbTask: any) => ({
@@ -1475,8 +1535,8 @@ export default function App() {
         const { fetchCrmInitialState } = await import('@/app/actions/crm');
         const res = await fetchCrmInitialState();
         if (res.success && res.data) {
-          setLeads(res.data.leads ? res.data.leads.map(mapLeadFromDb) : []);
-          setDeals(res.data.deals ? res.data.deals.map(mapDealFromDb) : []);
+          setLeads(res.data.leads ? deduplicateLeadsLocal(res.data.leads.map(mapLeadFromDb)) : []);
+          setDeals(res.data.deals ? deduplicateDealsLocal(res.data.deals.map(mapDealFromDb)) : []);
           setTasks(res.data.tasks ? res.data.tasks.map(mapTaskFromDb) : []);
           setCompanies(res.data.companies ? res.data.companies.map(mapCompanyFromDb) : []);
           setQuotes(res.data.quotes ? res.data.quotes.map(mapQuoteFromDb) : []);
@@ -1515,8 +1575,8 @@ export default function App() {
       if (savedState) {
         try {
           const parsed = JSON.parse(savedState);
-          if (parsed.leads) setLeads(parsed.leads);
-          if (parsed.deals) setDeals(parsed.deals);
+          if (parsed.leads) setLeads(deduplicateLeadsLocal(parsed.leads));
+          if (parsed.deals) setDeals(deduplicateDealsLocal(parsed.deals));
           if (parsed.tasks) setTasks(parsed.tasks);
           if (parsed.activities) setActivities(parsed.activities);
           if (parsed.companies) setCompanies(parsed.companies);
@@ -1712,7 +1772,14 @@ export default function App() {
   // Role Filtering Rules
   const filterByOwner = <T extends { owner?: string; assignee?: string }>(items: T[]): T[] => {
     if (currentRole === 'Sales Rep') {
-      return items.filter(item => item.owner === 'KP Sumanth' || item.assignee === 'KP Sumanth');
+      const activeName = currentUser?.fullName || 'KP Sumanth';
+      return items.filter(item => 
+        !item.owner || 
+        item.owner === activeName || 
+        item.assignee === activeName || 
+        item.owner === 'KP Sumanth' || 
+        item.assignee === 'KP Sumanth'
+      );
     }
     return items;
   };
@@ -1770,11 +1837,36 @@ export default function App() {
   // ----------------------------------------------------
   const handleLeadSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Check duplicates
-    const duplicate = leads.find(l => l.email.toLowerCase() === newLead.email.toLowerCase() || l.phone === newLead.phone);
+    const cleanPhone = (newLead.phone || '').replace(/[^0-9]/g, '').slice(-10);
+    const cleanEmail = (newLead.email || '').trim().toLowerCase();
+
+    // Check duplicates against leads & centralized contacts
+    const duplicate = leads.find(l => 
+      (cleanEmail && l.email && l.email.trim().toLowerCase() === cleanEmail) || 
+      (cleanPhone && l.phone && l.phone.replace(/[^0-9]/g, '').slice(-10) === cleanPhone)
+    );
     
+    const duplicateContact = contactsList.find(c =>
+      (cleanEmail && c.email && c.email.trim().toLowerCase() === cleanEmail) ||
+      (cleanPhone && (c.preferredPhone || c.phone) && (c.preferredPhone || c.phone).replace(/[^0-9]/g, '').slice(-10) === cleanPhone)
+    );
+
     if (duplicate) {
       setDuplicateConflictedLead(duplicate);
+      setShowDuplicateModal(true);
+    } else if (duplicateContact) {
+      setDuplicateConflictedLead({
+        id: duplicateContact.id,
+        name: duplicateContact.name,
+        company: duplicateContact.company || '',
+        email: duplicateContact.email || '',
+        phone: duplicateContact.phone || duplicateContact.preferredPhone || '',
+        status: 'New',
+        score: 0,
+        owner: duplicateContact.owner || 'KP Sumanth',
+        activities: [],
+        customFields: {}
+      });
       setShowDuplicateModal(true);
     } else {
       createConfirmedLead();
@@ -1798,13 +1890,17 @@ export default function App() {
       customFields: newCustomValues
     };
 
-    const nextLeads = [freshLead, ...leads];
+    const nextLeads = deduplicateLeadsLocal([freshLead, ...leads]);
     setLeads(nextLeads);
     triggerRecalculateScores(nextLeads);
 
     import('@/app/actions/crm').then(({ createLeadAction }) => {
       createLeadAction(freshLead).then(res => {
-        if (res.success) triggerToast('Lead saved directly to database!', 'success');
+        if (res.isDuplicate) {
+          triggerToast(res.error || 'Lead is already in database!', 'warning');
+        } else if (res.success) {
+          triggerToast('Lead saved directly to database!', 'success');
+        }
       });
     }).catch(err => console.error('Error creating lead in DB:', err));
 
@@ -1821,7 +1917,7 @@ export default function App() {
     setAuditLogs([newLog, ...auditLogs]);
 
     // Reset Form
-    setNewLead({ firstName: '', lastName: '', email: '', phone: '', alternatePhone: '', company: '', designation: '', city: 'Bangalore', state: 'Karnataka', leadSource: 'Cold Call', owner: 'KP Sumanth', tags: 'B2G' });
+    setNewLead({ firstName: '', lastName: '', email: '', phone: '', alternatePhone: '', company: '', designation: '', city: '', state: '', leadSource: 'Website', owner: currentUser?.fullName || 'KP Sumanth', tags: 'B2G' });
     setNewCustomValues({});
     setShowLeadModal(false);
     setShowDuplicateModal(false);
@@ -2350,6 +2446,18 @@ export default function App() {
     const lead = leads.find(l => l.id === leadId);
     if (!lead) return;
 
+    const targetComp = (lead.company || lead.name || '').trim().toLowerCase();
+    const existing = deals.find(d => 
+      (targetComp && d.company && d.company.trim().toLowerCase() === targetComp) ||
+      d.name.trim().toLowerCase().includes(targetComp)
+    );
+    if (existing) {
+      triggerToast(`⚠️ Deal already exists in pipeline: "${existing.name}" (${existing.stage})`, 'warning');
+      setActiveTab('kanban');
+      setSelectedDealDetail(existing);
+      return;
+    }
+
     // Update Lead status in contacts directory
     const updatedLeads = leads.map(l => {
       if (l.id === leadId) {
@@ -2390,16 +2498,24 @@ export default function App() {
     // Create a Deal
     const freshDeal: Deal = {
       id: `D-${Date.now().toString().slice(-3)}`,
-      name: `${lead.company} — Custom Pipeline`,
-      company: lead.company,
+      name: `${lead.company || lead.name} — Custom Pipeline`,
+      company: lead.company || lead.name,
       value: 500000, // Default estimate
       stage: 'New',
       probability: 10,
-      expectedClose: '2026-08-01',
-      owner: lead.owner,
-      daysInStage: 1
+      expectedClose: new Date().toISOString().slice(0, 10),
+      owner: lead.owner || currentUser?.fullName || 'KP Sumanth',
+      daysInStage: 0
     };
-    setDeals([freshDeal, ...deals]);
+    setDeals(prev => deduplicateDealsLocal([freshDeal, ...prev]));
+    (async () => {
+      try {
+        const { createDealAction } = await import('@/app/actions/crm');
+        await createDealAction(freshDeal);
+      } catch (err) {
+        console.error('Failed to sync converted deal to DB:', err);
+      }
+    })();
 
     // Add Audit Log
     const newLog: AuditLog = {
@@ -4081,37 +4197,77 @@ export default function App() {
                         </button>
                       </div>
 
-                      <button 
-                        style={{
-                          width: '100%',
-                          background: 'linear-gradient(135deg, #059669, #10b981)',
-                          color: '#ffffff',
-                          border: 'none',
-                          padding: '10px 14px',
-                          borderRadius: '10px',
-                          fontSize: '12.5px',
-                          fontWeight: '700',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '6px',
-                          boxShadow: '0 3px 10px rgba(16, 185, 129, 0.25)',
-                          transition: 'all 0.2s ease',
-                          minHeight: '38px'
-                        }} 
-                        onClick={() => {
-                          setSelectedLeadForConversion(contact);
-                          setConvertDealForm({
-                            dealName: `${contact.company || contact.name} - Expansion Deal`,
-                            dealValue: '500000',
-                            stage: 'Discovered'
-                          });
-                          setShowConvertLeadModal(true);
-                        }}
-                      >
-                        ⚡ Convert to Deal →
-                      </button>
+                      {(() => {
+                        const linkedDeal = deals.find(d => 
+                          (contact.company && d.company && d.company.toLowerCase() === contact.company.toLowerCase()) ||
+                          (contact.name && d.name.toLowerCase().includes(contact.name.toLowerCase()))
+                        );
+
+                        if (linkedDeal) {
+                          return (
+                            <button
+                              style={{
+                                width: '100%',
+                                background: '#f8fafc',
+                                color: '#047857',
+                                border: '1px solid #10b981',
+                                padding: '10px 14px',
+                                borderRadius: '10px',
+                                fontSize: '12px',
+                                fontWeight: '700',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px',
+                                minHeight: '38px',
+                                transition: 'all 0.2s ease'
+                              }}
+                              onClick={() => {
+                                setActiveTab('kanban');
+                                setSelectedDealDetail(linkedDeal);
+                                triggerToast(`Opening existing pipeline deal for ${contact.company || contact.name} (${linkedDeal.stage})`, 'info');
+                              }}
+                            >
+                              ✓ Converted to Deal ({linkedDeal.stage})
+                            </button>
+                          );
+                        }
+
+                        return (
+                          <button 
+                            style={{
+                              width: '100%',
+                              background: 'linear-gradient(135deg, #059669, #10b981)',
+                              color: '#ffffff',
+                              border: 'none',
+                              padding: '10px 14px',
+                              borderRadius: '10px',
+                              fontSize: '12.5px',
+                              fontWeight: '700',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px',
+                              boxShadow: '0 3px 10px rgba(16, 185, 129, 0.25)',
+                              transition: 'all 0.2s ease',
+                              minHeight: '38px'
+                            }} 
+                            onClick={() => {
+                              setSelectedLeadForConversion(contact);
+                              setConvertDealForm({
+                                dealName: `${contact.company || contact.name} - Expansion Deal`,
+                                dealValue: '500000',
+                                stage: 'New'
+                              });
+                              setShowConvertLeadModal(true);
+                            }}
+                          >
+                            ⚡ Convert to Deal →
+                          </button>
+                        );
+                      })()}
                     </div>
                   </div>
                 ))}
@@ -8050,12 +8206,30 @@ export default function App() {
                     return;
                   }
 
+                  // Duplicate check against leads
+                  const existingInLeads = leads.find(l => 
+                    (cleanPhone && cleanPhone.length >= 7 && l.phone && l.phone.replace(/[^0-9]/g, '').slice(-10) === cleanPhone.replace(/[^0-9]/g, '').slice(-10)) ||
+                    (candidate.email && l.email && l.email.toLowerCase() === candidate.email.toLowerCase())
+                  );
+                  if (existingInLeads) {
+                    triggerToast(`⚠️ Contact already in database as a lead: "${existingInLeads.name}" (${existingInLeads.company})!`, 'warning');
+                    setShowScanModal(false);
+                    setScannedImagePreview(null);
+                    return;
+                  }
+
                   let dbId = `CNT-${Date.now().toString().slice(-4)}`;
 
                   // Persist Scanned Contact to Supabase Database via Server Action
                   try {
                     const { createContactAction } = await import('@/app/actions/contacts');
                     const res = await createContactAction(candidate, currentUser?.fullName || 'KP Sumanth');
+                    if (res && res.isDuplicate) {
+                      triggerToast(res.error || `⚠️ Contact "${candidate.name}" is already in the database!`, 'warning');
+                      setShowScanModal(false);
+                      setScannedImagePreview(null);
+                      return;
+                    }
                     if (res && res.success && res.contact) {
                       dbId = res.contact.id;
                       triggerToast(`Scanned contact ${contactFullName} saved to database!`, 'success');
@@ -8232,29 +8406,50 @@ export default function App() {
             <form onSubmit={async (e) => {
               e.preventDefault();
               try {
+                const targetCompany = (selectedLeadForConversion.company || selectedLeadForConversion.name || '').trim().toLowerCase();
+                const existing = deals.find(d => 
+                  (targetCompany && d.company && d.company.trim().toLowerCase() === targetCompany) ||
+                  d.name.trim().toLowerCase() === convertDealForm.dealName.trim().toLowerCase()
+                );
+                if (existing) {
+                  triggerToast(`⚠️ Deal already exists in pipeline: "${existing.name}" (${existing.stage})`, 'warning');
+                  setShowConvertLeadModal(false);
+                  setActiveTab('kanban');
+                  setSelectedDealDetail(existing);
+                  return;
+                }
+
                 const { createDealAction } = await import('@/app/actions/crm');
+                const targetStage = normalizeDealStage(convertDealForm.stage || 'New');
                 const res = await createDealAction({
                   name: convertDealForm.dealName,
                   company: selectedLeadForConversion.company || selectedLeadForConversion.name,
                   value: Number(convertDealForm.dealValue) || 500000,
                   probability: 40,
-                  stage: convertDealForm.stage || 'New',
+                  stage: targetStage,
                   owner: selectedLeadForConversion.owner || currentUser?.fullName || 'KP Sumanth'
                 });
+                if (res.isDuplicate) {
+                  triggerToast(res.error || 'Deal already in pipeline!', 'warning');
+                  setShowConvertLeadModal(false);
+                  setActiveTab('kanban');
+                  return;
+                }
                 if (res.success && res.data) {
                   const newDeal: Deal = {
                     id: res.data.id,
                     name: res.data.name,
-                    company: res.data.company || '',
-                    value: Number(res.data.value) || 500000,
+                    company: res.data.company || selectedLeadForConversion.company || selectedLeadForConversion.name,
+                    value: Number(res.data.value) || Number(convertDealForm.dealValue) || 500000,
                     probability: res.data.probability || 40,
-                    stage: res.data.stage || 'New',
-                    owner: res.data.owner || 'KP Sumanth',
+                    stage: normalizeDealStage(res.data.stage || targetStage),
+                    owner: res.data.owner || selectedLeadForConversion.owner || currentUser?.fullName || 'KP Sumanth',
                     daysInStage: 0,
                     expectedClose: new Date().toISOString().slice(0, 10)
                   };
-                  setDeals(prev => [newDeal, ...prev]);
+                  setDeals(prev => deduplicateDealsLocal([newDeal, ...prev]));
                   setLeads(prev => prev.map(l => l.id === selectedLeadForConversion.id ? { ...l, status: 'Qualified' } : l));
+                  setContactsList(prev => prev.map(c => c.id === selectedLeadForConversion.id ? { ...c, category: 'Customer' } : c));
                   setShowConvertLeadModal(false);
                   triggerToast(`Lead ${selectedLeadForConversion.name} converted into Deal in Supabase!`, 'success');
                   setActiveTab('kanban');
