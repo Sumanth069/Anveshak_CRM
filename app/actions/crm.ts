@@ -117,6 +117,43 @@ export async function fetchCrmInitialState(userEmail?: string, userFullName?: st
       }));
 
       // Multi-user scoping for Sales Representatives / Managers
+      // Multi-user scoping for Sales Representatives / Managers
+      let userCompanies = (cRes.data || []).map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        industry: c.industry,
+        website: c.website,
+        city: c.city,
+        state: c.state,
+        address: c.address,
+        contactsCount: Number(c.contacts_count) || 0,
+        totalDealValue: Number(c.total_deal_value) || 0,
+        createdAt: c.created_at
+      }));
+
+      let userQuotes = (qRes.data || []).map((q: any) => ({
+        id: q.id,
+        dealId: q.deal_id,
+        company: q.company,
+        contact: q.contact,
+        gstType: q.gst_type || 'intra',
+        items: q.items || [],
+        status: q.status || 'Draft',
+        totalAmount: Number(q.total_amount) || 0,
+        termsAndConditions: q.terms_and_conditions,
+        createdAt: q.created_at
+      }));
+
+      let userAuditLogs = (aRes.data || []).map((a: any) => ({
+        id: a.id,
+        user: a.user,
+        action: a.action,
+        entity: a.entity,
+        timestamp: a.timestamp,
+        beforeState: a.before_state,
+        afterState: a.after_state
+      }));
+
       if (isSalesRole && (activeName || activeEmail)) {
         mappedLeads = mappedLeads.filter(l => {
           const o = (l.owner || '').toLowerCase();
@@ -132,6 +169,19 @@ export async function fetchCrmInitialState(userEmail?: string, userFullName?: st
           const a = (t.assignee || '').toLowerCase();
           return a === activeName || a === activeEmail;
         });
+
+        const activeDealCompanies = new Set(mappedDeals.map(d => (d.company || '').toLowerCase()));
+        const activeLeadCompanies = new Set(mappedLeads.map(l => (l.company || '').toLowerCase()));
+        userCompanies = userCompanies.filter(c => 
+          activeDealCompanies.has(c.name.toLowerCase()) || activeLeadCompanies.has(c.name.toLowerCase())
+        );
+
+        const activeDealIds = new Set(mappedDeals.map(d => d.id));
+        userQuotes = userQuotes.filter(q => activeDealIds.has(q.dealId));
+        userAuditLogs = userAuditLogs.filter(a => {
+          const u = (a.user || '').toLowerCase();
+          return u === activeName || u === activeEmail;
+        });
       }
 
       return {
@@ -140,39 +190,9 @@ export async function fetchCrmInitialState(userEmail?: string, userFullName?: st
           leads: mappedLeads,
           deals: mappedDeals,
           tasks: mappedTasks,
-          companies: (cRes.data || []).map((c: any) => ({
-            id: c.id,
-            name: c.name,
-            industry: c.industry,
-            website: c.website,
-            city: c.city,
-            state: c.state,
-            address: c.address,
-            contactsCount: Number(c.contacts_count) || 0,
-            totalDealValue: Number(c.total_deal_value) || 0,
-            createdAt: c.created_at
-          })),
-          quotes: (qRes.data || []).map((q: any) => ({
-            id: q.id,
-            dealId: q.deal_id,
-            company: q.company,
-            contact: q.contact,
-            gstType: q.gst_type || 'intra',
-            items: q.items || [],
-            status: q.status || 'Draft',
-            totalAmount: Number(q.total_amount) || 0,
-            termsAndConditions: q.terms_and_conditions,
-            createdAt: q.created_at
-          })),
-          auditLogs: (aRes.data || []).map((a: any) => ({
-            id: a.id,
-            user: a.user,
-            action: a.action,
-            entity: a.entity,
-            timestamp: a.timestamp,
-            beforeState: a.before_state,
-            afterState: a.after_state
-          }))
+          companies: userCompanies,
+          quotes: userQuotes,
+          auditLogs: userAuditLogs
         }
       };
     } catch (sErr) {
@@ -193,6 +213,9 @@ export async function fetchCrmInitialState(userEmail?: string, userFullName?: st
       let deals = deduplicateDeals(rawDeals.map(d => ({ ...d, stage: normalizeDealStage(d.stage || undefined) })));
       let leads = deduplicateLeads(rawLeads);
       let userTasks = tasks;
+      let pCompanies = companies;
+      let pQuotes = quotes;
+      let pAudit = auditLogs;
 
       if (isSalesRole && (activeName || activeEmail)) {
         leads = leads.filter(l => {
@@ -207,11 +230,20 @@ export async function fetchCrmInitialState(userEmail?: string, userFullName?: st
           const a = (t.assignee || '').toLowerCase();
           return a === activeName || a === activeEmail;
         });
+        const activeDealCompanies = new Set(deals.map(d => (d.company || '').toLowerCase()));
+        const activeLeadCompanies = new Set(leads.map(l => (l.company || '').toLowerCase()));
+        pCompanies = pCompanies.filter(c => activeDealCompanies.has(c.name.toLowerCase()) || activeLeadCompanies.has(c.name.toLowerCase()));
+        const activeDealIds = new Set(deals.map(d => d.id));
+        pQuotes = pQuotes.filter(q => activeDealIds.has(q.dealId));
+        pAudit = pAudit.filter(a => {
+          const u = (a.user || '').toLowerCase();
+          return u === activeName || u === activeEmail;
+        });
       }
 
       return {
         success: true,
-        data: { leads, deals, tasks: userTasks, companies, quotes, auditLogs }
+        data: { leads, deals, tasks: userTasks, companies: pCompanies, quotes: pQuotes, auditLogs: pAudit }
       };
     } catch (pErr) {
       console.warn('Prisma fetchCrmInitialState error:', pErr);
