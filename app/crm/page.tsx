@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Tesseract from 'tesseract.js';
 import KanbanBoard from '@/components/crm/KanbanBoard';
 import GSTQuoteBuilder from '@/components/crm/GSTQuoteBuilder';
@@ -689,9 +689,31 @@ export default function App() {
   const [authScreen, setAuthScreen] = useState<'login' | 'invite' | 'forgot' | 'reset' | 'pending' | 'deactivated'>('login');
   const [isInitialLoadDone, setIsInitialLoadDone] = useState<boolean>(false);
 
-  // Navigation & Simulation Roles
+  // Navigation & Simulation Roles with Browser History Sync
   const [activeTab, setActiveTab] = useState<'dashboard' | 'contacts' | 'leads' | 'companies' | 'kanban' | 'quote' | 'tasks' | 'calendar' | 'users' | 'scoring' | 'audit' | 'settings'>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+
+  const navigateTab = useCallback((newTab: typeof activeTab, pushHistory = true) => {
+    setActiveTab(newTab);
+    setIsMobileMenuOpen(false);
+    if (pushHistory && typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', newTab);
+      window.history.pushState({ tab: newTab }, '', url.toString());
+    }
+  }, []);
+
+  // Sync initial tab from URL params on load
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab') as typeof activeTab;
+      const validTabs = ['dashboard', 'contacts', 'leads', 'companies', 'kanban', 'quote', 'tasks', 'calendar', 'users', 'scoring', 'audit', 'settings'];
+      if (tabParam && validTabs.includes(tabParam)) {
+        setActiveTab(tabParam);
+      }
+    }
+  }, []);
 
   const [profileSettings, setProfileSettings] = useState<{
     [key: string]: { fullName: string; email: string; title: string; avatarColor: string; notify: boolean; avatarUrl?: string }
@@ -1528,6 +1550,87 @@ export default function App() {
     { id: '1', description: 'Heavy Duty Inline Pipeline Filters (100mm)', qty: 5, price: 30000, gst: 18 }
   ]);
 
+  // ANDROID HARDWARE / BROWSER BACK BUTTON EVENT LISTENER
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handlePopState = (e: PopStateEvent) => {
+      // 1. If any modal is currently open, close the modal first instead of navigating out of the app
+      if (selectedDealDetail) {
+        setSelectedDealDetail(null);
+        return;
+      }
+      if (showLeadModal) {
+        setShowLeadModal(false);
+        return;
+      }
+      if (showScanModal) {
+        setShowScanModal(false);
+        return;
+      }
+      if (showConvertLeadModal) {
+        setShowConvertLeadModal(false);
+        return;
+      }
+      if (showTaskModal) {
+        setShowTaskModal(false);
+        return;
+      }
+      if (showQuotePreview) {
+        setShowQuotePreview(false);
+        return;
+      }
+      if (showEmailComposer) {
+        setShowEmailComposer(false);
+        return;
+      }
+      if (showWhatsAppModal) {
+        setShowWhatsAppModal(false);
+        return;
+      }
+      if (showLostModal) {
+        setShowLostModal(false);
+        return;
+      }
+      if (showMergeModal) {
+        setShowMergeModal(false);
+        return;
+      }
+      if (showGlobalSearch) {
+        setShowGlobalSearch(false);
+        return;
+      }
+      if (isMobileMenuOpen) {
+        setIsMobileMenuOpen(false);
+        return;
+      }
+
+      // 2. Otherwise restore previous tab from URL query or state
+      const params = new URLSearchParams(window.location.search);
+      const tabFromUrl = params.get('tab') as typeof activeTab;
+      const stateTab = e.state?.tab as typeof activeTab;
+      const validTabs = ['dashboard', 'contacts', 'leads', 'companies', 'kanban', 'quote', 'tasks', 'calendar', 'users', 'scoring', 'audit', 'settings'];
+      const targetTab = (tabFromUrl && validTabs.includes(tabFromUrl)) ? tabFromUrl : (stateTab && validTabs.includes(stateTab) ? stateTab : 'dashboard');
+      setActiveTab(targetTab);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [
+    selectedDealDetail,
+    showLeadModal,
+    showScanModal,
+    showConvertLeadModal,
+    showTaskModal,
+    showQuotePreview,
+    showEmailComposer,
+    showWhatsAppModal,
+    showLostModal,
+    showMergeModal,
+    showGlobalSearch,
+    isMobileMenuOpen
+  ]);
+
   // PERSIST STATE TO LOCALSTORAGE
   useEffect(() => {
     const loadState = async () => {
@@ -2232,14 +2335,31 @@ export default function App() {
     const prevDeal = deals.find(d => d.id === dealId);
     if (!prevDeal) return;
     
-    const probability = stage === 'Won' ? 100 : stage === 'Lost' ? 0 : stage === 'Negotiation' ? 70 : stage === 'Proposal Sent' ? 40 : 10;
+    const targetStage = normalizeDealStage(stage);
+    const probability = targetStage === 'Won' ? 100 : targetStage === 'Lost' ? 0 : targetStage === 'Negotiation' ? 70 : targetStage === 'Proposal Sent' ? 40 : 10;
     
-    setDeals(deals.map(d => {
+    setDeals(prev => prev.map(d => {
       if (d.id === dealId) {
-        return { ...d, stage, probability, lostReason: reasonOfLoss };
+        return { ...d, stage: targetStage, probability, lostReason: reasonOfLoss };
       }
       return d;
     }));
+
+    triggerToast(`Deal moved to "${targetStage}" and saved!`, 'success');
+
+    // Persist to Supabase Database / Prisma
+    (async () => {
+      try {
+        const { updateDealAction } = await import('@/app/actions/crm');
+        await updateDealAction(dealId, {
+          stage: targetStage,
+          probability,
+          lostReason: reasonOfLoss || null
+        });
+      } catch (err) {
+        console.error('Failed to sync stage update to DB:', err);
+      }
+    })();
 
     // Add Audit Log
     const newLog: AuditLog = {
@@ -2249,7 +2369,7 @@ export default function App() {
       entity: `Deal: ${prevDeal.name}`,
       timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
       beforeState: JSON.stringify({ stage: prevDeal.stage, probability: prevDeal.probability }),
-      afterState: JSON.stringify({ stage, probability, lostReason: reasonOfLoss || 'None' })
+      afterState: JSON.stringify({ stage: targetStage, probability, lostReason: reasonOfLoss || 'None' })
     };
     setAuditLogs([newLog, ...auditLogs]);
   };
@@ -2453,7 +2573,7 @@ export default function App() {
     );
     if (existing) {
       triggerToast(`⚠️ Deal already exists in pipeline: "${existing.name}" (${existing.stage})`, 'warning');
-      setActiveTab('kanban');
+      navigateTab('kanban');
       setSelectedDealDetail(existing);
       return;
     }
@@ -2894,70 +3014,70 @@ export default function App() {
         {/* Sidebar Menu Items */}
         <ul className="sidebar-menu">
           <li className={`menu-item ${activeTab === 'dashboard' ? 'active' : ''}`}>
-            <button onClick={() => { setActiveTab('dashboard'); setIsMobileMenuOpen(false); }}>
+            <button onClick={() => navigateTab('dashboard')}>
               <DashboardIcon /> Dashboard
             </button>
           </li>
           <li className={`menu-item ${activeTab === 'contacts' ? 'active' : ''}`}>
-            <button onClick={() => { setActiveTab('contacts'); setIsMobileMenuOpen(false); }}>
+            <button onClick={() => navigateTab('contacts')}>
               <CardIcon /> Daily Contacts
             </button>
           </li>
           <li className={`menu-item ${activeTab === 'leads' ? 'active' : ''}`}>
-            <button onClick={() => { setActiveTab('leads'); setIsMobileMenuOpen(false); }}>
+            <button onClick={() => navigateTab('leads')}>
               <ContactsIcon /> Leads Queue
             </button>
           </li>
           <li className={`menu-item ${activeTab === 'companies' ? 'active' : ''}`}>
-            <button onClick={() => { setActiveTab('companies'); setIsMobileMenuOpen(false); }}>
+            <button onClick={() => navigateTab('companies')}>
               <CompanyIcon /> Companies & Accounts
             </button>
           </li>
           <li className={`menu-item ${activeTab === 'kanban' ? 'active' : ''}`}>
-            <button onClick={() => { setActiveTab('kanban'); setIsMobileMenuOpen(false); }}>
+            <button onClick={() => navigateTab('kanban')}>
               <PipelineIcon /> Deals & Pipeline
             </button>
           </li>
           <li className={`menu-item ${activeTab === 'tasks' ? 'active' : ''}`}>
-            <button onClick={() => { setActiveTab('tasks'); setIsMobileMenuOpen(false); }}>
+            <button onClick={() => navigateTab('tasks')}>
               <TasksIcon /> Tasks Queue
               {openTasksCount > 0 && <span className="menu-badge">{openTasksCount}</span>}
             </button>
           </li>
           <li className={`menu-item ${activeTab === 'calendar' ? 'active' : ''}`}>
-            <button onClick={() => { setActiveTab('calendar'); setIsMobileMenuOpen(false); }}>
+            <button onClick={() => navigateTab('calendar')}>
               <CalendarIcon /> Calendar Scheduler
             </button>
           </li>
           <li className={`menu-item ${activeTab === 'quote' ? 'active' : ''}`}>
-            <button onClick={() => { setActiveTab('quote'); setIsMobileMenuOpen(false); }}>
+            <button onClick={() => navigateTab('quote')}>
               <QuoteIcon /> GST Quote Builder
             </button>
           </li>
 
           {!isViewRestricted('users') && (
             <li className={`menu-item ${activeTab === 'users' ? 'active' : ''}`}>
-              <button onClick={() => { setActiveTab('users'); setIsMobileMenuOpen(false); }}>
+              <button onClick={() => navigateTab('users')}>
                 <UsersIcon /> User Provisioning
               </button>
             </li>
           )}
           {!isViewRestricted('scoring') && (
             <li className={`menu-item ${activeTab === 'scoring' ? 'active' : ''}`}>
-              <button onClick={() => { setActiveTab('scoring'); setIsMobileMenuOpen(false); }}>
+              <button onClick={() => navigateTab('scoring')}>
                 <ScoringIcon /> Lead Scoring Rules
               </button>
             </li>
           )}
           {!isViewRestricted('audit') && (
             <li className={`menu-item ${activeTab === 'audit' ? 'active' : ''}`}>
-              <button onClick={() => { setActiveTab('audit'); setIsMobileMenuOpen(false); }}>
+              <button onClick={() => navigateTab('audit')}>
                 <AuditIcon /> Audit Registry
               </button>
             </li>
           )}
           <li className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`}>
-            <button onClick={() => { setActiveTab('settings'); setIsMobileMenuOpen(false); }}>
+            <button onClick={() => navigateTab('settings')}>
               <SettingsIcon /> Settings & Profiles
             </button>
           </li>
@@ -3035,7 +3155,7 @@ export default function App() {
               )}
             </div>
             
-            <div className="top-user-pill" onClick={() => setActiveTab('settings')} style={{ cursor: 'pointer' }}>
+            <div className="top-user-pill" onClick={() => navigateTab('settings')} style={{ cursor: 'pointer' }}>
               <div className="top-user-text">
                 <h4>{currentAgentName}</h4>
                 <span>{currentAgentTitle}</span>
@@ -3122,7 +3242,7 @@ export default function App() {
                     </div>
                     
                     {trailDealsMap.Discovered.length === 0 ? (
-                      <div className="trail-dropzone" onClick={() => setActiveTab('kanban')}>
+                      <div className="trail-dropzone" onClick={() => navigateTab('kanban')}>
                         <div style={{ fontSize: '18px', marginBottom: '4px' }}>⊕</div>
                         <div>No deals here</div>
                       </div>
@@ -3157,7 +3277,7 @@ export default function App() {
                     </div>
 
                     {trailDealsMap.Engaged.length === 0 ? (
-                      <div className="trail-dropzone" onClick={() => setActiveTab('kanban')}>
+                      <div className="trail-dropzone" onClick={() => navigateTab('kanban')}>
                         <div style={{ fontSize: '18px', marginBottom: '4px' }}>⊕</div>
                         <div>No deals here</div>
                       </div>
@@ -3192,7 +3312,7 @@ export default function App() {
                     </div>
 
                     {trailDealsMap.Proposal.length === 0 ? (
-                      <div className="trail-dropzone" onClick={() => setActiveTab('kanban')}>
+                      <div className="trail-dropzone" onClick={() => navigateTab('kanban')}>
                         <div style={{ fontSize: '18px', marginBottom: '4px' }}>⊕</div>
                         <div>No deals here</div>
                       </div>
@@ -3227,7 +3347,7 @@ export default function App() {
                     </div>
 
                     {trailDealsMap.Won.length === 0 ? (
-                      <div className="trail-dropzone" onClick={() => setActiveTab('kanban')}>
+                      <div className="trail-dropzone" onClick={() => navigateTab('kanban')}>
                         <div style={{ fontSize: '18px', marginBottom: '4px' }}>⊕</div>
                         <div>No wins yet</div>
                       </div>
@@ -3259,7 +3379,7 @@ export default function App() {
                 <div className="panel-card" style={{ padding: '22px' }}>
                   <div className="panel-title" style={{ marginBottom: '18px' }}>
                     <h3>Recent Activity</h3>
-                    <button className="btn btn-secondary" style={{ fontSize: '11px' }} onClick={() => setActiveTab('audit')}>View all</button>
+                    <button className="btn btn-secondary" style={{ fontSize: '11px' }} onClick={() => navigateTab('audit')}>View all</button>
                   </div>
 
                   <div className="activity-list">
@@ -4224,7 +4344,7 @@ export default function App() {
                                 transition: 'all 0.2s ease'
                               }}
                               onClick={() => {
-                                setActiveTab('kanban');
+                                navigateTab('kanban');
                                 setSelectedDealDetail(linkedDeal);
                                 triggerToast(`Opening existing pipeline deal for ${contact.company || contact.name} (${linkedDeal.stage})`, 'info');
                               }}
@@ -4505,6 +4625,7 @@ export default function App() {
               handleDragStart={handleDragStart}
               handleDragOver={handleDragOver}
               handleDrop={handleDrop}
+              onStageChange={(id, stage) => updateDealStage(id, stage as any)}
               formatCurrency={formatCurrency}
             />
           )}
@@ -5549,44 +5670,48 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Settings View Touch Swipeable Sub-Tabs */}
-                <div className="mobile-swipe-tabs" style={{ marginBottom: '22px', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px' }}>
-                  <button 
-                    className={`swipe-pill ${settingsSubTab === 'profile' ? 'active' : ''}`}
-                    onClick={() => setSettingsSubTab('profile')}
-                  >
-                    👤 Executive Profile
-                  </button>
-                  <button 
-                    className={`swipe-pill ${settingsSubTab === 'terms' ? 'active' : ''}`}
-                    onClick={() => setSettingsSubTab('terms')}
-                  >
-                    📜 Legal Clauses
-                  </button>
-                  <button 
-                    className={`swipe-pill ${settingsSubTab === 'fields' ? 'active' : ''}`}
-                    onClick={() => setSettingsSubTab('fields')}
-                  >
-                    ⚙️ Dynamic Fields
-                  </button>
-                  <button 
-                    className={`swipe-pill ${settingsSubTab === 'backup' ? 'active' : ''}`}
-                    onClick={() => setSettingsSubTab('backup')}
-                  >
-                    💾 Backup & Export
-                  </button>
-                  <button 
-                    className={`swipe-pill ${settingsSubTab === 'diagnostics' ? 'active' : ''}`}
-                    onClick={() => setSettingsSubTab('diagnostics')}
-                  >
-                    📊 System Health
-                  </button>
-                  <button 
-                    className={`swipe-pill ${settingsSubTab === 'supabase' ? 'active' : ''}`}
-                    onClick={() => setSettingsSubTab('supabase')}
-                  >
-                    🔌 Supabase Link
-                  </button>
+                {/* Settings View Sub-Tabs */}
+                <div style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '8px',
+                  marginBottom: '22px',
+                  padding: '6px',
+                  background: '#f1f5f9',
+                  borderRadius: '12px',
+                  border: '1px solid #cbd5e1',
+                  width: 'fit-content'
+                }}>
+                  {[
+                    { id: 'profile', label: 'Executive Profile', icon: '👤' },
+                    { id: 'terms', label: 'Legal Clauses', icon: '📜' },
+                    { id: 'fields', label: 'Dynamic Fields', icon: '⚙️' },
+                    { id: 'backup', label: 'Backup & Export', icon: '💾' }
+                  ].map(tab => (
+                    <button 
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setSettingsSubTab(tab.id as any)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '9px 18px',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        fontWeight: settingsSubTab === tab.id ? '700' : '600',
+                        color: settingsSubTab === tab.id ? '#ffffff' : '#334155',
+                        backgroundColor: settingsSubTab === tab.id ? '#1e40af' : 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        boxShadow: settingsSubTab === tab.id ? '0 2px 8px rgba(30, 64, 175, 0.25)' : 'none'
+                      }}
+                    >
+                      <span>{tab.icon}</span>
+                      <span>{tab.label}</span>
+                    </button>
+                  ))}
                 </div>
 
                 {/* SUBTAB 1: EXECUTIVE PROFILE CARD */}
@@ -5897,28 +6022,6 @@ export default function App() {
                       </div>
                     </div>
                   </div>
-                )}
-
-                {/* SUBTAB 5: SYSTEM DIAGNOSTICS & PERFORMANCE (ADM-07) */}
-                {settingsSubTab === 'diagnostics' && (
-                  <SystemDiagnostics
-                    diagnosticsBenchmarkRun={diagnosticsBenchmarkRun}
-                    diagnosticsBenchmarkProgress={diagnosticsBenchmarkProgress}
-                    runDiagnosticsBenchmark={runDiagnosticsBenchmark}
-                  />
-                )}
-
-                {/* SUBTAB 6: SUPABASE LINK SETTINGS */}
-                {settingsSubTab === 'supabase' && (
-                  <SupabaseSettings
-                    onSaveConfig={(url, key) => {
-                      updateSupabaseConfig(url, key);
-                    }}
-                    isDbConnected={isSupabaseConnected()}
-                    onClearConfig={() => {
-                      updateSupabaseConfig('', '');
-                    }}
-                  />
                 )}
 
               </div>
@@ -6593,7 +6696,7 @@ export default function App() {
                     onClick={() => {
                       setQuoteCompany(selectedDealDetail.company);
                       setSelectedDealDetail(null);
-                      setActiveTab('quote');
+                      navigateTab('quote');
                     }}
                   >
                     + Draft GST Quote
@@ -6644,10 +6747,25 @@ export default function App() {
                           <div 
                             key={stg}
                             onClick={() => {
-                              const updatedProb = stageProbabilities[stg] !== undefined ? stageProbabilities[stg] : 50;
-                              const updatedDeal = { ...selectedDealDetail, stage: stg, probability: updatedProb, daysInStage: 1 };
+                              const normStg = normalizeDealStage(stg);
+                              const updatedProb = stageProbabilities[normStg] !== undefined ? stageProbabilities[normStg] : 50;
+                              const updatedDeal = { ...selectedDealDetail, stage: normStg, probability: updatedProb, daysInStage: 1 };
                               setSelectedDealDetail(updatedDeal);
-                              setDeals(deals.map(d => d.id === selectedDealDetail.id ? updatedDeal : d));
+                              setDeals(prev => prev.map(d => d.id === selectedDealDetail.id ? updatedDeal : d));
+                              triggerToast(`Deal moved to "${normStg}" and saved!`, 'success');
+
+                              // Sync to Supabase Database
+                              (async () => {
+                                try {
+                                  const { updateDealAction } = await import('@/app/actions/crm');
+                                  await updateDealAction(selectedDealDetail.id, {
+                                    stage: normStg,
+                                    probability: updatedProb
+                                  });
+                                } catch (err) {
+                                  console.error('Failed to sync stage update to DB:', err);
+                                }
+                              })();
 
                               // Log to Audit Log
                               const newLog: AuditLog = {
@@ -6657,9 +6775,9 @@ export default function App() {
                                 entity: `Deal: ${selectedDealDetail.name}`,
                                 timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
                                 beforeState: JSON.stringify({ stage: selectedDealDetail.stage, probability: selectedDealDetail.probability }),
-                                afterState: JSON.stringify({ stage: stg, probability: updatedProb })
+                                afterState: JSON.stringify({ stage: normStg, probability: updatedProb })
                               };
-                              setAuditLogs([newLog, ...auditLogs]);
+                              setAuditLogs(prev => [newLog, ...prev]);
                             }}
                             style={{ 
                               display: 'flex', 
@@ -7395,7 +7513,7 @@ export default function App() {
                             style={{ padding: '8px 12px', background: '#f8fafc', borderRadius: '6px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid var(--border-color)' }}
                             onClick={() => {
                               setSelectedContactFor360(c.id);
-                              setActiveTab('contacts');
+                              navigateTab('contacts');
                               setShowGlobalSearch(false);
                               setGlobalSearchQuery('');
                             }}
@@ -7419,7 +7537,7 @@ export default function App() {
                             style={{ padding: '8px 12px', background: '#f8fafc', borderRadius: '6px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', border: '1px solid var(--border-color)' }}
                             onClick={() => {
                               setSelectedLeadDetail(l);
-                              setActiveTab('leads');
+                              navigateTab('leads');
                               setShowGlobalSearch(false);
                               setGlobalSearchQuery('');
                             }}
@@ -7443,7 +7561,7 @@ export default function App() {
                             style={{ padding: '8px 12px', background: '#f8fafc', borderRadius: '6px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', border: '1px solid var(--border-color)' }}
                             onClick={() => {
                               setSelectedDealDetail(d);
-                              setActiveTab('kanban');
+                              navigateTab('kanban');
                               setShowGlobalSearch(false);
                               setGlobalSearchQuery('');
                             }}
@@ -7466,7 +7584,7 @@ export default function App() {
                             key={t.id} 
                             style={{ padding: '8px 12px', background: '#f8fafc', borderRadius: '6px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', border: '1px solid var(--border-color)' }}
                             onClick={() => {
-                              setActiveTab('tasks');
+                              navigateTab('tasks');
                               setShowGlobalSearch(false);
                               setGlobalSearchQuery('');
                             }}
@@ -7490,7 +7608,7 @@ export default function App() {
                             style={{ padding: '8px 12px', background: '#f8fafc', borderRadius: '6px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', border: '1px solid var(--border-color)' }}
                             onClick={() => {
                               setQuoteSubView('repository');
-                              setActiveTab('quote');
+                              navigateTab('quote');
                               setShowGlobalSearch(false);
                               setGlobalSearchQuery('');
                             }}
@@ -8414,7 +8532,7 @@ export default function App() {
                 if (existing) {
                   triggerToast(`⚠️ Deal already exists in pipeline: "${existing.name}" (${existing.stage})`, 'warning');
                   setShowConvertLeadModal(false);
-                  setActiveTab('kanban');
+                  navigateTab('kanban');
                   setSelectedDealDetail(existing);
                   return;
                 }
@@ -8432,7 +8550,7 @@ export default function App() {
                 if (res.isDuplicate) {
                   triggerToast(res.error || 'Deal already in pipeline!', 'warning');
                   setShowConvertLeadModal(false);
-                  setActiveTab('kanban');
+                  navigateTab('kanban');
                   return;
                 }
                 if (res.success && res.data) {
@@ -8452,7 +8570,7 @@ export default function App() {
                   setContactsList(prev => prev.map(c => c.id === selectedLeadForConversion.id ? { ...c, category: 'Customer' } : c));
                   setShowConvertLeadModal(false);
                   triggerToast(`Lead ${selectedLeadForConversion.name} converted into Deal in Supabase!`, 'success');
-                  setActiveTab('kanban');
+                  navigateTab('kanban');
                 } else {
                   alert(res.error || 'Failed to convert lead to deal in database.');
                 }
