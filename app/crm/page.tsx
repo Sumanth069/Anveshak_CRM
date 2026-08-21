@@ -3244,7 +3244,13 @@ export default function App() {
           <div className="sidebar-logo-icon">A</div>
           <div className="sidebar-brand-name">
             <h1>Anveshak</h1>
-            <span>ENTERPRISE CRM</span>
+            <span style={{ 
+              color: currentUser?.role === 'ADMIN' ? '#fbbf24' : '#60a5fa', 
+              fontWeight: 700, 
+              letterSpacing: '0.08em' 
+            }}>
+              {currentUser?.role === 'ADMIN' ? 'ADMIN PORTAL' : 'SALES WORKSPACE'}
+            </span>
           </div>
         </div>
 
@@ -3259,32 +3265,32 @@ export default function App() {
         <ul className="sidebar-menu">
           <li className={`menu-item ${activeTab === 'dashboard' ? 'active' : ''}`}>
             <button onClick={() => navigateTab('dashboard')}>
-              <DashboardIcon /> Dashboard
+              <DashboardIcon /> {currentUser?.role === 'ADMIN' ? 'Enterprise Dashboard' : 'My Workspace'}
             </button>
           </li>
           <li className={`menu-item ${activeTab === 'contacts' ? 'active' : ''}`}>
             <button onClick={() => navigateTab('contacts')}>
-              <CardIcon /> Daily Contacts
+              <CardIcon /> {currentUser?.role === 'ADMIN' ? 'Contacts Directory' : 'My Contacts'}
             </button>
           </li>
           <li className={`menu-item ${activeTab === 'leads' ? 'active' : ''}`}>
             <button onClick={() => navigateTab('leads')}>
-              <ContactsIcon /> Leads Queue
+              <ContactsIcon /> {currentUser?.role === 'ADMIN' ? 'Leads Queue' : 'My Leads'}
             </button>
           </li>
           <li className={`menu-item ${activeTab === 'companies' ? 'active' : ''}`}>
             <button onClick={() => navigateTab('companies')}>
-              <CompanyIcon /> Companies & Accounts
+              <CompanyIcon /> {currentUser?.role === 'ADMIN' ? 'Companies & Accounts' : 'My Accounts'}
             </button>
           </li>
           <li className={`menu-item ${activeTab === 'kanban' ? 'active' : ''}`}>
             <button onClick={() => navigateTab('kanban')}>
-              <PipelineIcon /> Deals & Pipeline
+              <PipelineIcon /> {currentUser?.role === 'ADMIN' ? 'Deals & Pipeline' : 'My Deals Pipeline'}
             </button>
           </li>
           <li className={`menu-item ${activeTab === 'tasks' ? 'active' : ''}`}>
             <button onClick={() => navigateTab('tasks')}>
-              <TasksIcon /> Tasks Queue
+              <TasksIcon /> {currentUser?.role === 'ADMIN' ? 'Tasks Queue' : 'My Tasks'}
               {openTasksCount > 0 && <span className="menu-badge">{openTasksCount}</span>}
             </button>
           </li>
@@ -3322,7 +3328,7 @@ export default function App() {
           )}
           <li className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`}>
             <button onClick={() => navigateTab('settings')}>
-              <SettingsIcon /> Settings & Profiles
+              <SettingsIcon /> {currentUser?.role === 'ADMIN' ? 'Settings & Profiles' : 'My Profile & Settings'}
             </button>
           </li>
         </ul>
@@ -3429,19 +3435,61 @@ export default function App() {
               {/* Top Greeting & Forecast Banner */}
               <div className="dashboard-greeting-row">
                 <div className="greeting-text">
-                  <h2>Good morning, {currentAgentName.split(' ')[0]}</h2>
-                  <p>Your pipeline summary</p>
+                  <h2>
+                    {currentUser?.role === 'ADMIN' 
+                      ? `Enterprise Command Center • ${currentAgentName}` 
+                      : `Sales Workspace • Hello, ${currentAgentName.split(' ')[0]} 👋`}
+                  </h2>
+                  <p>
+                    {currentUser?.role === 'ADMIN' 
+                      ? 'Company-wide revenue metrics & pipeline health' 
+                      : 'Your personal pipeline & active accounts'}
+                  </p>
                 </div>
-                <div className="forecast-pill">
-                  ★ You're 12% ahead of last month's forecast.
+                <div 
+                  className="forecast-pill"
+                  style={{
+                    background: currentUser?.role === 'ADMIN' ? '#fef3c7' : '#eff6ff',
+                    color: currentUser?.role === 'ADMIN' ? '#92400e' : '#1e40af',
+                    borderColor: currentUser?.role === 'ADMIN' ? '#fcd34d' : '#bfdbfe'
+                  }}
+                >
+                  {currentUser?.role === 'ADMIN' ? '👑 Administrator View • Global Metrics' : '💼 Sales Rep Mode • Personal Workspace'}
                 </div>
               </div>
+
+              {/* Onboarding Welcome Card for New Sales Rep */}
+              {currentUser?.role !== 'ADMIN' && leads.length === 0 && deals.length === 0 && (
+                <div style={{
+                  background: 'linear-gradient(135deg, #1e293b, #0f172a)',
+                  border: '1px solid #334155',
+                  borderRadius: '12px',
+                  padding: '24px',
+                  marginBottom: '24px',
+                  color: '#fff'
+                }}>
+                  <h3 style={{ fontSize: '17px', fontWeight: '700', marginBottom: '8px', color: '#60a5fa' }}>
+                    🚀 Welcome to your Personal Sales Workspace, {currentAgentName.split(' ')[0]}!
+                  </h3>
+                  <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '16px', lineHeight: '1.5' }}>
+                    Your workspace is active and isolated. Start by adding contacts, creating deals, or managing your tasks.
+                  </p>
+                  <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    <button className="btn btn-primary" onClick={() => navigateTab('contacts')}>
+                      📇 Go to My Contacts
+                    </button>
+                    <button className="btn btn-secondary" style={{ color: '#fff', borderColor: '#475569', backgroundColor: '#1e293b' }} onClick={() => setShowLeadModal(true)}>
+                      + Create New Deal
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* 4 Metric KPI Cards (Screenshot 1 Top Row) */}
               <section className="metric-grid">
                 <div className="metric-card">
                   <div className="metric-header">
-                    <span>OPEN PIPELINE</span>
+                    <span>{currentUser?.role === 'ADMIN' ? 'TOTAL OPEN PIPELINE' : 'MY OPEN PIPELINE'}</span>
                     <span className="trend-badge neutral">Stable</span>
                   </div>
                   <div className="metric-val">{formatLakhs(openPipelineSum)}</div>
@@ -3449,7 +3497,7 @@ export default function App() {
 
                 <div className="metric-card">
                   <div className="metric-header">
-                    <span>ACTIVE LEADS</span>
+                    <span>{currentUser?.role === 'ADMIN' ? 'TOTAL ACTIVE LEADS' : 'MY ACTIVE LEADS'}</span>
                     <span className="trend-badge neutral">Active</span>
                   </div>
                   <div className="metric-val">{activeLeadsCount}</div>
@@ -3457,7 +3505,7 @@ export default function App() {
 
                 <div className="metric-card">
                   <div className="metric-header">
-                    <span>WIN RATE</span>
+                    <span>{currentUser?.role === 'ADMIN' ? 'TEAM WIN RATE' : 'MY WIN RATE'}</span>
                     <span className="trend-badge neutral">Target 50%</span>
                   </div>
                   <div className="metric-val">{winRatePercent}%</div>
