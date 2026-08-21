@@ -9,6 +9,7 @@ interface UserProfileCardProps {
     [key: string]: { fullName: string; email: string; title: string; avatarColor: string; notify: boolean; avatarUrl?: string; phone?: string; department?: string };
   };
   setProfileSettings: React.Dispatch<React.SetStateAction<any>>;
+  setCurrentUser?: React.Dispatch<React.SetStateAction<any>>;
   triggerToast: (msg: string, type?: any) => void;
   dealsCount?: number;
   totalPipelineValue?: number;
@@ -21,6 +22,7 @@ export default function UserProfileCard({
   currentRole,
   profileSettings,
   setProfileSettings,
+  setCurrentUser,
   triggerToast,
   dealsCount = 0,
   totalPipelineValue = 0,
@@ -44,7 +46,8 @@ export default function UserProfileCard({
     phone: currentProfile.phone || currentUser?.phone || '',
     department: currentProfile.department || currentUser?.department || '',
     notify: currentProfile.notify !== false,
-    avatarUrl: currentProfile.avatarUrl || ''
+    avatarUrl: currentProfile.avatarUrl || '',
+    newPassword: ''
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -67,25 +70,54 @@ export default function UserProfileCard({
     }
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
 
-    const updated = {
-      ...profileSettings,
-      [currentRole]: {
-        ...currentProfile,
-        ...formState
-      }
+    const updatedProfile = {
+      ...currentProfile,
+      ...formState
     };
 
-    setProfileSettings(updated);
-    localStorage.setItem('ANVESHAK_CRM_PROFILES', JSON.stringify(updated));
+    const updatedSettings = {
+      ...profileSettings,
+      [currentRole]: updatedProfile
+    };
 
-    setTimeout(() => {
-      setIsSaving(false);
-      triggerToast('🎉 Executive Profile saved successfully!', 'success');
-    }, 300);
+    setProfileSettings(updatedSettings);
+    localStorage.setItem('ANVESHAK_CRM_PROFILES', JSON.stringify(updatedSettings));
+
+    // Update active user session
+    if (currentUser) {
+      const updatedUser = {
+        ...currentUser,
+        fullName: formState.fullName,
+        email: formState.email,
+        title: formState.title,
+        phone: formState.phone
+      };
+      if (setCurrentUser) setCurrentUser(updatedUser);
+      localStorage.setItem('ANVESHAK_AUTH_SESSION_V1', JSON.stringify(updatedUser));
+
+      // Persist to database
+      if (currentUser.id) {
+        try {
+          const { updateUserAction } = await import('@/app/actions/auth');
+          const updates: any = {
+            fullName: formState.fullName
+          };
+          if (formState.newPassword && formState.newPassword.length >= 6) {
+            updates.password = formState.newPassword;
+          }
+          await updateUserAction(currentUser.id, updates);
+        } catch (dbErr) {
+          console.warn('Database user update warning:', dbErr);
+        }
+      }
+    }
+
+    setIsSaving(false);
+    triggerToast('🎉 Executive Profile & credentials saved successfully!', 'success');
   };
 
   const formatLakhs = (val: number) => {
@@ -322,6 +354,19 @@ export default function UserProfileCard({
                 style={{ width: '100%', boxSizing: 'border-box', borderRadius: '10px' }}
               />
             </div>
+
+            <div className="form-group" style={{ marginBottom: 0, gridColumn: '1 / -1' }}>
+              <label style={{ fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '6px', display: 'block' }}>
+                🔒 Update Password (leave empty to keep current password)
+              </label>
+              <input 
+                type="password" 
+                value={formState.newPassword} 
+                onChange={(e) => setFormState({ ...formState, newPassword: e.target.value })}
+                placeholder="Enter new password (minimum 6 characters)"
+                style={{ width: '100%', boxSizing: 'border-box', borderRadius: '10px' }}
+              />
+            </div>
           </div>
         </div>
 
@@ -364,7 +409,8 @@ export default function UserProfileCard({
                 phone: currentProfile.phone || '',
                 department: currentProfile.department || '',
                 notify: currentProfile.notify !== false,
-                avatarUrl: currentProfile.avatarUrl || ''
+                avatarUrl: currentProfile.avatarUrl || '',
+                newPassword: ''
               });
               triggerToast('Profile changes reset.', 'info');
             }}
