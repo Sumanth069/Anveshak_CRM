@@ -66,10 +66,26 @@ export async function registerUserAction(userData: {
       console.warn('Supabase auth.signUp warning:', e);
     }
 
-    // 2. Persist to Prisma Database
+    // 2. Persist to Supabase users_list and Prisma Database
     let createdUser: any = null;
+
     try {
-      createdUser = await prisma.user.upsert({
+      const { data: supaUser } = await supabase.from('users_list').upsert([{
+        ...(authUserId ? { id: authUserId } : {}),
+        full_name: cleanName,
+        email: cleanEmail,
+        password: userData.password,
+        role: role,
+        is_active: true,
+        assigned_count: 0
+      }], { onConflict: 'email' }).select().single();
+      if (supaUser) createdUser = supaUser;
+    } catch (e) {
+      console.warn('Supabase users_list upsert warning:', e);
+    }
+
+    try {
+      const pUser = await prisma.user.upsert({
         where: { email: cleanEmail },
         update: { fullName: cleanName, role: role, isActive: true, password: userData.password },
         create: {
@@ -82,6 +98,7 @@ export async function registerUserAction(userData: {
           assignedCount: 0
         }
       });
+      if (pUser) createdUser = pUser;
     } catch (prismaErr) {
       console.warn('Prisma creation warning:', prismaErr);
     }
@@ -243,7 +260,31 @@ export async function signOutAction() {
  * Fetch all registered users from database
  */
 export async function getUsersListAction() {
-  // 1. Direct Supabase
+  // 1. Prisma Direct Query
+  try {
+    const users = await prisma.user.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
+
+    if (users && users.length > 0) {
+      return {
+        success: true,
+        users: users.map(u => ({
+          id: u.id,
+          fullName: u.fullName,
+          email: u.email,
+          role: u.role || 'SALES_REP',
+          isActive: u.isActive ?? true,
+          assignedCount: u.assignedCount || 0,
+          createdAt: u.createdAt
+        }))
+      };
+    }
+  } catch (err) {
+    console.warn('Prisma getUsersListAction error, trying Supabase:', err);
+  }
+
+  // 2. Direct Supabase Fallback
   try {
     const { data, error } = await supabase
       .from('users_list')
@@ -265,34 +306,10 @@ export async function getUsersListAction() {
       };
     }
   } catch (err) {
-    console.warn('Supabase getUsersListAction error, trying Prisma:', err);
+    console.warn('Supabase getUsersListAction error:', err);
   }
 
-  // 2. Prisma Fallback
-  try {
-    const users = await prisma.user.findMany({
-      orderBy: { createdAt: 'desc' }
-    });
-
-    if (users && users.length > 0) {
-      return {
-        success: true,
-        users: users.map(u => ({
-          id: u.id,
-          fullName: u.fullName,
-          email: u.email,
-          role: u.role || 'SALES_REP',
-          isActive: u.isActive ?? true,
-          assignedCount: u.assignedCount || 0,
-          createdAt: u.createdAt
-        }))
-      };
-    }
-    return { success: true, users: [] };
-  } catch (err: any) {
-    console.error('getUsersListAction error:', err);
-    return { success: false, error: err.message };
-  }
+  return { success: true, users: [] };
 }
 
 /**

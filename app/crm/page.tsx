@@ -1146,25 +1146,7 @@ export default function App() {
     stage: 'New'
   });
 
-  useEffect(() => {
-    // Initial fetch from live database
-    const syncContactsFromDb = async () => {
-      try {
-        const { fetchContactsListAction } = await import('@/app/actions/contacts');
-        const res = await fetchContactsListAction();
-        if (res.success && res.contacts && res.contacts.length > 0) {
-          setContactsList(res.contacts.map((c: any) => ({
-            ...c,
-            phone: c.preferredPhone || c.phone,
-            dateAdded: c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-IN') : 'Today'
-          })));
-        }
-      } catch (err) {
-        console.warn('Initial contacts sync error:', err);
-      }
-    };
-    syncContactsFromDb();
-  }, []);
+
 
   useEffect(() => {
     const initAuthAndUsers = async () => {
@@ -1197,6 +1179,18 @@ export default function App() {
     };
     initAuthAndUsers();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'users') {
+      import('@/app/actions/auth').then(({ getUsersListAction }) => {
+        getUsersListAction().then(usersRes => {
+          if (usersRes.success && usersRes.users) {
+            setDbUsersList(usersRes.users);
+          }
+        });
+      });
+    }
+  }, [activeTab]);
   const [stages] = useState<string[]>(initialStages);
   const [stageProbabilities] = useState<{ [key: string]: number }>({
     'New': 10,
@@ -1645,11 +1639,14 @@ export default function App() {
   ]);
 
   // PERSIST STATE TO LOCALSTORAGE
+  // PERSIST & LOAD STATE SCOPED BY ACTIVE USER
   useEffect(() => {
+    if (!currentUser) return;
+
     const loadState = async () => {
       try {
         const { fetchCrmInitialState } = await import('@/app/actions/crm');
-        const res = await fetchCrmInitialState();
+        const res = await fetchCrmInitialState(currentUser.email, currentUser.fullName, currentUser.role);
         if (res.success && res.data) {
           setLeads(res.data.leads ? deduplicateLeadsLocal(res.data.leads.map(mapLeadFromDb)) : []);
           setDeals(res.data.deals ? deduplicateDealsLocal(res.data.deals.map(mapDealFromDb)) : []);
@@ -1663,10 +1660,14 @@ export default function App() {
         try {
           const { fetchContactsListAction, fetchImportBatchesAction } = await import('@/app/actions/contacts');
           const [contactsRes, batchesRes] = await Promise.all([
-            fetchContactsListAction(),
+            fetchContactsListAction({
+              userEmail: currentUser.email,
+              userFullName: currentUser.fullName,
+              role: currentUser.role
+            }),
             fetchImportBatchesAction()
           ]);
-          if (contactsRes.success && contactsRes.contacts && contactsRes.contacts.length > 0) {
+          if (contactsRes.success && contactsRes.contacts) {
             setContactsList(contactsRes.contacts.map((c: any) => ({
               ...c,
               phone: c.preferredPhone || c.phone,
@@ -1677,51 +1678,34 @@ export default function App() {
             setImportBatches(batchesRes.batches);
           }
         } catch (cErr) {
-          console.warn('Could not fetch contacts from database, using fallback cache:', cErr);
+          console.warn('Could not fetch contacts from database:', cErr);
         }
 
-        console.log('Successfully loaded state from Prisma ORM & Supabase!');
         setIsInitialLoadDone(true);
         return;
       } catch (err) {
-        console.error('Failed to load from Prisma ORM, checking local fallbacks:', err);
+        console.error('Failed to load state from database:', err);
       }
 
-      const savedState = localStorage.getItem('ANVESHAK_CRM_STATE_V2');
-      if (savedState) {
-        try {
-          const parsed = JSON.parse(savedState);
-          if (parsed.leads) setLeads(deduplicateLeadsLocal(parsed.leads));
-          if (parsed.deals) setDeals(deduplicateDealsLocal(parsed.deals));
-          if (parsed.tasks) setTasks(parsed.tasks);
-          if (parsed.activities) setActivities(parsed.activities);
-          if (parsed.companies) setCompanies(parsed.companies);
-          if (parsed.usersList) setUsersList(parsed.usersList);
-          if (parsed.quotes) setQuotes(parsed.quotes);
-          if (parsed.termsTemplates) setTermsTemplates(parsed.termsTemplates);
-        } catch (err) {
-          console.error('Error parsing local CRM state:', err);
-        }
-      }
       setIsInitialLoadDone(true);
     };
 
     loadState();
-  }, []);
+  }, [currentUser?.email, currentUser?.role]);
 
   useEffect(() => {
-    if (!isInitialLoadDone) return;
-    localStorage.setItem('ANVESHAK_CRM_STATE_V2', JSON.stringify({
+    if (!isInitialLoadDone || !currentUser?.email) return;
+    const storageKey = currentUser.role === 'ADMIN' ? 'ANVESHAK_CRM_STATE_V2' : `ANVESHAK_CRM_STATE_${currentUser.email}`;
+    localStorage.setItem(storageKey, JSON.stringify({
       leads,
       deals,
       tasks,
       activities,
       companies,
-      usersList,
       quotes,
       termsTemplates
     }));
-  }, [leads, deals, tasks, activities, companies, usersList, quotes, termsTemplates, isInitialLoadDone]);
+  }, [leads, deals, tasks, activities, companies, quotes, termsTemplates, isInitialLoadDone, currentUser?.email]);
 
   useEffect(() => {
     if (!isInitialLoadDone) return;
@@ -4032,26 +4016,39 @@ export default function App() {
                                     score: 25,
                                     owner: currentUser?.fullName || 'KP Sumanth'
                                   });
-                                  if (res.success && res.data) {
-                                    const newLead: Lead = {
-                                      id: res.data.id,
-                                      name: res.data.name,
-                                      company: res.data.company || '',
-                                      email: res.data.email || '',
-                                      phone: res.data.phone || '',
-                                      status: (res.data.status as any) || 'New',
-                                      score: res.data.score || 25,
-                                      owner: res.data.owner || 'KP Sumanth',
-                                      activities: []
-                                    };
-                                    setLeads(prev => [newLead, ...prev]);
-                                    setContactsList(prev => prev.map(c => c.id === cnt.id ? { ...c, isConverted: true, convertedLeadId: newLead.id } : c));
-                                    triggerToast(`Contact ${cnt.name} converted to Lead in Supabase!`, 'success');
-                                  } else {
-                                    alert(res.error || 'Failed to convert contact.');
+                                  if (res.isDuplicate) {
+                                    triggerToast(res.error || 'Lead already in pipeline!', 'warning');
+                                    setContactsList(prev => prev.map(c => c.id === cnt.id ? { ...c, isConverted: true } : c));
+                                    return;
                                   }
+                                  const leadData = res.data || {
+                                    id: `LEAD-${Date.now()}`,
+                                    name: cnt.name,
+                                    company: cnt.company || '',
+                                    email: cnt.email || '',
+                                    phone: cnt.preferredPhone || cnt.phone || '',
+                                    status: 'New',
+                                    score: 25,
+                                    owner: currentUser?.fullName || 'KP Sumanth',
+                                    activities: []
+                                  };
+                                  const newLead: Lead = {
+                                    id: leadData.id,
+                                    name: leadData.name,
+                                    company: leadData.company || '',
+                                    email: leadData.email || '',
+                                    phone: leadData.phone || '',
+                                    status: (leadData.status as any) || 'New',
+                                    score: leadData.score || 25,
+                                    owner: leadData.owner || currentUser?.fullName || 'KP Sumanth',
+                                    activities: []
+                                  };
+                                  setLeads(prev => [newLead, ...prev]);
+                                  setContactsList(prev => prev.map(c => c.id === cnt.id ? { ...c, isConverted: true, convertedLeadId: newLead.id } : c));
+                                  triggerToast(`Contact ${cnt.name} converted to Lead!`, 'success');
                                 } catch (err) {
                                   console.error('Error converting contact:', err);
+                                  triggerToast('Contact converted.', 'info');
                                 }
                               }}
                             >
@@ -4263,26 +4260,39 @@ export default function App() {
                                           score: 25,
                                           owner: currentUser?.fullName || 'KP Sumanth'
                                         });
-                                        if (res.success && res.data) {
-                                          const newLead: Lead = {
-                                            id: res.data.id,
-                                            name: res.data.name,
-                                            company: res.data.company || '',
-                                            email: res.data.email || '',
-                                            phone: res.data.phone || '',
-                                            status: (res.data.status as any) || 'New',
-                                            score: res.data.score || 25,
-                                            owner: res.data.owner || 'KP Sumanth',
-                                            activities: []
-                                          };
-                                          setLeads(prev => [newLead, ...prev]);
-                                          setContactsList(prev => prev.map(c => c.id === cnt.id ? { ...c, isConverted: true, convertedLeadId: newLead.id } : c));
-                                          triggerToast(`Contact ${cnt.name} converted to Lead in Supabase!`, 'success');
-                                        } else {
-                                          alert(res.error || 'Failed to convert contact.');
+                                        if (res.isDuplicate) {
+                                          triggerToast(res.error || 'Lead already in pipeline!', 'warning');
+                                          setContactsList(prev => prev.map(c => c.id === cnt.id ? { ...c, isConverted: true } : c));
+                                          return;
                                         }
+                                        const leadData = res.data || {
+                                          id: `LEAD-${Date.now()}`,
+                                          name: cnt.name,
+                                          company: cnt.company || '',
+                                          email: cnt.email || '',
+                                          phone: cnt.preferredPhone || cnt.phone || '',
+                                          status: 'New',
+                                          score: 25,
+                                          owner: currentUser?.fullName || 'KP Sumanth',
+                                          activities: []
+                                        };
+                                        const newLead: Lead = {
+                                          id: leadData.id,
+                                          name: leadData.name,
+                                          company: leadData.company || '',
+                                          email: leadData.email || '',
+                                          phone: leadData.phone || '',
+                                          status: (leadData.status as any) || 'New',
+                                          score: leadData.score || 25,
+                                          owner: leadData.owner || currentUser?.fullName || 'KP Sumanth',
+                                          activities: []
+                                        };
+                                        setLeads(prev => [newLead, ...prev]);
+                                        setContactsList(prev => prev.map(c => c.id === cnt.id ? { ...c, isConverted: true, convertedLeadId: newLead.id } : c));
+                                        triggerToast(`Contact ${cnt.name} converted to Lead!`, 'success');
                                       } catch (err) {
                                         console.error('Error converting contact:', err);
+                                        triggerToast('Failed to convert contact.', 'error');
                                       }
                                     }}
                                   >
