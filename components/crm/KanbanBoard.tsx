@@ -38,6 +38,7 @@ interface KanbanBoardProps {
   handleDragStart: (e: React.DragEvent, id: string) => void;
   handleDragOver: (e: React.DragEvent) => void;
   handleDrop: (e: React.DragEvent, stage: string) => void;
+  onStageChange?: (dealId: string, newStage: string) => void;
   formatCurrency: (val: number) => string;
 }
 
@@ -52,6 +53,7 @@ export default function KanbanBoard({
   handleDragStart,
   handleDragOver,
   handleDrop,
+  onStageChange,
   formatCurrency
 }: KanbanBoardProps) {
   const [selectedMobileStage, setSelectedMobileStage] = useState<string>('All');
@@ -316,11 +318,47 @@ export default function KanbanBoard({
                               {deal.daysInStage > 14 ? `⚠️ ${deal.daysInStage}d stuck` : `${deal.daysInStage}d active`}
                             </span>
                           </div>
+
                           {deal.lostReason && (
                             <div style={{ fontSize: '10px', color: 'var(--danger)', marginTop: '8px', borderTop: '1px solid var(--border-color)', paddingTop: '4px' }}>
                               Reason: {deal.lostReason}
                             </div>
                           )}
+
+                          <div 
+                            style={{ 
+                              marginTop: '8px', 
+                              paddingTop: '8px', 
+                              borderTop: '1px solid #f1f5f9', 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'space-between', 
+                              gap: '6px' 
+                            }} 
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', fontWeight: '600' }}>Move:</span>
+                            <select
+                              value={deal.stage}
+                              onChange={(e) => {
+                                if (onStageChange) onStageChange(deal.id, e.target.value);
+                              }}
+                              style={{
+                                fontSize: '11px',
+                                padding: '2px 6px',
+                                borderRadius: '6px',
+                                border: '1px solid #cbd5e1',
+                                backgroundColor: '#f8fafc',
+                                color: '#1e293b',
+                                fontWeight: '600',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              {stages.map(s => (
+                                <option key={s} value={s}>{s}</option>
+                              ))}
+                            </select>
+                          </div>
                         </div>
                       ))
                     )}

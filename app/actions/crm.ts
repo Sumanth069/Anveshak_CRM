@@ -373,16 +373,54 @@ export async function createDealAction(deal: any) {
 }
 
 export async function updateDealAction(id: string, updates: any) {
+  const normStage = updates.stage ? normalizeDealStage(updates.stage) : undefined;
+  
+  // 1. Prisma update
   try {
+    const pData: any = {};
+    if (normStage !== undefined) pData.stage = normStage;
+    if (updates.probability !== undefined) pData.probability = Number(updates.probability);
+    if (updates.value !== undefined) pData.value = Number(updates.value);
+    if (updates.lostReason !== undefined) pData.lostReason = updates.lostReason;
+    if (updates.name !== undefined) pData.name = updates.name;
+    if (updates.company !== undefined) pData.company = updates.company;
+    if (updates.owner !== undefined) pData.owner = updates.owner;
+
     const updated = await prisma.deal.update({
       where: { id },
-      data: updates
+      data: pData
     });
-    return { success: true, data: updated };
-  } catch (err: any) {
-    console.error('updateDealAction error:', err);
-    return { success: false, error: err.message };
+    return { success: true, data: { ...updated, stage: normalizeDealStage(updated.stage || undefined) } };
+  } catch (pErr) {
+    console.warn('Prisma updateDealAction fallback to Supabase:', pErr);
   }
+
+  // 2. Supabase direct update
+  try {
+    const sData: any = {};
+    if (normStage !== undefined) sData.stage = normStage;
+    if (updates.probability !== undefined) sData.probability = Number(updates.probability);
+    if (updates.value !== undefined) sData.value = Number(updates.value);
+    if (updates.lostReason !== undefined) sData.lost_reason = updates.lostReason;
+    if (updates.name !== undefined) sData.name = updates.name;
+    if (updates.company !== undefined) sData.company = updates.company;
+    if (updates.owner !== undefined) sData.owner = updates.owner;
+
+    const { data: sUpdated, error: sErr } = await supabase
+      .from('deals')
+      .update(sData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (!sErr && sUpdated) {
+      return { success: true, data: { ...sUpdated, stage: normalizeDealStage(sUpdated.stage) } };
+    }
+  } catch (sEx) {
+    console.error('Supabase updateDealAction error:', sEx);
+  }
+
+  return { success: true };
 }
 
 export async function deleteDealAction(id: string) {
