@@ -750,8 +750,14 @@ export default function App() {
   // Real Role-Based Access Authentication State
   const [currentUser, setCurrentUser] = useState<any | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
-  const [loginEmail, setLoginEmail] = useState('admin@anveshak.com');
-  const [loginPassword, setLoginPassword] = useState('12345678');
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [regName, setRegName] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regRole, setRegRole] = useState<'ADMIN' | 'MANAGER' | 'SALES_REP'>('SALES_REP');
+  const [regTitle, setRegTitle] = useState('Sales Representative');
   const [loginError, setLoginError] = useState('');
   const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
   const [dbUsersList, setDbUsersList] = useState<any[]>([]);
@@ -759,8 +765,8 @@ export default function App() {
   const [newUserForm, setNewUserForm] = useState({
     fullName: '',
     email: '',
-    password: '12345678',
-    role: 'ADMIN'
+    password: '',
+    role: 'SALES_REP'
   });
 
   // Data States
@@ -1163,22 +1169,29 @@ export default function App() {
   useEffect(() => {
     const initAuthAndUsers = async () => {
       try {
-        const saved = localStorage.getItem('ANVESHAK_AUTH_SESSION_V1');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed && parsed.email) {
-            setCurrentUser(parsed);
+        if (typeof window !== 'undefined') {
+          const saved = localStorage.getItem('ANVESHAK_AUTH_SESSION_V1');
+          if (saved) {
+            try {
+              const parsed = JSON.parse(saved);
+              if (parsed && parsed.email) {
+                setCurrentUser(parsed);
+              }
+            } catch (e) {
+              console.error(e);
+            }
           }
         }
-        const { getUsersListAction, seedAdminAccountAction } = await import('@/app/actions/auth');
-        await seedAdminAccountAction();
+        setIsAuthLoading(false);
+
+        // Fetch database users in background without blocking screen render
+        const { getUsersListAction } = await import('@/app/actions/auth');
         const usersRes = await getUsersListAction();
         if (usersRes.success && usersRes.users) {
           setDbUsersList(usersRes.users);
         }
       } catch (err) {
         console.error('Auth initialization error:', err);
-      } finally {
         setIsAuthLoading(false);
       }
     };
@@ -1874,14 +1887,12 @@ export default function App() {
 
   // Role Filtering Rules
   const filterByOwner = <T extends { owner?: string; assignee?: string }>(items: T[]): T[] => {
-    if (currentRole === 'Sales Rep') {
-      const activeName = currentUser?.fullName || 'KP Sumanth';
+    if (currentRole === 'Sales Rep' && currentUser?.fullName) {
+      const activeName = currentUser.fullName.trim().toLowerCase();
       return items.filter(item => 
         !item.owner || 
-        item.owner === activeName || 
-        item.assignee === activeName || 
-        item.owner === 'KP Sumanth' || 
-        item.assignee === 'KP Sumanth'
+        (item.owner && item.owner.trim().toLowerCase() === activeName) || 
+        (item.assignee && item.assignee.trim().toLowerCase() === activeName)
       );
     }
     return items;
@@ -2386,7 +2397,7 @@ export default function App() {
       dueDate: newTask.dueDate,
       priority: newTask.priority,
       status: 'Open',
-      assignee: currentRole === 'Sales Rep' ? 'KP Sumanth' : 'Balasaraswathi',
+      assignee: currentUser?.fullName || 'CRM User',
       linkedTo: newTask.linkedTo
     };
 
@@ -2782,7 +2793,46 @@ export default function App() {
   const completedTasksCount = tasks.filter(t => t.status === 'Completed').length;
   const taskProgressPercent = tasks.length > 0 ? Math.round((completedTasksCount / tasks.length) * 100) : 0;
   // RENDER REAL ROLE-BASED ACCESS (RBA) LOGIN PORTAL IF NOT AUTHENTICATED
-  if (!currentUser && !isAuthLoading) {
+  // 1. Sleek Instant Loading Screen (Prevents any dashboard flash on cold load)
+  if (isAuthLoading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        width: '100vw',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'radial-gradient(circle at top right, #1e1b4b, #0f172a, #020617)',
+        fontFamily: 'Inter, system-ui, sans-serif',
+        color: '#f8fafc'
+      }}>
+        <div style={{
+          width: '64px',
+          height: '64px',
+          borderRadius: '20px',
+          background: 'linear-gradient(135deg, #6366f1, #3b82f6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '32px',
+          boxShadow: '0 10px 25px -5px rgba(99, 102, 241, 0.5)',
+          animation: 'pulse 1.5s infinite ease-in-out'
+        }}>
+          ⚡
+        </div>
+        <h2 style={{ marginTop: '20px', fontSize: '18px', fontWeight: '700', letterSpacing: '-0.02em', color: '#e2e8f0' }}>
+          Anveshak Enterprise CRM
+        </h2>
+        <p style={{ color: '#94a3b8', fontSize: '13px', marginTop: '4px' }}>
+          Initializing secure workspace session...
+        </p>
+      </div>
+    );
+  }
+
+  // 2. REAL ROLE-BASED ACCESS (RBA) AUTHENTICATION & REGISTRATION PORTAL
+  if (!currentUser) {
     return (
       <div className="login-wrapper" style={{
         minHeight: '100vh',
@@ -2797,37 +2847,83 @@ export default function App() {
       }}>
         <div className="login-card" style={{
           width: '100%',
-          maxWidth: '440px',
-          background: 'rgba(15, 23, 42, 0.85)',
+          maxWidth: '460px',
+          background: 'rgba(15, 23, 42, 0.88)',
           backdropFilter: 'blur(16px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
+          border: '1px solid rgba(255, 255, 255, 0.12)',
           borderRadius: '24px',
-          padding: '40px',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+          padding: '36px',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6)'
         }}>
-          {/* Logo */}
-          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          {/* Logo & Header */}
+          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
             <div style={{
-              width: '56px',
-              height: '56px',
+              width: '54px',
+              height: '54px',
               borderRadius: '16px',
               background: 'linear-gradient(135deg, #6366f1, #3b82f6)',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '28px',
+              fontSize: '26px',
               fontWeight: 'bold',
               boxShadow: '0 10px 25px -5px rgba(99, 102, 241, 0.4)',
-              marginBottom: '16px'
+              marginBottom: '14px'
             }}>
               ⚡
             </div>
-            <h1 style={{ fontSize: '24px', fontWeight: '700', letterSpacing: '-0.02em', marginBottom: '8px' }}>
+            <h1 style={{ fontSize: '22px', fontWeight: '700', letterSpacing: '-0.02em', marginBottom: '6px' }}>
               Anveshak CRM Portal
             </h1>
-            <p style={{ color: '#94a3b8', fontSize: '14px' }}>
-              Enterprise B2G & Industrial Sales Gateway
+            <p style={{ color: '#94a3b8', fontSize: '13.5px' }}>
+              Enterprise B2G & Industrial Multi-User CRM
             </p>
+          </div>
+
+          {/* Auth Mode Toggle Tabs */}
+          <div style={{
+            display: 'flex',
+            background: 'rgba(255, 255, 255, 0.06)',
+            borderRadius: '12px',
+            padding: '4px',
+            marginBottom: '24px'
+          }}>
+            <button
+              type="button"
+              onClick={() => { setAuthMode('login'); setLoginError(''); }}
+              style={{
+                flex: 1,
+                padding: '10px',
+                borderRadius: '8px',
+                border: 'none',
+                background: authMode === 'login' ? '#3b82f6' : 'transparent',
+                color: authMode === 'login' ? '#ffffff' : '#94a3b8',
+                fontWeight: '600',
+                fontSize: '13.5px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => { setAuthMode('register'); setLoginError(''); }}
+              style={{
+                flex: 1,
+                padding: '10px',
+                borderRadius: '8px',
+                border: 'none',
+                background: authMode === 'register' ? '#3b82f6' : 'transparent',
+                color: authMode === 'register' ? '#ffffff' : '#94a3b8',
+                fontWeight: '600',
+                fontSize: '13.5px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              Create Account
+            </button>
           </div>
 
           {loginError && (
@@ -2844,144 +2940,287 @@ export default function App() {
             </div>
           )}
 
-          <form onSubmit={async (e) => {
-            e.preventDefault();
-            setLoginError('');
-            setIsSubmittingLogin(true);
+          {/* TAB 1: SIGN IN FORM */}
+          {authMode === 'login' ? (
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              setLoginError('');
+              setIsSubmittingLogin(true);
 
-            const cleanEmail = loginEmail.trim().toLowerCase();
-            const cleanPass = loginPassword.trim();
+              const cleanEmail = loginEmail.trim().toLowerCase();
+              const cleanPass = loginPassword.trim();
 
-            // Client-side Instant Admin Pass-through (100% Reliable, Zero Network/Server Latency)
-            if (
-              (cleanEmail === 'admin@anveshak.com' || cleanEmail === 'admin@anveshakhub.com' || cleanEmail === 'sumanth@anveshakhub.com') && 
-              (cleanPass === '12345678' || cleanPass === 'admin123')
-            ) {
-              const adminUser: SystemUser = {
-                id: 'USR-ADMIN-01',
-                fullName: 'KP Sumanth',
-                email: cleanEmail,
-                role: 'ADMIN',
-                isActive: true,
-                assignedCount: 4
-              };
-              setCurrentUser(adminUser);
-              localStorage.setItem('ANVESHAK_AUTH_SESSION_V1', JSON.stringify(adminUser));
-              triggerToast('Welcome back, KP Sumanth!', 'success');
-              setIsSubmittingLogin(false);
-              return;
-            }
-
-            try {
-              const { loginAction } = await import('@/app/actions/auth');
-              const res = await loginAction(cleanEmail, cleanPass);
-              if (res.success && res.user) {
-                setCurrentUser(res.user as any);
-                localStorage.setItem('ANVESHAK_AUTH_SESSION_V1', JSON.stringify(res.user));
-                triggerToast(`Welcome back, ${res.user.fullName}!`, 'success');
-              } else {
-                setLoginError(res.error || 'Authentication failed. Please check credentials.');
+              try {
+                const { loginAction } = await import('@/app/actions/auth');
+                const res = await loginAction(cleanEmail, cleanPass);
+                if (res.success && res.user) {
+                  setCurrentUser(res.user as any);
+                  localStorage.setItem('ANVESHAK_AUTH_SESSION_V1', JSON.stringify(res.user));
+                  triggerToast(`Welcome back, ${res.user.fullName}!`, 'success');
+                } else {
+                  setLoginError(res.error || 'Invalid credentials. Please verify your email and password.');
+                }
+              } catch (err: any) {
+                console.error('Login action error:', err);
+                setLoginError('Authentication server error. Please try again.');
+              } finally {
+                setIsSubmittingLogin(false);
               }
-            } catch (err: any) {
-              if (cleanPass === '12345678' || cleanPass === 'admin123') {
-                const adminUser: SystemUser = {
-                  id: 'USR-ADMIN-01',
-                  fullName: 'KP Sumanth',
-                  email: cleanEmail || 'admin@anveshak.com',
-                  role: 'ADMIN',
-                  isActive: true,
-                  assignedCount: 4
-                };
-                setCurrentUser(adminUser);
-                localStorage.setItem('ANVESHAK_AUTH_SESSION_V1', JSON.stringify(adminUser));
-                triggerToast('Welcome back, KP Sumanth!', 'success');
-              } else {
-                setLoginError('Invalid email or password. Please check your credentials.');
-              }
-            } finally {
-              setIsSubmittingLogin(false);
-            }
-          }}>
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#cbd5e1', marginBottom: '8px' }}>
-                Work Email Address
-              </label>
-              <input
-                type="email"
-                required
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-                placeholder="admin@anveshak.com"
+            }}>
+              <div style={{ marginBottom: '18px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#cbd5e1', marginBottom: '8px' }}>
+                  Work Email Address
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  placeholder="name@company.com"
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    borderRadius: '12px',
+                    background: 'rgba(30, 41, 59, 0.8)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    color: '#fff',
+                    fontSize: '14px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#cbd5e1', marginBottom: '8px' }}>
+                  Password
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  placeholder="••••••••"
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    borderRadius: '12px',
+                    background: 'rgba(30, 41, 59, 0.8)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    color: '#fff',
+                    fontSize: '14px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isSubmittingLogin}
                 style={{
                   width: '100%',
-                  padding: '12px 16px',
+                  padding: '14px',
                   borderRadius: '12px',
-                  background: 'rgba(30, 41, 59, 0.8)',
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  background: 'linear-gradient(135deg, #6366f1, #3b82f6)',
+                  border: 'none',
                   color: '#fff',
-                  fontSize: '14px',
-                  outline: 'none'
+                  fontSize: '15px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  boxShadow: '0 10px 20px -5px rgba(99, 102, 241, 0.4)',
+                  transition: 'all 0.2s ease'
                 }}
-              />
-            </div>
+              >
+                {isSubmittingLogin ? 'Authenticating...' : 'Sign In to Workspace →'}
+              </button>
+            </form>
+          ) : (
+            /* TAB 2: REGISTER / CREATE NEW USER ACCOUNT FORM */
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              setLoginError('');
+              setIsSubmittingLogin(true);
 
-            <div style={{ marginBottom: '24px' }}>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#cbd5e1', marginBottom: '8px' }}>
-                Password
-              </label>
-              <input
-                type="password"
-                required
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-                placeholder="••••••••"
+              if (!regName.trim() || !regEmail.trim() || !regPassword.trim()) {
+                setLoginError('Please fill in all required fields.');
+                setIsSubmittingLogin(false);
+                return;
+              }
+
+              if (regPassword.length < 6) {
+                setLoginError('Password must be at least 6 characters long.');
+                setIsSubmittingLogin(false);
+                return;
+              }
+
+              try {
+                const { registerUserAction } = await import('@/app/actions/auth');
+                const res = await registerUserAction({
+                  fullName: regName.trim(),
+                  email: regEmail.trim().toLowerCase(),
+                  password: regPassword.trim(),
+                  role: regRole,
+                  title: regTitle.trim() || undefined
+                });
+
+                if (res.success && res.user) {
+                  setCurrentUser(res.user as any);
+                  localStorage.setItem('ANVESHAK_AUTH_SESSION_V1', JSON.stringify(res.user));
+                  triggerToast(`Account created! Welcome to Anveshak CRM, ${res.user.fullName}!`, 'success');
+                } else {
+                  setLoginError(res.error || 'Failed to create user account.');
+                }
+              } catch (err: any) {
+                console.error('Registration error:', err);
+                setLoginError('Server error creating account. Please try again.');
+              } finally {
+                setIsSubmittingLogin(false);
+              }
+            }}>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#cbd5e1', marginBottom: '6px' }}>
+                  Full Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={regName}
+                  onChange={(e) => setRegName(e.target.value)}
+                  placeholder="e.g. Sumanth KP"
+                  style={{
+                    width: '100%',
+                    padding: '11px 14px',
+                    borderRadius: '10px',
+                    background: 'rgba(30, 41, 59, 0.8)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    color: '#fff',
+                    fontSize: '13.5px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#cbd5e1', marginBottom: '6px' }}>
+                  Work Email Address *
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={regEmail}
+                  onChange={(e) => setRegEmail(e.target.value)}
+                  placeholder="sumanth@anveshakhub.com"
+                  style={{
+                    width: '100%',
+                    padding: '11px 14px',
+                    borderRadius: '10px',
+                    background: 'rgba(30, 41, 59, 0.8)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    color: '#fff',
+                    fontSize: '13.5px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#cbd5e1', marginBottom: '6px' }}>
+                  Password * (min. 6 characters)
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={regPassword}
+                  onChange={(e) => setRegPassword(e.target.value)}
+                  placeholder="••••••••"
+                  style={{
+                    width: '100%',
+                    padding: '11px 14px',
+                    borderRadius: '10px',
+                    background: 'rgba(30, 41, 59, 0.8)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    color: '#fff',
+                    fontSize: '13.5px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#cbd5e1', marginBottom: '6px' }}>
+                    System Role *
+                  </label>
+                  <select
+                    value={regRole}
+                    onChange={(e) => setRegRole(e.target.value as any)}
+                    style={{
+                      width: '100%',
+                      padding: '11px 10px',
+                      borderRadius: '10px',
+                      background: 'rgba(30, 41, 59, 0.95)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      color: '#fff',
+                      fontSize: '13px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    <option value="ADMIN">Admin (Full Access)</option>
+                    <option value="MANAGER">Sales Manager</option>
+                    <option value="SALES_REP">Sales Representative</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#cbd5e1', marginBottom: '6px' }}>
+                    Title / Role Designation
+                  </label>
+                  <input
+                    type="text"
+                    value={regTitle}
+                    onChange={(e) => setRegTitle(e.target.value)}
+                    placeholder="Regional Director"
+                    style={{
+                      width: '100%',
+                      padding: '11px 12px',
+                      borderRadius: '10px',
+                      background: 'rgba(30, 41, 59, 0.8)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      color: '#fff',
+                      fontSize: '13px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isSubmittingLogin}
                 style={{
                   width: '100%',
-                  padding: '12px 16px',
+                  padding: '14px',
                   borderRadius: '12px',
-                  background: 'rgba(30, 41, 59, 0.8)',
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                  border: 'none',
                   color: '#fff',
-                  fontSize: '14px',
-                  outline: 'none'
+                  fontSize: '15px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  boxShadow: '0 10px 20px -5px rgba(16, 185, 129, 0.4)',
+                  transition: 'all 0.2s ease'
                 }}
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={isSubmittingLogin}
-              style={{
-                width: '100%',
-                padding: '14px',
-                borderRadius: '12px',
-                background: 'linear-gradient(135deg, #6366f1, #3b82f6)',
-                border: 'none',
-                color: '#fff',
-                fontSize: '15px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                boxShadow: '0 10px 20px -5px rgba(99, 102, 241, 0.4)',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              {isSubmittingLogin ? 'Authenticating...' : 'Sign In to Dashboard →'}
-            </button>
-          </form>
-
-          <div style={{
-            marginTop: '28px',
-            padding: '14px',
-            borderRadius: '12px',
-            background: 'rgba(255, 255, 255, 0.03)',
-            border: '1px dashed rgba(255, 255, 255, 0.1)',
-            textAlign: 'center',
-            fontSize: '12px',
-            color: '#94a3b8'
-          }}>
-            💡 <strong>Default Admin Access</strong><br />
-            Email: <span style={{ color: '#38bdf8' }}>admin@anveshak.com</span> | Password: <span style={{ color: '#38bdf8' }}>12345678</span>
-          </div>
+              >
+                {isSubmittingLogin ? 'Creating Account...' : 'Create Account & Enter CRM →'}
+              </button>
+            </form>
+          )}
         </div>
       </div>
     );
@@ -3101,9 +3340,15 @@ export default function App() {
           <button 
             className="btn-logout-icon" 
             title="Sign out of Anveshak CRM"
-            onClick={() => {
+            onClick={async () => {
               localStorage.removeItem('ANVESHAK_AUTH_SESSION_V1');
               setCurrentUser(null);
+              try {
+                const { signOutAction } = await import('@/app/actions/auth');
+                await signOutAction();
+              } catch (e) {
+                console.warn('Sign out error:', e);
+              }
             }}
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
@@ -5243,42 +5488,95 @@ export default function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {dbUsersList.map(usr => (
-                      <tr key={usr.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                        <td style={{ padding: '12px', fontWeight: '600' }}>{usr.fullName}</td>
-                        <td style={{ padding: '12px' }}>{usr.email}</td>
-                        <td style={{ padding: '12px' }}>
-                          <span className={`badge ${usr.role === 'ADMIN' ? 'badge-hot' : usr.role === 'MANAGER' ? 'badge-warm' : 'badge-cold'}`}>
-                            {usr.role || 'SALES_REP'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px' }}>
-                          <span className="badge badge-cold">ACTIVE</span>
-                        </td>
-                        <td style={{ padding: '12px', textAlign: 'right' }}>
-                          {currentUser?.role === 'ADMIN' && usr.email !== 'admin@anveshak.com' && (
-                            <button 
-                              className="btn btn-secondary" 
-                              style={{ color: '#ef4444', padding: '4px 10px', fontSize: '11px' }}
-                              onClick={async () => {
-                                if (confirm(`Remove user ${usr.fullName} (${usr.email}) from database?`)) {
-                                  try {
-                                    const { deleteUserAction } = await import('@/app/actions/auth');
-                                    await deleteUserAction(usr.id);
-                                    setDbUsersList(prev => prev.filter(x => x.id !== usr.id));
-                                    triggerToast('User account removed from database!', 'info');
-                                  } catch (e) {
-                                    console.error('Error deleting user:', e);
-                                  }
-                                }
-                              }}
-                            >
-                              Delete
-                            </button>
-                          )}
+                    {dbUsersList.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                          No team members registered yet. Use "+ Add User / Admin" to provision accounts.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      dbUsersList.map(usr => {
+                        const isSelf = usr.id === currentUser?.id || usr.email === currentUser?.email;
+                        const isActive = usr.isActive !== false;
+
+                        return (
+                          <tr key={usr.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                            <td style={{ padding: '12px', fontWeight: '600' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{
+                                  width: '28px',
+                                  height: '28px',
+                                  borderRadius: '50%',
+                                  background: usr.role === 'ADMIN' ? '#d97706' : usr.role === 'MANAGER' ? '#b45309' : '#1e40af',
+                                  color: '#fff',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '11px',
+                                  fontWeight: 'bold'
+                                }}>
+                                  {usr.fullName ? usr.fullName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : 'U'}
+                                </div>
+                                <span>{usr.fullName} {isSelf ? ' (You)' : ''}</span>
+                              </div>
+                            </td>
+                            <td style={{ padding: '12px', color: '#475569' }}>{usr.email}</td>
+                            <td style={{ padding: '12px' }}>
+                              <span className={`badge ${usr.role === 'ADMIN' ? 'badge-hot' : usr.role === 'MANAGER' ? 'badge-warm' : 'badge-cold'}`}>
+                                {usr.role === 'ADMIN' ? 'Administrator' : usr.role === 'MANAGER' ? 'Sales Manager' : 'Sales Representative'}
+                              </span>
+                            </td>
+                            <td style={{ padding: '12px' }}>
+                              <span 
+                                className={`badge ${isActive ? 'badge-cold' : 'badge-hot'}`}
+                                style={{
+                                  cursor: currentUser?.role === 'ADMIN' && !isSelf ? 'pointer' : 'default',
+                                  backgroundColor: isActive ? '#ecfdf5' : '#fee2e2',
+                                  color: isActive ? '#047857' : '#b91c1c'
+                                }}
+                                onClick={async () => {
+                                  if (currentUser?.role === 'ADMIN' && !isSelf) {
+                                    try {
+                                      const { updateUserAction } = await import('@/app/actions/auth');
+                                      await updateUserAction(usr.id, { isActive: !isActive });
+                                      setDbUsersList(prev => prev.map(u => u.id === usr.id ? { ...u, isActive: !isActive } : u));
+                                      triggerToast(`User status updated to ${!isActive ? 'Active' : 'Deactivated'}!`, 'info');
+                                    } catch (err) {
+                                      console.error('Status toggle error:', err);
+                                    }
+                                  }
+                                }}
+                                title={currentUser?.role === 'ADMIN' && !isSelf ? 'Click to toggle Active/Deactivated' : ''}
+                              >
+                                {isActive ? '● Active' : '○ Deactivated'}
+                              </span>
+                            </td>
+                            <td style={{ padding: '12px', textAlign: 'right' }}>
+                              {currentUser?.role === 'ADMIN' && !isSelf && (
+                                <button 
+                                  className="btn btn-secondary" 
+                                  style={{ color: '#ef4444', padding: '4px 10px', fontSize: '11px' }}
+                                  onClick={async () => {
+                                    if (confirm(`Remove team member ${usr.fullName} (${usr.email}) from database?`)) {
+                                      try {
+                                        const { deleteUserAction } = await import('@/app/actions/auth');
+                                        await deleteUserAction(usr.id);
+                                        setDbUsersList(prev => prev.filter(x => x.id !== usr.id));
+                                        triggerToast(`Team member ${usr.fullName} removed from database.`, 'info');
+                                      } catch (e) {
+                                        console.error('Error deleting user:', e);
+                                      }
+                                    }
+                                  }}
+                                >
+                                  Delete
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -5721,6 +6019,7 @@ export default function App() {
                     currentRole={currentRole}
                     profileSettings={profileSettings}
                     setProfileSettings={setProfileSettings}
+                    setCurrentUser={setCurrentUser}
                     triggerToast={triggerToast}
                     dealsCount={deals.length}
                     totalPipelineValue={deals.reduce((sum, d) => sum + d.value, 0)}
@@ -7958,15 +8257,15 @@ export default function App() {
             </div>
             <form onSubmit={async (e) => {
               e.preventDefault();
-              if (!newUserForm.fullName || !newUserForm.email) return;
+              if (!newUserForm.fullName || !newUserForm.email || !newUserForm.password) return;
               try {
                 const { createUserAction } = await import('@/app/actions/auth');
                 const res = await createUserAction(newUserForm);
                 if (res.success && res.user) {
                   setDbUsersList(prev => [res.user, ...prev]);
                   setShowAddUserModal(false);
-                  setNewUserForm({ fullName: '', email: '', password: '12345678', role: 'ADMIN' });
-                  triggerToast(`User ${res.user.fullName} created as ${res.user.role}!`, 'success');
+                  setNewUserForm({ fullName: '', email: '', password: '', role: 'SALES_REP' });
+                  triggerToast(`User ${res.user.fullName} provisioned as ${res.user.role}!`, 'success');
                 } else {
                   alert(res.error || 'Failed to create user account.');
                 }
