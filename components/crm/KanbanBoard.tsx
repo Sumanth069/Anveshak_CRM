@@ -489,20 +489,41 @@ export default function KanbanBoard({
                           >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                               <div className="kanban-card-title">{deal.name}</div>
-                              <button 
-                                title="Quick Edit Deal"
-                                onClick={(e) => openEditModal(deal, e)}
-                                style={{
-                                  background: 'transparent',
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  fontSize: '12px',
-                                  color: '#64748b',
-                                  padding: '0 2px'
-                                }}
-                              >
-                                ✏️
-                              </button>
+                              <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                <button 
+                                  title="Quick Edit Deal"
+                                  onClick={(e) => openEditModal(deal, e)}
+                                  style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    fontSize: '12px',
+                                    color: '#64748b',
+                                    padding: '0 2px'
+                                  }}
+                                >
+                                  ✏️
+                                </button>
+                                {onDeleteDeal && (
+                                  <button 
+                                    title="Delete Deal"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onDeleteDeal(deal.id);
+                                    }}
+                                    style={{
+                                      background: 'transparent',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      fontSize: '12px',
+                                      color: '#dc2626',
+                                      padding: '0 2px'
+                                    }}
+                                  >
+                                    🗑️
+                                  </button>
+                                )}
+                              </div>
                             </div>
 
                             <div style={{ fontSize: '11.5px', color: '#d49b38', fontWeight: '700', margin: '2px 0 6px 0', textTransform: 'uppercase' }}>
@@ -706,13 +727,28 @@ export default function KanbanBoard({
                 </div>
               )}
 
-              <div className="modal-footer" style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setEditingDeal(null)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  Save Changes to Database
-                </button>
+              <div className="modal-footer" style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                {onDeleteDeal && editingDeal ? (
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    style={{ color: '#dc2626', borderColor: '#fca5a5' }}
+                    onClick={() => {
+                      onDeleteDeal(editingDeal.id);
+                      setEditingDeal(null);
+                    }}
+                  >
+                    🗑️ Delete Deal
+                  </button>
+                ) : <div />}
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button type="button" className="btn btn-secondary" onClick={() => setEditingDeal(null)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-primary">
+                    Save Changes
+                  </button>
+                </div>
               </div>
             </form>
           </div>

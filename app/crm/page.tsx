@@ -2009,13 +2009,41 @@ export default function App() {
   };
 
   const handleDeleteDeal = async (dealId: string) => {
+    if (!confirm('Are you sure you want to delete this deal?')) return;
     setDeals(prev => prev.filter(d => d.id !== dealId));
+    if (selectedDealDetail?.id === dealId) setSelectedDealDetail(null);
     triggerToast('Deal deleted from pipeline!', 'info');
     try {
       const { deleteDealAction } = await import('@/app/actions/crm');
       await deleteDealAction(dealId);
     } catch (err) {
       console.error('Failed to delete deal from DB:', err);
+    }
+  };
+
+  const handleDeleteLead = async (leadId: string) => {
+    if (!confirm('Are you sure you want to delete this lead?')) return;
+    setLeads(prev => prev.filter(l => l.id !== leadId));
+    if (selectedLeadDetail?.id === leadId) setSelectedLeadDetail(null);
+    triggerToast('Lead deleted successfully!', 'info');
+    try {
+      const { deleteLeadAction } = await import('@/app/actions/crm');
+      await deleteLeadAction(leadId);
+    } catch (err) {
+      console.error('Failed to delete lead from DB:', err);
+    }
+  };
+
+  const handleDeleteCompany = async (companyId: string) => {
+    if (!confirm('Are you sure you want to delete this company account?')) return;
+    setCompanies(prev => prev.filter(c => c.id !== companyId));
+    if (selectedCompanyDetail?.id === companyId) setSelectedCompanyDetail(null);
+    triggerToast('Company account deleted!', 'info');
+    try {
+      const { deleteCompanyAction } = await import('@/app/actions/crm');
+      await deleteCompanyAction(companyId);
+    } catch (err) {
+      console.error('Failed to delete company from DB:', err);
     }
   };
 
@@ -4596,7 +4624,7 @@ export default function App() {
                                 </span>
                               </td>
                               <td>
-                                <div style={{ display: 'flex', gap: '6px' }}>
+                                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                                   <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={() => setSelectedLeadDetail(lead)}>
                                     Inspect 360°
                                   </button>
@@ -4619,6 +4647,14 @@ export default function App() {
                                       </button>
                                     </>
                                   )}
+                                  <button 
+                                    className="btn btn-secondary" 
+                                    style={{ padding: '4px 8px', fontSize: '11px', color: '#dc2626', borderColor: '#fca5a5' }} 
+                                    onClick={() => handleDeleteLead(lead.id)}
+                                    title="Delete Lead Record"
+                                  >
+                                    🗑️
+                                  </button>
                                 </div>
                               </td>
                             </tr>
@@ -4738,9 +4774,17 @@ export default function App() {
                         </div>
                       </div>
 
-                      <div style={{ marginTop: 'auto', paddingTop: '14px' }}>
-                        <button className="btn btn-secondary" style={{ width: '100%', fontSize: '11px', justifyContent: 'center' }} onClick={() => setSelectedCompanyDetail(comp)}>
+                      <div style={{ marginTop: 'auto', paddingTop: '14px', display: 'flex', gap: '8px' }}>
+                        <button className="btn btn-secondary" style={{ flex: 1, fontSize: '11px', justifyContent: 'center' }} onClick={() => setSelectedCompanyDetail(comp)}>
                           Inspect Account Profile
+                        </button>
+                        <button 
+                          className="btn btn-secondary" 
+                          style={{ padding: '4px 8px', fontSize: '11px', color: '#dc2626', borderColor: '#fca5a5' }} 
+                          onClick={() => handleDeleteCompany(comp.id)}
+                          title="Delete Company Account"
+                        >
+                          🗑️
                         </button>
                       </div>
                     </div>
@@ -4770,13 +4814,23 @@ export default function App() {
                             <td style={{ fontWeight: 'bold' }}>{comp.contactsCount} Contacts</td>
                             <td style={{ fontWeight: 'bold', color: '#10b981' }}>{formatCurrency(comp.totalDealValue)}</td>
                             <td>
-                              <button 
-                                className="btn btn-secondary" 
-                                style={{ padding: '4px 8px', fontSize: '11px' }} 
-                                onClick={() => setSelectedCompanyDetail(comp)}
-                              >
-                                View 360° Profile
-                              </button>
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                <button 
+                                  className="btn btn-secondary" 
+                                  style={{ padding: '4px 8px', fontSize: '11px' }} 
+                                  onClick={() => setSelectedCompanyDetail(comp)}
+                                >
+                                  View 360° Profile
+                                </button>
+                                <button 
+                                  className="btn btn-secondary" 
+                                  style={{ padding: '4px 8px', fontSize: '11px', color: '#dc2626', borderColor: '#fca5a5' }} 
+                                  onClick={() => handleDeleteCompany(comp.id)}
+                                  title="Delete Company Account"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -7394,7 +7448,14 @@ export default function App() {
               </div>
             </div>
 
-            <div className="modal-actions" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px', marginTop: '16px' }}>
+            <div className="modal-actions" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px', marginTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <button 
+                className="btn btn-secondary" 
+                style={{ color: '#dc2626', borderColor: '#fca5a5' }} 
+                onClick={() => handleDeleteDeal(selectedDealDetail.id)}
+              >
+                🗑️ Delete Deal
+              </button>
               <button className="btn btn-secondary" onClick={() => setSelectedDealDetail(null)}>Close Profile</button>
             </div>
           </div>
@@ -7645,7 +7706,14 @@ export default function App() {
               </div>
             </div>
 
-            <div className="modal-actions" style={{ marginTop: '20px' }}>
+            <div className="modal-actions" style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <button 
+                className="btn btn-secondary" 
+                style={{ color: '#dc2626', borderColor: '#fca5a5' }} 
+                onClick={() => handleDeleteLead(selectedLeadDetail.id)}
+              >
+                🗑️ Delete Lead
+              </button>
               <button className="btn btn-secondary" onClick={() => setSelectedLeadDetail(null)}>Close</button>
             </div>
           </div>
@@ -7701,7 +7769,14 @@ export default function App() {
               </table>
             </div>
 
-            <div className="modal-actions">
+            <div className="modal-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <button 
+                className="btn btn-secondary" 
+                style={{ color: '#dc2626', borderColor: '#fca5a5' }} 
+                onClick={() => handleDeleteCompany(selectedCompanyDetail.id)}
+              >
+                🗑️ Delete Company Account
+              </button>
               <button className="btn btn-secondary" onClick={() => setSelectedCompanyDetail(null)}>Close</button>
             </div>
           </div>
