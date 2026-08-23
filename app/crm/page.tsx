@@ -1365,58 +1365,85 @@ export default function App() {
   ]);
 
   // PERSIST STATE TO LOCALSTORAGE
-  // PERSIST & LOAD STATE SCOPED BY ACTIVE USER
+  // PERSIST & LOAD STATE SCOPED BY ACTIVE USER (PARALLELIZED & ZERO FLASH)
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser?.email) {
+      setLeads([]);
+      setDeals([]);
+      setTasks([]);
+      setActivities([]);
+      setCompanies([]);
+      setContactsList([]);
+      setQuotes([]);
+      setAuditLogs([]);
+      setIsInitialLoadDone(false);
+      return;
+    }
+
+    let isMounted = true;
+    setIsInitialLoadDone(false);
+    // Immediately purge memory state to prevent any cross-user flash
+    setLeads([]);
+    setDeals([]);
+    setTasks([]);
+    setActivities([]);
+    setCompanies([]);
+    setContactsList([]);
+    setQuotes([]);
+    setAuditLogs([]);
 
     const loadState = async () => {
       try {
-        const { fetchCrmInitialState } = await import('@/app/actions/crm');
-        const res = await fetchCrmInitialState(currentUser.email, currentUser.fullName, currentUser.role);
-        if (res.success && res.data) {
-          setLeads(res.data.leads ? deduplicateLeadsLocal(res.data.leads.map(mapLeadFromDb)) : []);
-          setDeals(res.data.deals ? deduplicateDealsLocal(res.data.deals.map(mapDealFromDb)) : []);
-          setTasks(res.data.tasks ? res.data.tasks.map(mapTaskFromDb) : []);
-          setCompanies(res.data.companies ? res.data.companies.map(mapCompanyFromDb) : []);
-          setQuotes(res.data.quotes ? res.data.quotes.map(mapQuoteFromDb) : []);
-          setAuditLogs(res.data.auditLogs ? res.data.auditLogs.map(mapAuditLogFromDb) : []);
+        const [{ fetchCrmInitialState }, { fetchContactsListAction, fetchImportBatchesAction }] = await Promise.all([
+          import('@/app/actions/crm'),
+          import('@/app/actions/contacts')
+        ]);
+
+        const [crmRes, contactsRes, batchesRes] = await Promise.all([
+          fetchCrmInitialState(currentUser.email, currentUser.fullName, currentUser.role),
+          fetchContactsListAction({
+            userEmail: currentUser.email,
+            userFullName: currentUser.fullName,
+            role: currentUser.role
+          }),
+          fetchImportBatchesAction()
+        ]);
+
+        if (!isMounted) return;
+
+        if (crmRes.success && crmRes.data) {
+          setLeads(crmRes.data.leads ? deduplicateLeadsLocal(crmRes.data.leads.map(mapLeadFromDb)) : []);
+          setDeals(crmRes.data.deals ? deduplicateDealsLocal(crmRes.data.deals.map(mapDealFromDb)) : []);
+          setTasks(crmRes.data.tasks ? crmRes.data.tasks.map(mapTaskFromDb) : []);
+          setCompanies(crmRes.data.companies ? crmRes.data.companies.map(mapCompanyFromDb) : []);
+          setQuotes(crmRes.data.quotes ? crmRes.data.quotes.map(mapQuoteFromDb) : []);
+          setAuditLogs(crmRes.data.auditLogs ? crmRes.data.auditLogs.map(mapAuditLogFromDb) : []);
         }
 
-        // Fetch Centralized Contacts & Import Batches from database
-        try {
-          const { fetchContactsListAction, fetchImportBatchesAction } = await import('@/app/actions/contacts');
-          const [contactsRes, batchesRes] = await Promise.all([
-            fetchContactsListAction({
-              userEmail: currentUser.email,
-              userFullName: currentUser.fullName,
-              role: currentUser.role
-            }),
-            fetchImportBatchesAction()
-          ]);
-          if (contactsRes.success && contactsRes.contacts) {
-            setContactsList(contactsRes.contacts.map((c: any) => ({
-              ...c,
-              phone: c.preferredPhone || c.phone,
-              dateAdded: c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-IN') : '10/08/2026'
-            })));
-          }
-          if (batchesRes.success && batchesRes.batches) {
-            setImportBatches(batchesRes.batches);
-          }
-        } catch (cErr) {
-          console.warn('Could not fetch contacts from database:', cErr);
+        if (contactsRes.success && contactsRes.contacts) {
+          setContactsList(contactsRes.contacts.map((c: any) => ({
+            ...c,
+            phone: c.preferredPhone || c.phone,
+            dateAdded: c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-IN') : '10/08/2026'
+          })));
+        }
+
+        if (batchesRes.success && batchesRes.batches) {
+          setImportBatches(batchesRes.batches);
         }
 
         setIsInitialLoadDone(true);
-        return;
       } catch (err) {
         console.error('Failed to load state from database:', err);
+        if (isMounted) setIsInitialLoadDone(true);
       }
-
-      setIsInitialLoadDone(true);
     };
 
     loadState();
+
+    return () => {
+      isMounted = false;
+    };
   }, [currentUser?.email, currentUser?.role]);
 
   // Multi-user state persistence (scoped strictly per user email in localStorage)
@@ -2617,6 +2644,16 @@ export default function App() {
                 const { loginAction } = await import('@/app/actions/auth');
                 const res = await loginAction(cleanEmail, cleanPass);
                 if (res.success && res.user) {
+                  // Purge previous user state immediately
+                  setIsInitialLoadDone(false);
+                  setLeads([]);
+                  setDeals([]);
+                  setTasks([]);
+                  setActivities([]);
+                  setCompanies([]);
+                  setContactsList([]);
+                  setQuotes([]);
+                  setAuditLogs([]);
                   setCurrentUser(res.user as any);
                   localStorage.setItem('ANVESHAK_AUTH_SESSION_V1', JSON.stringify(res.user));
                   triggerToast(`Welcome back, ${res.user.fullName}!`, 'success');
@@ -2728,6 +2765,16 @@ export default function App() {
                 });
 
                 if (res.success && res.user) {
+                  // Purge previous user state immediately
+                  setIsInitialLoadDone(false);
+                  setLeads([]);
+                  setDeals([]);
+                  setTasks([]);
+                  setActivities([]);
+                  setCompanies([]);
+                  setContactsList([]);
+                  setQuotes([]);
+                  setAuditLogs([]);
                   setCurrentUser(res.user as any);
                   localStorage.setItem('ANVESHAK_AUTH_SESSION_V1', JSON.stringify(res.user));
                   triggerToast(`Account created! Welcome to Anveshak CRM, ${res.user.fullName}!`, 'success');
@@ -2889,6 +2936,44 @@ export default function App() {
     );
   }
 
+  // 3. Instant Workspace Sync Screen (Prevents any visual flash or stale data leak between accounts)
+  if (!isInitialLoadDone) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        width: '100vw',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'radial-gradient(circle at top right, #1e1b4b, #0f172a, #020617)',
+        fontFamily: 'Inter, system-ui, sans-serif',
+        color: '#f8fafc'
+      }}>
+        <div style={{
+          width: '64px',
+          height: '64px',
+          borderRadius: '20px',
+          background: 'linear-gradient(135deg, #10b981, #059669)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '30px',
+          boxShadow: '0 10px 25px -5px rgba(16, 185, 129, 0.4)',
+          animation: 'pulse 1.5s infinite ease-in-out'
+        }}>
+          ⚡
+        </div>
+        <h2 style={{ marginTop: '20px', fontSize: '18px', fontWeight: '700', letterSpacing: '-0.02em', color: '#e2e8f0' }}>
+          Loading Workspace for {currentUser.fullName || currentUser.email}...
+        </h2>
+        <p style={{ color: '#94a3b8', fontSize: '13px', marginTop: '4px' }}>
+          Syncing verified data from PostgreSQL...
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className={`app-container bg-${activeTab}`}>
       {/* Mobile Drawer Backdrop */}
@@ -3011,7 +3096,17 @@ export default function App() {
             title="Sign out of Anveshak CRM"
             onClick={async () => {
               localStorage.removeItem('ANVESHAK_AUTH_SESSION_V1');
+              localStorage.removeItem('ANVESHAK_CRM_STATE_V2');
               setCurrentUser(null);
+              setIsInitialLoadDone(false);
+              setLeads([]);
+              setDeals([]);
+              setTasks([]);
+              setActivities([]);
+              setCompanies([]);
+              setContactsList([]);
+              setQuotes([]);
+              setAuditLogs([]);
               try {
                 const { signOutAction } = await import('@/app/actions/auth');
                 await signOutAction();

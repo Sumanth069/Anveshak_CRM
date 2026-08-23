@@ -104,12 +104,8 @@ export async function fetchContactsListAction(params: {
         .limit(limit);
 
       if (!supaErr) {
-        if (supaContacts && supaContacts.length > 0) {
-          const mapped = supaContacts.map(mapContactFromSupabase).filter(Boolean);
-          return { success: true, contacts: deduplicateContacts(mapped) };
-        } else if (isSalesRole) {
-          return { success: true, contacts: [] };
-        }
+        const mapped = (supaContacts || []).map(mapContactFromSupabase).filter(Boolean);
+        return { success: true, contacts: deduplicateContacts(mapped) };
       }
     } catch (supaEx) {
       console.warn('Direct Supabase fetch fallback to Prisma:', supaEx);
