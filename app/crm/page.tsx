@@ -1467,15 +1467,18 @@ export default function App() {
     }).format(val);
   };
 
-  // Role Filtering Rules
+  // Role Filtering Rules (Multi-User Scoping)
   const filterByOwner = <T extends { owner?: string; assignee?: string }>(items: T[]): T[] => {
-    if (currentRole === 'Sales Rep' && currentUser?.fullName) {
-      const activeName = currentUser.fullName.trim().toLowerCase();
-      return items.filter(item => 
-        !item.owner || 
-        (item.owner && item.owner.trim().toLowerCase() === activeName) || 
-        (item.assignee && item.assignee.trim().toLowerCase() === activeName)
-      );
+    if (currentRole === 'Sales Rep' && (currentUser?.fullName || currentUser?.email)) {
+      const activeName = (currentUser?.fullName || '').trim().toLowerCase();
+      const activeEmail = (currentUser?.email || '').trim().toLowerCase();
+      return items.filter(item => {
+        const o = (item.owner || '').trim().toLowerCase();
+        const a = (item.assignee || '').trim().toLowerCase();
+        const matchesOwner = o && (o === activeName || o === activeEmail || (activeName && (o.includes(activeName) || activeName.includes(o))));
+        const matchesAssignee = a && (a === activeName || a === activeEmail || (activeName && (a.includes(activeName) || activeName.includes(a))));
+        return matchesOwner || matchesAssignee;
+      });
     }
     return items;
   };
@@ -2001,7 +2004,7 @@ export default function App() {
       dueDate: newTask.dueDate,
       priority: newTask.priority,
       status: 'Open',
-      assignee: currentUser?.fullName || 'KP Sumanth',
+      assignee: currentUser?.fullName || currentAgentName,
       linkedTo: newTask.linkedTo
     };
 
@@ -4717,20 +4720,28 @@ export default function App() {
 
           {/* TAB 4: TASKS CHECKLIST QUEUE */}
           {activeTab === 'tasks' && (() => {
-            const myName = currentRole === 'Sales Rep' ? 'KP Sumanth' : currentAgentName;
+            const myName = (currentUser?.fullName || currentAgentName || '').trim().toLowerCase();
+            const myEmail = (currentUser?.email || '').trim().toLowerCase();
             const effectiveMode = currentRole === 'Sales Rep' ? 'my' : taskWorkspaceMode;
             
+            const isUserTask = (assignee?: string) => {
+              const a = (assignee || '').trim().toLowerCase();
+              if (!a) return true;
+              return a === myName || a === myEmail || (myName && (a.includes(myName) || myName.includes(a)));
+            };
+
             const displayTasks = tasks.filter(t => {
               if (effectiveMode === 'my') {
-                if (t.assignee !== myName) return false;
+                if (!isUserTask(t.assignee)) return false;
               }
               if (effectiveMode === 'team' && taskAssigneeFilter !== 'All') {
-                if (t.assignee !== taskAssigneeFilter) return false;
+                const a = (t.assignee || '').trim().toLowerCase();
+                if (a !== taskAssigneeFilter.trim().toLowerCase()) return false;
               }
               if (taskPriorityFilter !== 'All' && t.priority !== taskPriorityFilter) return false;
               if (taskStatusFilter !== 'All' && t.status !== taskStatusFilter) return false;
               if (taskOverdueFilter) {
-                const isOverdue = new Date(t.dueDate) < new Date('2026-07-16') && t.status === 'Open';
+                const isOverdue = new Date(t.dueDate) < new Date() && t.status === 'Open';
                 if (!isOverdue) return false;
               }
               return true;
@@ -4759,7 +4770,7 @@ export default function App() {
                         onClick={() => setTaskWorkspaceMode('my')}
                         style={{ padding: '6px 12px', fontSize: '12px' }}
                       >
-                        👤 My Tasks ({tasks.filter(t => t.assignee === myName).length})
+                        👤 My Tasks ({tasks.filter(t => isUserTask(t.assignee)).length})
                       </button>
                       
                       {currentRole !== 'Sales Rep' && (
@@ -4777,16 +4788,16 @@ export default function App() {
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
                       {effectiveMode === 'team' && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--text-muted)' }}>Owner:</span>
+                          <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--text-muted)' }}>Assignee:</span>
                           <select 
                             value={taskAssigneeFilter} 
                             onChange={(e) => setTaskAssigneeFilter(e.target.value)}
                             style={{ padding: '4px 8px', fontSize: '11.5px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
                           >
-                            <option value="All">All Reps</option>
-                            <option value="KP Sumanth">KP Sumanth</option>
-                            <option value="Balasaraswathi">Balasaraswathi</option>
-                            <option value="Riya Sharma">Riya Sharma</option>
+                            <option value="All">All Assignees</option>
+                            {Array.from(new Set(tasks.map(t => t.assignee).filter(Boolean))).map(assignee => (
+                              <option key={assignee} value={assignee}>{assignee}</option>
+                            ))}
                           </select>
                         </div>
                       )}

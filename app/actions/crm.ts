@@ -156,18 +156,18 @@ export async function fetchCrmInitialState(userEmail?: string, userFullName?: st
 
       if (isSalesRole && (activeName || activeEmail)) {
         mappedLeads = mappedLeads.filter(l => {
-          const o = (l.owner || '').toLowerCase();
-          return o === activeName || o === activeEmail;
+          const o = (l.owner || '').trim().toLowerCase();
+          return o === activeName || o === activeEmail || (activeName && (o.includes(activeName) || activeName.includes(o)));
         });
 
         mappedDeals = mappedDeals.filter(d => {
-          const o = (d.owner || '').toLowerCase();
-          return o === activeName || o === activeEmail;
+          const o = (d.owner || '').trim().toLowerCase();
+          return o === activeName || o === activeEmail || (activeName && (o.includes(activeName) || activeName.includes(o)));
         });
 
         mappedTasks = mappedTasks.filter(t => {
-          const a = (t.assignee || '').toLowerCase();
-          return a === activeName || a === activeEmail;
+          const a = (t.assignee || '').trim().toLowerCase();
+          return a === activeName || a === activeEmail || (activeName && (a.includes(activeName) || activeName.includes(a)));
         });
 
         const activeDealCompanies = new Set(mappedDeals.map(d => (d.company || '').toLowerCase()));
