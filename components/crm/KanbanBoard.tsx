@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 
 export function normalizeDealStage(stage?: string): string {
   if (!stage) return 'New';
@@ -14,7 +14,7 @@ export function normalizeDealStage(stage?: string): string {
   return 'New';
 }
 
-interface Deal {
+export interface Deal {
   id: string;
   name: string;
   company: string;
@@ -29,7 +29,7 @@ interface Deal {
 
 interface KanbanBoardProps {
   deals: Deal[];
-  filteredDeals: Deal[];
+  filteredDeals?: Deal[];
   stages: string[];
   pipelineLayoutMode: 'kanban' | 'table';
   setPipelineLayoutMode: (mode: 'kanban' | 'table') => void;
@@ -38,7 +38,11 @@ interface KanbanBoardProps {
   handleDragStart: (e: React.DragEvent, id: string) => void;
   handleDragOver: (e: React.DragEvent) => void;
   handleDrop: (e: React.DragEvent, stage: string) => void;
-  onStageChange?: (dealId: string, newStage: string) => void;
+  onStageChange?: (dealId: string, newStage: string, reason?: string) => void;
+  onUpdateDeal?: (dealId: string, updates: Partial<Deal>) => void;
+  onDeleteDeal?: (dealId: string) => void;
+  onQuickAddDeal?: (stage: string) => void;
+  onNavigateTab?: (tab: string) => void;
   formatCurrency: (val: number) => string;
 }
 
@@ -54,11 +58,38 @@ export default function KanbanBoard({
   handleDragOver,
   handleDrop,
   onStageChange,
+  onUpdateDeal,
+  onDeleteDeal,
+  onQuickAddDeal,
+  onNavigateTab,
   formatCurrency
 }: KanbanBoardProps) {
   const [selectedMobileStage, setSelectedMobileStage] = useState<string>('All');
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [valueFilter, setValueFilter] = useState<'all' | 'high' | 'mid' | 'low'>('all');
+  const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
+  const [editForm, setEditForm] = useState<{
+    name: string;
+    company: string;
+    value: string;
+    stage: string;
+    probability: number;
+    expectedClose: string;
+    lostReason?: string;
+  }>({
+    name: '',
+    company: '',
+    value: '500000',
+    stage: 'New',
+    probability: 10,
+    expectedClose: new Date().toISOString().slice(0, 10),
+    lostReason: ''
+  });
+  const [showLostModalFor, setShowLostModalFor] = useState<string | null>(null);
+  const [lostReasonText, setLostReasonText] = useState<string>('Budget constraints / competitor chosen');
 
-  const normalizedUniqueDeals = React.useMemo(() => {
+  // Deduplicate and normalize list
+  const normalizedUniqueDeals = useMemo(() => {
     const list = filteredDeals && filteredDeals.length > 0 ? filteredDeals : deals;
     const seen = new Set<string>();
     const unique: Deal[] = [];
@@ -75,18 +106,142 @@ export default function KanbanBoard({
     return unique;
   }, [filteredDeals, deals]);
 
+  // Filtered by Search & Value
+  const displayedDeals = useMemo(() => {
+    return normalizedUniqueDeals.filter(d => {
+      const q = searchTerm.toLowerCase().trim();
+      const matchesSearch = !q || d.name.toLowerCase().includes(q) || (d.company && d.company.toLowerCase().includes(q)) || (d.owner && d.owner.toLowerCase().includes(q));
+      
+      let matchesValue = true;
+      if (valueFilter === 'high') matchesValue = d.value >= 500000;
+      else if (valueFilter === 'mid') matchesValue = d.value >= 100000 && d.value < 500000;
+      else if (valueFilter === 'low') matchesValue = d.value < 100000;
+
+      return matchesSearch && matchesValue;
+    });
+  }, [normalizedUniqueDeals, searchTerm, valueFilter]);
+
   const visibleStages = selectedMobileStage === 'All' 
     ? stages 
     : stages.filter(s => s === selectedMobileStage);
+
+  const totalPipelineSum = useMemo(() => {
+    return displayedDeals.reduce((sum, d) => sum + (d.value || 0), 0);
+  }, [displayedDeals]);
+
+  const getNextStage = (currentStage: string): string | null => {
+    const idx = stages.indexOf(currentStage);
+    if (idx !== -1 && idx < stages.length - 2) {
+      return stages[idx + 1];
+    }
+    return null;
+  };
+
+  const getPrevStage = (currentStage: string): string | null => {
+    const idx = stages.indexOf(currentStage);
+    if (idx > 0 && idx < stages.length - 1) {
+      return stages[idx - 1];
+    }
+    return null;
+  };
+
+  const openEditModal = (deal: Deal, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingDeal(deal);
+    setEditForm({
+      name: deal.name,
+      company: deal.company,
+      value: String(deal.value),
+      stage: deal.stage,
+      probability: deal.probability,
+      expectedClose: deal.expectedClose || new Date().toISOString().slice(0, 10),
+      lostReason: deal.lostReason || ''
+    });
+  };
+
+  const saveEditModal = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDeal) return;
+    const numVal = parseFloat(editForm.value) || 0;
+    if (onUpdateDeal) {
+      onUpdateDeal(editingDeal.id, {
+        name: editForm.name,
+        company: editForm.company,
+        value: numVal,
+        stage: editForm.stage,
+        probability: editForm.probability,
+        expectedClose: editForm.expectedClose,
+        lostReason: editForm.stage === 'Lost' ? editForm.lostReason : undefined
+      });
+    }
+    setEditingDeal(null);
+  };
+
+  const handleStageAdvance = (dealId: string, targetStage: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (targetStage === 'Lost') {
+      setShowLostModalFor(dealId);
+    } else {
+      if (onStageChange) onStageChange(dealId, targetStage);
+    }
+  };
 
   return (
     <div className="animate-fade">
       {/* Header Row */}
       <div className="page-header-row kanban-header-wrap">
         <div className="page-title-text">
-          <h2>Deals Pipeline</h2>
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            Deals & Pipeline
+            <span style={{ 
+              fontSize: '12px', 
+              background: '#1e293b', 
+              color: '#f59e0b', 
+              padding: '3px 10px', 
+              borderRadius: '20px', 
+              fontWeight: 700 
+            }}>
+              {displayedDeals.length} Deals • {formatCurrency(totalPipelineSum)}
+            </span>
+          </h2>
         </div>
+
         <div className="kanban-controls-row">
+          {/* Quick Search */}
+          <input
+            type="text"
+            placeholder="🔍 Search deals or companies..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{
+              padding: '6px 12px',
+              fontSize: '12px',
+              borderRadius: '8px',
+              border: '1px solid #cbd5e1',
+              width: '200px',
+              backgroundColor: '#fff'
+            }}
+          />
+
+          {/* Value Filter */}
+          <select
+            value={valueFilter}
+            onChange={(e) => setValueFilter(e.target.value as any)}
+            style={{
+              padding: '6px 10px',
+              fontSize: '12px',
+              borderRadius: '8px',
+              border: '1px solid #cbd5e1',
+              backgroundColor: '#fff',
+              fontWeight: 600
+            }}
+          >
+            <option value="all">All Values</option>
+            <option value="high">High (&gt; ₹5L)</option>
+            <option value="mid">Mid (₹1L - ₹5L)</option>
+            <option value="low">Starter (&lt; ₹1L)</option>
+          </select>
+
           {/* Layout Toggle Option */}
           <div className="layout-toggle-pills">
             <button 
@@ -111,66 +266,54 @@ export default function KanbanBoard({
         </div>
       </div>
 
+      {/* Global Empty State Banner */}
+      {normalizedUniqueDeals.length === 0 && (
+        <div style={{
+          background: 'linear-gradient(135deg, #1e293b, #0f172a)',
+          border: '1px solid #334155',
+          borderRadius: '16px',
+          padding: '36px 24px',
+          textAlign: 'center',
+          color: '#fff',
+          marginBottom: '24px',
+          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)'
+        }}>
+          <div style={{ fontSize: '40px', marginBottom: '12px' }}>💼</div>
+          <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#f8fafc', marginBottom: '8px' }}>
+            Pipeline is Ready for Your Deals
+          </h3>
+          <p style={{ color: '#94a3b8', fontSize: '13.5px', maxWidth: '520px', margin: '0 auto 20px auto', lineHeight: '1.6' }}>
+            There are currently no deals in this pipeline view. You can convert prospects from your Contacts Directory or create custom opportunities directly.
+          </p>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button 
+              className="btn btn-primary" 
+              style={{ padding: '10px 22px', fontSize: '13px' }}
+              onClick={() => setShowLeadModal(true)}
+            >
+              + Create New Deal Now
+            </button>
+            {onNavigateTab && (
+              <button 
+                className="btn btn-secondary" 
+                style={{ padding: '10px 22px', fontSize: '13px', backgroundColor: '#334155', color: '#fff', borderColor: '#475569' }}
+                onClick={() => onNavigateTab('contacts')}
+              >
+                📇 Convert from Contacts Directory →
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {pipelineLayoutMode === 'table' ? (
         <>
-          {/* Stage Volume Funnel & Projected Revenue Row */}
-          <div className="funnel-analytics-grid">
-            {/* Stage Lead Volume Funnel Card */}
-            <div className="panel-card" style={{ padding: '18px' }}>
-              <div className="panel-title" style={{ marginBottom: '14px' }}>
-                <h3>Stage Lead Volume</h3>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                  <span style={{ color: '#d49b38', fontWeight: 'bold' }}>●</span> HIGH PROBABILITY &nbsp;&nbsp;
-                  <span style={{ color: '#cbd5e1', fontWeight: 'bold' }}>●</span> BENCHMARK
-                </div>
-              </div>
-
-              <div className="funnel-graphic-container">
-                <div className="funnel-stage-box" style={{ flex: 1, borderRadius: '8px 0 0 8px' }}>
-                  <div className="funnel-stage-val">428</div>
-                  <div className="funnel-stage-label">Discovered</div>
-                </div>
-                <div className="funnel-stage-box" style={{ flex: 0.8 }}>
-                  <div className="funnel-stage-val">156</div>
-                  <div className="funnel-stage-label">Qualified</div>
-                </div>
-                <div className="funnel-stage-box" style={{ flex: 0.6 }}>
-                  <div className="funnel-stage-val">62</div>
-                  <div className="funnel-stage-label">Proposal</div>
-                </div>
-                <div className="funnel-stage-box" style={{ flex: 0.4, borderColor: '#d49b38', background: '#fffbeb', borderRadius: '0 8px 8px 0' }}>
-                  <div className="funnel-stage-val" style={{ color: '#b45309' }}>18</div>
-                  <div className="funnel-stage-label" style={{ color: '#b45309' }}>Negotiation</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Right Analytics Cards */}
-            <div className="analytics-stacked-cards">
-              <div className="projected-rev-dark-card">
-                <div className="lbl">PROJECTED REVENUE</div>
-                <div className="val">₹2.48 Cr</div>
-                <div style={{ fontSize: '11px', color: '#10b981', marginTop: '6px', fontWeight: 'bold' }}>
-                  ↑ 12.5% vs last month
-                </div>
-              </div>
-
-              <div className="panel-card" style={{ padding: '14px 18px' }}>
-                <div style={{ fontSize: '9.5px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)' }}>AVG. CYCLE TIME</div>
-                <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-main)', marginTop: '2px' }}>14 Days</div>
-                <div style={{ fontSize: '11px', color: '#d49b38', marginTop: '2px', fontWeight: 'bold' }}>
-                  ⚡ -2 days improvement
-                </div>
-              </div>
-            </div>
-          </div>
-
           {/* Active Deals Pipeline Table */}
           <div className="panel-card" style={{ marginBottom: '24px' }}>
-            <div className="panel-title">
-              <h3>Active Deals Pipeline</h3>
+            <div className="panel-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3>Active Deals Pipeline Funnel</h3>
               <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
-                Showing {normalizedUniqueDeals.length} active deals
+                Showing {displayedDeals.length} active deals
               </div>
             </div>
 
@@ -178,27 +321,28 @@ export default function KanbanBoard({
               <table className="custom-table">
                 <thead>
                   <tr>
-                    <th>Deal Name</th>
+                    <th>Deal Name & Account</th>
+                    <th>Stage</th>
                     <th>Value</th>
-                    <th>Status</th>
-                    <th>Close Date</th>
+                    <th>Close Target</th>
                     <th>Probability</th>
+                    <th style={{ textAlign: 'right' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {normalizedUniqueDeals.length === 0 ? (
+                  {displayedDeals.length === 0 ? (
                     <tr>
-                      <td colSpan={5} style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
-                        No deals in pipeline. Click "+ New Deal" to create one.
+                      <td colSpan={6} style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
+                        No deals match your search criteria. Click "+ New Deal" to create one.
                       </td>
                     </tr>
                   ) : (
-                    normalizedUniqueDeals.map(deal => (
+                    displayedDeals.map(deal => (
                       <tr key={deal.id} onClick={() => setSelectedDealDetail(deal)} style={{ cursor: 'pointer' }}>
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <div className="user-avatar" style={{ width: '28px', height: '28px', fontSize: '11px', backgroundColor: '#182238', color: '#f5d396' }}>
-                              {deal.name[0]}
+                              {deal.name ? deal.name[0] : 'D'}
                             </div>
                             <div>
                               <div style={{ fontWeight: '700' }}>{deal.name}</div>
@@ -206,18 +350,38 @@ export default function KanbanBoard({
                             </div>
                           </div>
                         </td>
-                        <td style={{ fontWeight: '800', color: '#10b981' }}>{formatCurrency(deal.value)}</td>
                         <td>
                           <span className={`badge ${deal.stage === 'Won' ? 'badge-success' : deal.stage === 'Lost' ? 'badge-danger' : 'badge-warm'}`}>
                             {deal.stage}
                           </span>
                         </td>
+                        <td style={{ fontWeight: '800', color: '#10b981' }}>{formatCurrency(deal.value)}</td>
                         <td style={{ fontSize: '12px' }}>{deal.expectedClose}</td>
                         <td>
-                          <div className="prob-progress-bar">
-                            <div className="prob-progress-fill" style={{ width: `${deal.probability}%` }}></div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <div className="prob-progress-bar" style={{ width: '60px' }}>
+                              <div className="prob-progress-fill" style={{ width: `${deal.probability}%` }}></div>
+                            </div>
+                            <span style={{ fontWeight: 'bold', fontSize: '11px' }}>{deal.probability}%</span>
                           </div>
-                          <span style={{ fontWeight: 'bold', fontSize: '11px' }}>{deal.probability}%</span>
+                        </td>
+                        <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
+                          <button 
+                            className="btn btn-secondary" 
+                            style={{ padding: '4px 8px', fontSize: '11px', marginRight: '6px' }}
+                            onClick={(e) => openEditModal(deal, e)}
+                          >
+                            ✏️ Edit
+                          </button>
+                          {onDeleteDeal && (
+                            <button 
+                              className="btn btn-secondary" 
+                              style={{ padding: '4px 8px', fontSize: '11px', color: '#dc2626', borderColor: '#fca5a5' }}
+                              onClick={(e) => { e.stopPropagation(); if (confirm(`Delete deal "${deal.name}"?`)) onDeleteDeal(deal.id); }}
+                            >
+                              🗑️
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -236,10 +400,10 @@ export default function KanbanBoard({
                 className={`stage-pill-btn ${selectedMobileStage === 'All' ? 'active' : ''}`}
                 onClick={() => setSelectedMobileStage('All')}
               >
-                All ({normalizedUniqueDeals.length})
+                All ({displayedDeals.length})
               </button>
               {stages.map(s => {
-                const count = normalizedUniqueDeals.filter(d => normalizeDealStage(d.stage) === s).length;
+                const count = displayedDeals.filter(d => normalizeDealStage(d.stage) === s).length;
                 return (
                   <button
                     key={s}
@@ -253,11 +417,11 @@ export default function KanbanBoard({
             </div>
           </div>
 
-          {/* Drag and Drop Stage Kanban Board */}
+          {/* Dynamic Drag and Drop Stage Kanban Board */}
           <div className="kanban-board">
             {visibleStages.map(stage => {
-              const stageDeals = normalizedUniqueDeals.filter(d => normalizeDealStage(d.stage) === stage);
-              const stageTotal = stageDeals.reduce((sum, d) => sum + d.value, 0);
+              const stageDeals = displayedDeals.filter(d => normalizeDealStage(d.stage) === stage);
+              const stageTotal = stageDeals.reduce((sum, d) => sum + (d.value || 0), 0);
 
               return (
                 <div 
@@ -266,101 +430,190 @@ export default function KanbanBoard({
                   onDragOver={handleDragOver}
                   onDrop={(e) => handleDrop(e, stage)}
                 >
-                  <div className="kanban-col-header">
-                    <span className="kanban-col-title">{stage}</span>
-                    <span className="kanban-col-count">{stageDeals.length}</span>
+                  <div className="kanban-col-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span className="kanban-col-title">{stage}</span>
+                      <span className="kanban-col-count">{stageDeals.length}</span>
+                    </div>
+                    {onQuickAddDeal && (
+                      <button 
+                        title={`Add Deal to ${stage}`}
+                        onClick={() => onQuickAddDeal(stage)}
+                        style={{
+                          background: '#f1f5f9',
+                          border: 'none',
+                          borderRadius: '6px',
+                          width: '24px',
+                          height: '24px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          fontWeight: 'bold',
+                          color: '#475569'
+                        }}
+                      >
+                        +
+                      </button>
+                    )}
                   </div>
-                  <div style={{ padding: '6px 16px 8px', fontSize: '11.5px', color: 'var(--text-muted)', fontWeight: '700' }}>
+
+                  <div style={{ padding: '4px 16px 8px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: '700' }}>
                     {formatCurrency(stageTotal)}
                   </div>
 
                   <div className="kanban-cards-container">
                     {stageDeals.length === 0 ? (
-                      <div className="kanban-empty-col">
-                        <div style={{ fontSize: '20px', marginBottom: '4px' }}>📋</div>
-                        <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)', fontWeight: '600' }}>
-                          No deals in {stage}
+                      <div 
+                        className="kanban-empty-col"
+                        style={{ cursor: onQuickAddDeal ? 'pointer' : 'default' }}
+                        onClick={() => onQuickAddDeal && onQuickAddDeal(stage)}
+                      >
+                        <div style={{ fontSize: '18px', marginBottom: '4px' }}>➕</div>
+                        <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--text-muted)', fontWeight: '600' }}>
+                          Drop deals here or click to add
                         </p>
                       </div>
                     ) : (
-                      stageDeals.map(deal => (
-                        <div 
-                          key={deal.id} 
-                          className="kanban-card"
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, deal.id)}
-                          onClick={() => setSelectedDealDetail(deal)}
-                        >
-                          <div className="kanban-card-title">{deal.name}</div>
-                          <div style={{ fontSize: '11.5px', color: '#d49b38', fontWeight: '700', margin: '2px 0 6px 0', textTransform: 'uppercase' }}>
-                            🏢 {deal.company}
-                          </div>
-                          <div className="kanban-card-value" style={{ fontSize: '14px', fontWeight: '800', color: '#10b981' }}>
-                            {formatCurrency(deal.value)}
-                          </div>
-                          
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '6px 0 8px 0', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span>📅 Close:</span>
-                            <strong>{deal.expectedClose}</strong>
-                          </div>
+                      stageDeals.map(deal => {
+                        const nextStage = getNextStage(stage);
+                        const prevStage = getPrevStage(stage);
 
-                          <div className="kanban-card-footer">
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <div className="user-avatar" style={{ width: '22px', height: '22px', fontSize: '9px', backgroundColor: '#151c2e', color: '#f5d396' }}>
-                                {deal.owner ? deal.owner.split(' ').map(n=>n[0]).join('') : 'R'}
-                              </div>
-                              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{deal.owner ? deal.owner.split(' ').pop() : 'Rep'}</span>
-                            </div>
-                            <span 
-                              className="days-badge" 
-                              style={deal.daysInStage > 14 ? { backgroundColor: '#fee2e2', color: '#ef4444', fontWeight: 'bold', padding: '2px 6px', borderRadius: '4px', fontSize: '10px' } : { backgroundColor: '#f1f5f9', color: '#64748b', padding: '2px 6px', borderRadius: '4px', fontSize: '10px' }}
-                            >
-                              {deal.daysInStage > 14 ? `⚠️ ${deal.daysInStage}d stuck` : `${deal.daysInStage}d active`}
-                            </span>
-                          </div>
-
-                          {deal.lostReason && (
-                            <div style={{ fontSize: '10px', color: 'var(--danger)', marginTop: '8px', borderTop: '1px solid var(--border-color)', paddingTop: '4px' }}>
-                              Reason: {deal.lostReason}
-                            </div>
-                          )}
-
+                        return (
                           <div 
-                            style={{ 
-                              marginTop: '8px', 
-                              paddingTop: '8px', 
-                              borderTop: '1px solid #f1f5f9', 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              justifyContent: 'space-between', 
-                              gap: '6px' 
-                            }} 
-                            onClick={(e) => e.stopPropagation()}
+                            key={deal.id} 
+                            className="kanban-card"
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, deal.id)}
+                            onClick={() => setSelectedDealDetail(deal)}
                           >
-                            <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', fontWeight: '600' }}>Move:</span>
-                            <select
-                              value={deal.stage}
-                              onChange={(e) => {
-                                if (onStageChange) onStageChange(deal.id, e.target.value);
-                              }}
-                              style={{
-                                fontSize: '11px',
-                                padding: '2px 6px',
-                                borderRadius: '6px',
-                                border: '1px solid #cbd5e1',
-                                backgroundColor: '#f8fafc',
-                                color: '#1e293b',
-                                fontWeight: '600',
-                                cursor: 'pointer'
-                              }}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                              <div className="kanban-card-title">{deal.name}</div>
+                              <button 
+                                title="Quick Edit Deal"
+                                onClick={(e) => openEditModal(deal, e)}
+                                style={{
+                                  background: 'transparent',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  fontSize: '12px',
+                                  color: '#64748b',
+                                  padding: '0 2px'
+                                }}
+                              >
+                                ✏️
+                              </button>
+                            </div>
+
+                            <div style={{ fontSize: '11.5px', color: '#d49b38', fontWeight: '700', margin: '2px 0 6px 0', textTransform: 'uppercase' }}>
+                              🏢 {deal.company}
+                            </div>
+
+                            <div className="kanban-card-value" style={{ fontSize: '14px', fontWeight: '800', color: '#10b981' }}>
+                              {formatCurrency(deal.value)}
+                            </div>
+                            
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '4px 0 8px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <span>📅 Close: <strong>{deal.expectedClose}</strong></span>
+                              <span style={{ fontWeight: '700', color: '#3b82f6' }}>{deal.probability}%</span>
+                            </div>
+
+                            <div className="kanban-card-footer">
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <div className="user-avatar" style={{ width: '22px', height: '22px', fontSize: '9px', backgroundColor: '#151c2e', color: '#f5d396' }}>
+                                  {deal.owner ? deal.owner.split(' ').map(n=>n[0]).join('') : 'R'}
+                                </div>
+                                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{deal.owner ? deal.owner.split(' ').pop() : 'Rep'}</span>
+                              </div>
+                              <span 
+                                className="days-badge" 
+                                style={deal.daysInStage > 14 ? { backgroundColor: '#fee2e2', color: '#ef4444', fontWeight: 'bold', padding: '2px 6px', borderRadius: '4px', fontSize: '10px' } : { backgroundColor: '#f1f5f9', color: '#64748b', padding: '2px 6px', borderRadius: '4px', fontSize: '10px' }}
+                              >
+                                {deal.daysInStage > 14 ? `⚠️ ${deal.daysInStage}d` : `${deal.daysInStage}d`}
+                              </span>
+                            </div>
+
+                            {deal.lostReason && (
+                              <div style={{ fontSize: '10px', color: 'var(--danger)', marginTop: '6px', borderTop: '1px solid var(--border-color)', paddingTop: '4px' }}>
+                                Reason: {deal.lostReason}
+                              </div>
+                            )}
+
+                            {/* One-Click Stage Transition Action Bar */}
+                            <div 
+                              style={{ 
+                                marginTop: '10px', 
+                                paddingTop: '8px', 
+                                borderTop: '1px solid #f1f5f9', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'space-between', 
+                                gap: '4px' 
+                              }} 
+                              onClick={(e) => e.stopPropagation()}
                             >
-                              {stages.map(s => (
-                                <option key={s} value={s}>{s}</option>
-                              ))}
-                            </select>
+                              {prevStage && (
+                                <button
+                                  className="btn btn-secondary"
+                                  title={`Move back to ${prevStage}`}
+                                  style={{ padding: '3px 6px', fontSize: '10px', minHeight: 'auto', height: '24px' }}
+                                  onClick={(e) => handleStageAdvance(deal.id, prevStage, e)}
+                                >
+                                  ← {prevStage.slice(0, 4)}
+                                </button>
+                              )}
+
+                              {nextStage && (
+                                <button
+                                  className="btn btn-primary"
+                                  title={`Advance to ${nextStage}`}
+                                  style={{ padding: '3px 8px', fontSize: '10.5px', minHeight: 'auto', height: '24px', flex: 1, justifyContent: 'center' }}
+                                  onClick={(e) => handleStageAdvance(deal.id, nextStage, e)}
+                                >
+                                  {nextStage} →
+                                </button>
+                              )}
+
+                              {stage !== 'Won' && stage !== 'Lost' && (
+                                <div style={{ display: 'flex', gap: '3px' }}>
+                                  <button
+                                    title="Mark Deal as Won"
+                                    style={{
+                                      background: '#ecfdf5',
+                                      border: '1px solid #a7f3d0',
+                                      color: '#059669',
+                                      borderRadius: '4px',
+                                      padding: '2px 5px',
+                                      fontSize: '10px',
+                                      cursor: 'pointer',
+                                      fontWeight: 'bold'
+                                    }}
+                                    onClick={(e) => handleStageAdvance(deal.id, 'Won', e)}
+                                  >
+                                    Won 🏆
+                                  </button>
+                                  <button
+                                    title="Mark Deal as Lost"
+                                    style={{
+                                      background: '#fef2f2',
+                                      border: '1px solid #fecaca',
+                                      color: '#dc2626',
+                                      borderRadius: '4px',
+                                      padding: '2px 5px',
+                                      fontSize: '10px',
+                                      cursor: 'pointer',
+                                      fontWeight: 'bold'
+                                    }}
+                                    onClick={(e) => handleStageAdvance(deal.id, 'Lost', e)}
+                                  >
+                                    Lost
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 </div>
@@ -368,6 +621,141 @@ export default function KanbanBoard({
             })}
           </div>
         </>
+      )}
+
+      {/* INLINE EDIT DEAL MODAL */}
+      {editingDeal && (
+        <div className="modal-overlay" onClick={() => setEditingDeal(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px' }}>
+            <div className="modal-header">
+              <h3>Edit Deal Opportunity</h3>
+              <button className="modal-close-btn" onClick={() => setEditingDeal(null)}>×</button>
+            </div>
+            <form onSubmit={saveEditModal}>
+              <div className="form-group">
+                <label>Deal Opportunity Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Company / Account *</label>
+                <input
+                  type="text"
+                  required
+                  value={editForm.company}
+                  onChange={(e) => setEditForm({ ...editForm, company: e.target.value })}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="form-group">
+                  <label>Deal Value (₹) *</label>
+                  <input
+                    type="number"
+                    required
+                    value={editForm.value}
+                    onChange={(e) => setEditForm({ ...editForm, value: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Stage</label>
+                  <select
+                    value={editForm.stage}
+                    onChange={(e) => setEditForm({ ...editForm, stage: e.target.value })}
+                  >
+                    {stages.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="form-group">
+                  <label>Probability (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={editForm.probability}
+                    onChange={(e) => setEditForm({ ...editForm, probability: parseInt(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Expected Close Date</label>
+                  <input
+                    type="date"
+                    value={editForm.expectedClose}
+                    onChange={(e) => setEditForm({ ...editForm, expectedClose: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {editForm.stage === 'Lost' && (
+                <div className="form-group">
+                  <label>Reason for Loss</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Budget constraints, Competitor chosen"
+                    value={editForm.lostReason || ''}
+                    onChange={(e) => setEditForm({ ...editForm, lostReason: e.target.value })}
+                  />
+                </div>
+              )}
+
+              <div className="modal-footer" style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setEditingDeal(null)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  Save Changes to Database
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MARK DEAL AS LOST REASON MODAL */}
+      {showLostModalFor && (
+        <div className="modal-overlay" onClick={() => setShowLostModalFor(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '420px' }}>
+            <div className="modal-header">
+              <h3>Mark Deal as Lost</h3>
+              <button className="modal-close-btn" onClick={() => setShowLostModalFor(null)}>×</button>
+            </div>
+            <div className="form-group" style={{ marginTop: '12px' }}>
+              <label>Specify Reason for Loss:</label>
+              <select
+                value={lostReasonText}
+                onChange={(e) => setLostReasonText(e.target.value)}
+                style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              >
+                <option value="Budget constraints / competitor chosen">Budget constraints / competitor chosen</option>
+                <option value="Project postponed / cancelled">Project postponed / cancelled</option>
+                <option value="Product scope mismatch">Product scope mismatch</option>
+                <option value="Pricing too high">Pricing too high</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div className="modal-footer" style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button className="btn btn-secondary" onClick={() => setShowLostModalFor(null)}>Cancel</button>
+              <button 
+                className="btn btn-primary" 
+                style={{ backgroundColor: '#dc2626', borderColor: '#dc2626' }}
+                onClick={() => {
+                  if (onStageChange) onStageChange(showLostModalFor, 'Lost', lostReasonText);
+                  setShowLostModalFor(null);
+                }}
+              >
+                Confirm Lost
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <style jsx>{`
@@ -394,19 +782,6 @@ export default function KanbanBoard({
           border-radius: 10px;
           border: 1px solid var(--border-color);
           gap: 4px;
-        }
-
-        .funnel-analytics-grid {
-          display: grid;
-          grid-template-columns: 2fr 1fr;
-          gap: 16px;
-          margin-bottom: 20px;
-        }
-
-        .analytics-stacked-cards {
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
         }
 
         .mobile-stage-selector-wrap {
@@ -448,11 +823,16 @@ export default function KanbanBoard({
         }
 
         .kanban-empty-col {
-          padding: 20px 16px;
+          padding: 24px 16px;
           text-align: center;
           border: 1px dashed var(--border-color);
           border-radius: 10px;
           background: rgba(255, 255, 255, 0.6);
+          transition: background 0.15s ease;
+        }
+
+        .kanban-empty-col:hover {
+          background: #f8fafc;
         }
 
         @media (max-width: 768px) {
@@ -465,7 +845,7 @@ export default function KanbanBoard({
 
           .kanban-controls-row {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr;
             gap: 8px;
             width: 100%;
           }
@@ -480,17 +860,6 @@ export default function KanbanBoard({
             justify-content: center;
             font-size: 11px !important;
             padding: 6px 8px !important;
-          }
-
-          .kanban-controls-row > button.btn-primary {
-            width: 100%;
-            height: 38px;
-            font-size: 12.5px;
-            justify-content: center;
-          }
-
-          .funnel-analytics-grid {
-            grid-template-columns: 1fr;
           }
 
           .mobile-stage-selector-wrap {
@@ -522,10 +891,6 @@ export default function KanbanBoard({
           .kanban-cards-container {
             max-height: none !important;
             overflow-y: visible !important;
-          }
-
-          .kanban-empty-col {
-            padding: 12px 14px !important;
           }
         }
       `}</style>

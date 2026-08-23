@@ -765,9 +765,26 @@ export default function App() {
   const [newUserForm, setNewUserForm] = useState({
     fullName: '',
     email: '',
-    password: '',
-    role: 'SALES_REP'
+    password: '12345678',
+    role: 'SALES_REP',
+    title: 'Sales Representative',
+    phone: ''
   });
+
+  // User Management & Admin Reset States
+  const [adminResetPasswordUser, setAdminResetPasswordUser] = useState<any | null>(null);
+  const [adminNewPasswordInput, setAdminNewPasswordInput] = useState('');
+  const [userSearchFilter, setUserSearchFilter] = useState('');
+  const [userRoleFilter, setUserRoleFilter] = useState('ALL');
+  const [userStatusFilter, setUserStatusFilter] = useState('ALL');
+
+  // Self-Service Password Form State (Settings)
+  const [selfPasswordForm, setSelfPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [isUpdatingSelfPassword, setIsUpdatingSelfPassword] = useState(false);
 
   // Data States
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -780,31 +797,8 @@ export default function App() {
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
 
-  // Daily Contacts (Visiting Cards) State
-  const [contactsList, setContactsList] = useState<any[]>([
-    {
-      id: 'CNT-001',
-      name: 'Ramesh Patel',
-      company: 'Patel Logistics Solutions',
-      email: 'ramesh@patellogistics.in',
-      phone: '+91 98450 11223',
-      designation: 'Managing Director',
-      city: 'Bengaluru',
-      dateAdded: '10/08/2026',
-      isConverted: false
-    },
-    {
-      id: 'CNT-002',
-      name: 'Ananya Deshmukh',
-      company: 'Deshmukh Innovations Ltd',
-      email: 'ananya@deshmukh.co.in',
-      phone: '+91 99887 65432',
-      designation: 'VP Procurement',
-      city: 'Mumbai',
-      dateAdded: '10/08/2026',
-      isConverted: false
-    }
-  ]);
+  // Daily Contacts (Visiting Cards) State — Loaded from PostgreSQL DB
+  const [contactsList, setContactsList] = useState<any[]>([]);
   const [showAddContactModal, setShowAddContactModal] = useState(false);
   const [newContactForm, setNewContactForm] = useState({
     name: '',
@@ -1462,7 +1456,7 @@ export default function App() {
   // Pipeline Toggle Layout Option
   const [pipelineLayoutMode, setPipelineLayoutMode] = useState<'kanban' | 'table'>('kanban');
   const [companyViewMode, setCompanyViewMode] = useState<'grid' | 'table'>('grid');
-  const [settingsSubTab, setSettingsSubTab] = useState<'profile' | 'terms' | 'fields' | 'backup' | 'diagnostics' | 'supabase'>('profile');
+  const [settingsSubTab, setSettingsSubTab] = useState<'profile' | 'security' | 'terms' | 'fields' | 'backup' | 'diagnostics' | 'supabase'>('profile');
 
   // Phase 6 Tasks & Calendar States
   const [taskWorkspaceMode, setTaskWorkspaceMode] = useState<'my' | 'team'>('my');
@@ -1693,150 +1687,22 @@ export default function App() {
     loadState();
   }, [currentUser?.email, currentUser?.role]);
 
+  // Multi-user state persistence (scoped strictly per user email in localStorage)
   useEffect(() => {
     if (!isInitialLoadDone || !currentUser?.email) return;
     const storageKey = currentUser.role === 'ADMIN' ? 'ANVESHAK_CRM_STATE_V2' : `ANVESHAK_CRM_STATE_${currentUser.email}`;
-    localStorage.setItem(storageKey, JSON.stringify({
-      leads,
-      deals,
-      tasks,
-      activities,
-      companies,
-      quotes,
-      termsTemplates
-    }));
+    try {
+      localStorage.setItem(storageKey, JSON.stringify({
+        leads,
+        deals,
+        tasks,
+        activities,
+        companies,
+        quotes,
+        termsTemplates
+      }));
+    } catch (e) {}
   }, [leads, deals, tasks, activities, companies, quotes, termsTemplates, isInitialLoadDone, currentUser?.email]);
-
-  useEffect(() => {
-    if (!isInitialLoadDone) return;
-
-    const syncToSupabase = async () => {
-      const { supabase } = await import('@/lib/supabase');
-      if (!supabase) return;
-
-      // 1. Companies Sync
-      try {
-        const mappedCompanies = companies.map(mapCompanyToDb);
-        if (mappedCompanies.length > 0) {
-          await supabase.from('companies').upsert(mappedCompanies);
-        }
-        const { data: dbCos } = await supabase.from('companies').select('id');
-        if (dbCos) {
-          const localCosIds = companies.map(c => c.id);
-          const toDelete = dbCos.filter((d: any) => !localCosIds.includes(d.id)).map((d: any) => d.id);
-          if (toDelete.length > 0) {
-            await supabase.from('companies').delete().in('id', toDelete);
-          }
-        } else if (companies.length === 0) {
-          await supabase.from('companies').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-        }
-      } catch (err) {
-        console.error('Error syncing companies:', err);
-      }
-
-      // 2. Leads Sync
-      try {
-        const mappedLeads = leads.map(mapLeadToDb);
-        if (mappedLeads.length > 0) {
-          await supabase.from('leads').upsert(mappedLeads);
-        }
-        const { data: dbLeads } = await supabase.from('leads').select('id');
-        if (dbLeads) {
-          const localLeadIds = leads.map(l => l.id);
-          const toDelete = dbLeads.filter((d: any) => !localLeadIds.includes(d.id)).map((d: any) => d.id);
-          if (toDelete.length > 0) {
-            await supabase.from('leads').delete().in('id', toDelete);
-          }
-        } else if (leads.length === 0) {
-          await supabase.from('leads').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-        }
-      } catch (err) {
-        console.error('Error syncing leads:', err);
-      }
-
-      // 3. Deals Sync
-      try {
-        const mappedDeals = deals.map(mapDealToDb);
-        if (mappedDeals.length > 0) {
-          await supabase.from('deals').upsert(mappedDeals);
-        }
-        const { data: dbDeals } = await supabase.from('deals').select('id');
-        if (dbDeals) {
-          const localDealIds = deals.map(d => d.id);
-          const toDelete = dbDeals.filter((d: any) => !localDealIds.includes(d.id)).map((d: any) => d.id);
-          if (toDelete.length > 0) {
-            await supabase.from('deals').delete().in('id', toDelete);
-          }
-        } else if (deals.length === 0) {
-          await supabase.from('deals').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-        }
-      } catch (err) {
-        console.error('Error syncing deals:', err);
-      }
-
-      // 4. Tasks Sync
-      try {
-        const mappedTasks = tasks.map(mapTaskToDb);
-        if (mappedTasks.length > 0) {
-          await supabase.from('tasks').upsert(mappedTasks);
-        }
-        const { data: dbTasks } = await supabase.from('tasks').select('id');
-        if (dbTasks) {
-          const localTaskIds = tasks.map(t => t.id);
-          const toDelete = dbTasks.filter((d: any) => !localTaskIds.includes(d.id)).map((d: any) => d.id);
-          if (toDelete.length > 0) {
-            await supabase.from('tasks').delete().in('id', toDelete);
-          }
-        } else if (tasks.length === 0) {
-          await supabase.from('tasks').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-        }
-      } catch (err) {
-        console.error('Error syncing tasks:', err);
-      }
-
-      // 5. Quotes Sync
-      try {
-        const mappedQuotes = quotes.map(mapQuoteToDb);
-        if (mappedQuotes.length > 0) {
-          await supabase.from('quotes').upsert(mappedQuotes);
-        }
-        const { data: dbQuotes } = await supabase.from('quotes').select('id');
-        if (dbQuotes) {
-          const localQuoteIds = quotes.map(q => q.id);
-          const toDelete = dbQuotes.filter((d: any) => !localQuoteIds.includes(d.id)).map((d: any) => d.id);
-          if (toDelete.length > 0) {
-            await supabase.from('quotes').delete().in('id', toDelete);
-          }
-        } else if (quotes.length === 0) {
-          await supabase.from('quotes').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-        }
-      } catch (err) {
-        console.error('Error syncing quotes:', err);
-      }
-
-      // 6. Audit Logs Sync
-      try {
-        const mappedLogs = auditLogs.map(mapAuditLogToDb);
-        if (mappedLogs.length > 0) {
-          await supabase.from('audit_logs').upsert(mappedLogs);
-        }
-        const { data: dbLogs } = await supabase.from('audit_logs').select('id');
-        if (dbLogs) {
-          const localLogIds = auditLogs.map(l => l.id);
-          const toDelete = dbLogs.filter((d: any) => !localLogIds.includes(d.id)).map((d: any) => d.id);
-          if (toDelete.length > 0) {
-            await supabase.from('audit_logs').delete().in('id', toDelete);
-          }
-        } else if (auditLogs.length === 0) {
-          await supabase.from('audit_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-        }
-      } catch (err) {
-        console.error('Error syncing audit logs:', err);
-      }
-    };
-
-    syncToSupabase();
-  }, [leads, deals, tasks, companies, quotes, auditLogs, isInitialLoadDone]);
 
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
   const [scoringNotification, setScoringNotification] = useState(false);
@@ -2366,7 +2232,29 @@ export default function App() {
       beforeState: JSON.stringify({ stage: prevDeal.stage, probability: prevDeal.probability }),
       afterState: JSON.stringify({ stage: targetStage, probability, lostReason: reasonOfLoss || 'None' })
     };
-    setAuditLogs([newLog, ...auditLogs]);
+    setAuditLogs(prev => [newLog, ...prev]);
+  };
+
+  const handleUpdateDeal = async (dealId: string, updates: Partial<Deal>) => {
+    setDeals(prev => prev.map(d => d.id === dealId ? { ...d, ...updates } : d));
+    triggerToast('Deal details updated and saved to database!', 'success');
+    try {
+      const { updateDealAction } = await import('@/app/actions/crm');
+      await updateDealAction(dealId, updates);
+    } catch (err) {
+      console.error('Failed to update deal in DB:', err);
+    }
+  };
+
+  const handleDeleteDeal = async (dealId: string) => {
+    setDeals(prev => prev.filter(d => d.id !== dealId));
+    triggerToast('Deal deleted from pipeline!', 'info');
+    try {
+      const { deleteDealAction } = await import('@/app/actions/crm');
+      await deleteDealAction(dealId);
+    } catch (err) {
+      console.error('Failed to delete deal from DB:', err);
+    }
   };
 
   // ----------------------------------------------------
@@ -2381,23 +2269,58 @@ export default function App() {
       dueDate: newTask.dueDate,
       priority: newTask.priority,
       status: 'Open',
-      assignee: currentUser?.fullName || 'CRM User',
+      assignee: currentUser?.fullName || 'KP Sumanth',
       linkedTo: newTask.linkedTo
     };
 
-    setTasks([freshTask, ...tasks]);
+    setTasks(prev => [freshTask, ...prev]);
     setShowTaskModal(false);
-    setNewTask({ title: '', description: '', dueDate: '2026-07-16', priority: 'Medium', linkedTo: '' });
+    setNewTask({ title: '', description: '', dueDate: '2026-08-30', priority: 'Medium', linkedTo: '' });
+    triggerToast(`Task "${freshTask.title}" created & saved!`, 'success');
+
+    (async () => {
+      try {
+        const { createTaskAction } = await import('@/app/actions/crm');
+        await createTaskAction({
+          title: freshTask.title,
+          description: freshTask.description,
+          dueDate: freshTask.dueDate,
+          priority: freshTask.priority,
+          status: 'Open',
+          assignee: freshTask.assignee,
+          linkedTo: freshTask.linkedTo
+        });
+      } catch (err) {
+        console.error('Failed to save task to DB:', err);
+      }
+    })();
   };
 
   const toggleTaskStatus = (taskId: string) => {
-    setTasks(tasks.map(t => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    const nextStatus: Task['status'] = task.status === 'Open' ? 'Completed' : 'Open';
+
+    setTasks(prev => prev.map(t => {
       if (t.id === taskId) {
-        const nextStatus: Task['status'] = t.status === 'Open' ? 'Completed' : 'Open';
         return { ...t, status: nextStatus };
       }
       return t;
     }));
+
+    triggerToast(`Task marked as ${nextStatus}!`, 'info');
+
+    (async () => {
+      try {
+        const { updateTaskAction } = await import('@/app/actions/crm');
+        await updateTaskAction(taskId, {
+          status: nextStatus,
+          completed: nextStatus === 'Completed'
+        });
+      } catch (err) {
+        console.error('Failed to update task in DB:', err);
+      }
+    })();
   };
 
   // ----------------------------------------------------
@@ -4469,361 +4392,413 @@ export default function App() {
                 </div>
               )}
 
-              {/* Contact Cards Grid */}
-              <div className="contacts-grid">
-                {filteredLeads.map(contact => (
-                  <div 
-                    key={contact.id} 
-                    className="contact-card"
-                    style={{
-                      background: '#ffffff',
-                      borderRadius: '18px',
-                      padding: '20px 16px',
-                      border: '1px solid #e2e8f0',
-                      boxShadow: '0 4px 18px -2px rgba(15, 23, 42, 0.05)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      position: 'relative',
-                      transition: 'all 0.2s ease'
-                    }}
-                  >
-                    {/* Header Row: Checkbox + Score Pill */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: '12px' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={selectedContactIds.includes(contact.id)} 
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedContactIds([...selectedContactIds, contact.id]);
-                          } else {
-                            setSelectedContactIds(selectedContactIds.filter(id => id !== contact.id));
-                          }
+              {/* Content Area: Grid / Table / Empty State */}
+              {filteredLeads.length === 0 ? (
+                <div className="panel-card animate-fade" style={{
+                  padding: '48px 24px',
+                  textAlign: 'center',
+                  background: '#ffffff',
+                  borderRadius: '16px',
+                  border: '1px dashed #cbd5e1',
+                  margin: '20px 0'
+                }}>
+                  <div style={{
+                    width: '64px',
+                    height: '64px',
+                    borderRadius: '50%',
+                    background: '#eff6ff',
+                    color: '#1e40af',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '28px',
+                    margin: '0 auto 16px auto',
+                    boxShadow: '0 4px 12px rgba(30, 64, 175, 0.1)'
+                  }}>
+                    👥
+                  </div>
+                  <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginBottom: '6px' }}>
+                    No Leads in Queue
+                  </h3>
+                  <p style={{ fontSize: '13px', color: '#64748b', maxWidth: '440px', margin: '0 auto 20px auto', lineHeight: '1.5' }}>
+                    There are currently no active sales leads assigned in your workspace. Convert prospects directly from your Contacts Directory or register a direct lead.
+                  </p>
+                  <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                    <button 
+                      className="btn btn-primary" 
+                      style={{ padding: '10px 18px', fontSize: '13px' }}
+                      onClick={() => setShowLeadModal(true)}
+                    >
+                      + Add Direct Lead
+                    </button>
+                    <button 
+                      className="btn btn-secondary" 
+                      style={{ padding: '10px 18px', fontSize: '13px', backgroundColor: '#f8fafc' }}
+                      onClick={() => navigateTab('contacts')}
+                    >
+                      📇 Browse Contacts Directory
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Contact Cards Grid */}
+                  <div className="contacts-grid">
+                    {filteredLeads.map(contact => (
+                      <div 
+                        key={contact.id} 
+                        className="contact-card"
+                        style={{
+                          background: '#ffffff',
+                          borderRadius: '18px',
+                          padding: '20px 16px',
+                          border: '1px solid #e2e8f0',
+                          boxShadow: '0 4px 18px -2px rgba(15, 23, 42, 0.05)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          position: 'relative',
+                          transition: 'all 0.2s ease'
                         }}
-                        style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#4f46e5' }}
-                      />
-                      <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        padding: '3px 10px',
-                        borderRadius: '9999px',
-                        fontSize: '11px',
-                        fontWeight: '700',
-                        background: contact.score >= 61 ? '#fef2f2' : contact.score >= 31 ? '#fffbeb' : '#f1f5f9',
-                        color: contact.score >= 61 ? '#dc2626' : contact.score >= 31 ? '#b45309' : '#475569',
-                        border: `1px solid ${contact.score >= 61 ? '#fca5a5' : contact.score >= 31 ? '#fde68a' : '#cbd5e1'}`
-                      }}>
-                        {contact.score >= 61 ? '🔥 HOT' : contact.score >= 31 ? '⚡ WARM' : '❄️ COLD'} ({contact.score})
-                      </span>
-                    </div>
-
-                    {/* Avatar Ring */}
-                    <div style={{
-                      width: '60px',
-                      height: '60px',
-                      borderRadius: '50%',
-                      background: 'linear-gradient(135deg, #1e293b, #0f172a)',
-                      color: '#f5d396',
-                      border: '2.5px solid #d49b38',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '18px',
-                      fontWeight: '800',
-                      boxShadow: '0 4px 12px rgba(15, 23, 42, 0.15)',
-                      marginBottom: '10px'
-                    }}>
-                      {contact.name.split(' ').map(n=>n[0]).join('').slice(0, 2).toUpperCase()}
-                    </div>
-
-                    {/* Contact Details */}
-                    <div style={{ fontSize: '15.5px', fontWeight: '800', color: '#0f172a', textAlign: 'center', letterSpacing: '-0.01em' }}>
-                      {contact.name}
-                    </div>
-
-                    <div style={{
-                      color: '#d49b38',
-                      fontWeight: '700',
-                      fontSize: '11.5px',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.04em',
-                      marginTop: '2px',
-                      textAlign: 'center'
-                    }}>
-                      🏢 {contact.company}
-                    </div>
-                    
-                    <div style={{
-                      fontSize: '11.5px',
-                      color: '#64748b',
-                      marginTop: '8px',
-                      background: '#f8fafc',
-                      padding: '4px 10px',
-                      borderRadius: '8px',
-                      border: '1px solid #f1f5f9',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}>
-                      <span>👤</span> Owner: <strong style={{ color: '#1e293b' }}>{contact.owner}</strong>
-                    </div>
-
-                    {contact.tags && contact.tags.length > 0 && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', justifyContent: 'center', marginTop: '8px' }}>
-                        {contact.tags.map(t => (
-                          <span key={t} className="badge badge-cold" style={{ fontSize: '10px', padding: '2px 7px', borderRadius: '6px' }}>{t}</span>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Quick Outreach & Conversion Actions */}
-                    <div style={{ width: '100%', marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', width: '100%' }}>
-                        <button 
-                          className="btn btn-secondary" 
-                          style={{
-                            padding: '8px 4px',
-                            fontSize: '11.5px',
-                            fontWeight: '600',
-                            borderRadius: '10px',
-                            display: 'flex',
+                      >
+                        {/* Header Row: Checkbox + Score Pill */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: '12px' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={selectedContactIds.includes(contact.id)} 
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedContactIds([...selectedContactIds, contact.id]);
+                              } else {
+                                setSelectedContactIds(selectedContactIds.filter(id => id !== contact.id));
+                              }
+                            }}
+                            style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#4f46e5' }}
+                          />
+                          <span style={{
+                            display: 'inline-flex',
                             alignItems: 'center',
-                            justifyContent: 'center',
                             gap: '4px',
-                            minHeight: '36px'
-                          }} 
-                          onClick={() => openEmailComposer(contact.name, contact.email)}
-                          title={`Email ${contact.name}`}
-                        >
-                          ✉️ Email
-                        </button>
+                            padding: '3px 10px',
+                            borderRadius: '9999px',
+                            fontSize: '11px',
+                            fontWeight: '700',
+                            background: contact.score >= 61 ? '#fef2f2' : contact.score >= 31 ? '#fffbeb' : '#f1f5f9',
+                            color: contact.score >= 61 ? '#dc2626' : contact.score >= 31 ? '#b45309' : '#475569',
+                            border: `1px solid ${contact.score >= 61 ? '#fca5a5' : contact.score >= 31 ? '#fde68a' : '#cbd5e1'}`
+                          }}>
+                            {contact.score >= 61 ? '🔥 HOT' : contact.score >= 31 ? '⚡ WARM' : '❄️ COLD'} ({contact.score})
+                          </span>
+                        </div>
+
+                        {/* Avatar Ring */}
+                        <div style={{
+                          width: '60px',
+                          height: '60px',
+                          borderRadius: '50%',
+                          background: 'linear-gradient(135deg, #1e293b, #0f172a)',
+                          color: '#f5d396',
+                          border: '2.5px solid #d49b38',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '18px',
+                          fontWeight: '800',
+                          boxShadow: '0 4px 12px rgba(15, 23, 42, 0.15)',
+                          marginBottom: '10px'
+                        }}>
+                          {contact.name.split(' ').map(n=>n[0]).join('').slice(0, 2).toUpperCase()}
+                        </div>
+
+                        {/* Contact Details */}
+                        <div style={{ fontSize: '15.5px', fontWeight: '800', color: '#0f172a', textAlign: 'center', letterSpacing: '-0.01em' }}>
+                          {contact.name}
+                        </div>
+
+                        <div style={{
+                          color: '#d49b38',
+                          fontWeight: '700',
+                          fontSize: '11.5px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em',
+                          marginTop: '2px',
+                          textAlign: 'center'
+                        }}>
+                          🏢 {contact.company}
+                        </div>
                         
-                        <button 
-                          className="btn btn-secondary" 
-                          style={{
-                            padding: '8px 4px',
-                            fontSize: '11.5px',
-                            fontWeight: '600',
-                            borderRadius: '10px',
-                            color: '#059669',
-                            borderColor: '#a7f3d0',
-                            background: '#ecfdf5',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '4px',
-                            minHeight: '36px'
-                          }} 
-                          onClick={() => openWhatsAppModalForContact(contact.name, contact.phone)}
-                          title={`WhatsApp ${contact.name}`}
-                        >
-                          💬 Chat
-                        </button>
-                        
-                        <button 
-                          className="btn btn-secondary" 
-                          style={{
-                            padding: '8px 4px',
-                            fontSize: '11.5px',
-                            fontWeight: '600',
-                            borderRadius: '10px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '4px',
-                            minHeight: '36px'
-                          }} 
-                          onClick={() => startVoIPCall(contact.name, contact.phone)}
-                          title={`Call ${contact.name}`}
-                        >
-                          📞 Call
-                        </button>
-                      </div>
+                        <div style={{
+                          fontSize: '11.5px',
+                          color: '#64748b',
+                          marginTop: '8px',
+                          background: '#f8fafc',
+                          padding: '4px 10px',
+                          borderRadius: '8px',
+                          border: '1px solid #f1f5f9',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}>
+                          <span>👤</span> Owner: <strong style={{ color: '#1e293b' }}>{contact.owner}</strong>
+                        </div>
 
-                      {(() => {
-                        const linkedDeal = deals.find(d => 
-                          (contact.company && d.company && d.company.toLowerCase() === contact.company.toLowerCase()) ||
-                          (contact.name && d.name.toLowerCase().includes(contact.name.toLowerCase()))
-                        );
+                        {contact.tags && contact.tags.length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', justifyContent: 'center', marginTop: '8px' }}>
+                            {contact.tags.map(t => (
+                              <span key={t} className="badge badge-cold" style={{ fontSize: '10px', padding: '2px 7px', borderRadius: '6px' }}>{t}</span>
+                            ))}
+                          </div>
+                        )}
 
-                        if (linkedDeal) {
-                          return (
-                            <button
+                        {/* Quick Outreach & Conversion Actions */}
+                        <div style={{ width: '100%', marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', width: '100%' }}>
+                            <button 
+                              className="btn btn-secondary" 
                               style={{
-                                width: '100%',
-                                background: '#f8fafc',
-                                color: '#047857',
-                                border: '1px solid #10b981',
-                                padding: '10px 14px',
+                                padding: '8px 4px',
+                                fontSize: '11.5px',
+                                fontWeight: '600',
                                 borderRadius: '10px',
-                                fontSize: '12px',
-                                fontWeight: '700',
-                                cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                gap: '6px',
-                                minHeight: '38px',
-                                transition: 'all 0.2s ease'
-                              }}
-                              onClick={() => {
-                                navigateTab('kanban');
-                                setSelectedDealDetail(linkedDeal);
-                                triggerToast(`Opening existing pipeline deal for ${contact.company || contact.name} (${linkedDeal.stage})`, 'info');
-                              }}
+                                gap: '4px',
+                                minHeight: '36px'
+                              }} 
+                              onClick={() => openEmailComposer(contact.name, contact.email)}
+                              title={`Email ${contact.name}`}
                             >
-                              ✓ Converted to Deal ({linkedDeal.stage})
+                              ✉️ Email
                             </button>
-                          );
-                        }
+                            
+                            <button 
+                              className="btn btn-secondary" 
+                              style={{
+                                padding: '8px 4px',
+                                fontSize: '11.5px',
+                                fontWeight: '600',
+                                borderRadius: '10px',
+                                color: '#059669',
+                                borderColor: '#a7f3d0',
+                                background: '#ecfdf5',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '4px',
+                                minHeight: '36px'
+                              }} 
+                              onClick={() => openWhatsAppModalForContact(contact.name, contact.phone)}
+                              title={`WhatsApp ${contact.name}`}
+                            >
+                              💬 Chat
+                            </button>
+                            
+                            <button 
+                              className="btn btn-secondary" 
+                              style={{
+                                padding: '8px 4px',
+                                fontSize: '11.5px',
+                                fontWeight: '600',
+                                borderRadius: '10px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '4px',
+                                minHeight: '36px'
+                              }} 
+                              onClick={() => startVoIPCall(contact.name, contact.phone)}
+                              title={`Call ${contact.name}`}
+                            >
+                              📞 Call
+                            </button>
+                          </div>
 
-                        return (
-                          <button 
-                            style={{
-                              width: '100%',
-                              background: 'linear-gradient(135deg, #059669, #10b981)',
-                              color: '#ffffff',
-                              border: 'none',
-                              padding: '10px 14px',
-                              borderRadius: '10px',
-                              fontSize: '12.5px',
-                              fontWeight: '700',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              gap: '6px',
-                              boxShadow: '0 3px 10px rgba(16, 185, 129, 0.25)',
-                              transition: 'all 0.2s ease',
-                              minHeight: '38px'
-                            }} 
-                            onClick={() => {
-                              setSelectedLeadForConversion(contact);
-                              setConvertDealForm({
-                                dealName: `${contact.company || contact.name} - Expansion Deal`,
-                                dealValue: '500000',
-                                stage: 'New'
-                              });
-                              setShowConvertLeadModal(true);
-                            }}
-                          >
-                            ⚡ Convert to Deal →
-                          </button>
-                        );
-                      })()}
+                          {(() => {
+                            const linkedDeal = deals.find(d => 
+                              (contact.company && d.company && d.company.toLowerCase() === contact.company.toLowerCase()) ||
+                              (contact.name && d.name.toLowerCase().includes(contact.name.toLowerCase()))
+                            );
+
+                            if (linkedDeal) {
+                              return (
+                                <button
+                                  style={{
+                                    width: '100%',
+                                    background: '#f8fafc',
+                                    color: '#047857',
+                                    border: '1px solid #10b981',
+                                    padding: '10px 14px',
+                                    borderRadius: '10px',
+                                    fontSize: '12px',
+                                    fontWeight: '700',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '6px',
+                                    minHeight: '38px',
+                                    transition: 'all 0.2s ease'
+                                  }}
+                                  onClick={() => {
+                                    navigateTab('kanban');
+                                    setSelectedDealDetail(linkedDeal);
+                                    triggerToast(`Opening existing pipeline deal for ${contact.company || contact.name} (${linkedDeal.stage})`, 'info');
+                                  }}
+                                >
+                                  ✓ Converted to Deal ({linkedDeal.stage})
+                                </button>
+                              );
+                            }
+
+                            return (
+                              <button 
+                                style={{
+                                  width: '100%',
+                                  background: 'linear-gradient(135deg, #059669, #10b981)',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  padding: '10px 14px',
+                                  borderRadius: '10px',
+                                  fontSize: '12.5px',
+                                  fontWeight: '700',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '6px',
+                                  boxShadow: '0 3px 10px rgba(16, 185, 129, 0.25)',
+                                  transition: 'all 0.2s ease',
+                                  minHeight: '38px'
+                                }} 
+                                onClick={() => {
+                                  setSelectedLeadForConversion(contact);
+                                  setConvertDealForm({
+                                    dealName: `${contact.company || contact.name} - Expansion Deal`,
+                                    dealValue: '500000',
+                                    stage: 'New'
+                                  });
+                                  setShowConvertLeadModal(true);
+                                }}
+                              >
+                                ⚡ Convert to Deal →
+                              </button>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Table List View */}
+                  <div className="panel-card" style={{ marginTop: '24px' }}>
+                    <div className="panel-title">
+                      <h3>All Registered Leads</h3>
+                    </div>
+                    <div className="custom-table-container">
+                      <table className="custom-table">
+                        <thead>
+                          <tr>
+                            <th style={{ width: '40px' }}>
+                              <input 
+                                type="checkbox"
+                                checked={filteredLeads.length > 0 && selectedContactIds.length === filteredLeads.length}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedContactIds(filteredLeads.map(l => l.id));
+                                  } else {
+                                    setSelectedContactIds([]);
+                                  }
+                                }}
+                              />
+                            </th>
+                            <th>Name</th>
+                            <th>Company</th>
+                            <th>Email & Phone</th>
+                            <th>Owner</th>
+                            <th>Status</th>
+                            <th>Score</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredLeads.map(lead => (
+                            <tr key={lead.id}>
+                              <td>
+                                <input 
+                                  type="checkbox" 
+                                  checked={selectedContactIds.includes(lead.id)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedContactIds([...selectedContactIds, lead.id]);
+                                    } else {
+                                      setSelectedContactIds(selectedContactIds.filter(id => id !== lead.id));
+                                    }
+                                  }}
+                                />
+                              </td>
+                              <td>
+                                <div style={{ fontWeight: '600' }}>{lead.name}</div>
+                                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{lead.id}</span>
+                              </td>
+                              <td>
+                                <span className="badge badge-cold" style={{ cursor: 'pointer' }} onClick={() => {
+                                  const found = companies.find(c => c.name === lead.company);
+                                  if (found) setSelectedCompanyDetail(found);
+                                  else alert(`Company ${lead.company} detail view`);
+                                }}>
+                                  {lead.company}
+                                </span>
+                              </td>
+                              <td>
+                                <div>{lead.email}</div>
+                                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{lead.phone}</div>
+                              </td>
+                              <td>{lead.owner}</td>
+                              <td>
+                                <span className={`badge ${lead.status === 'Disqualified' ? 'badge-cold' : lead.status === 'Qualified' ? 'badge-hot' : 'badge-warm'}`}>
+                                  {lead.status}
+                                </span>
+                              </td>
+                              <td>
+                                <span className={`badge ${lead.score >= 61 ? 'badge-hot' : lead.score >= 31 ? 'badge-warm' : 'badge-cold'}`}>
+                                  {lead.score} pts
+                                </span>
+                              </td>
+                              <td>
+                                <div style={{ display: 'flex', gap: '6px' }}>
+                                  <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={() => setSelectedLeadDetail(lead)}>
+                                    Inspect 360°
+                                  </button>
+                                  {lead.status !== 'Disqualified' && lead.status !== 'Qualified' && (
+                                    <>
+                                      <button className="btn btn-primary" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={() => handleConvertLead(lead.id)}>
+                                        Convert to Deal
+                                      </button>
+                                      <button 
+                                        className="btn btn-secondary" 
+                                        style={{ padding: '4px 8px', fontSize: '11px', color: '#ef4444', borderColor: '#ef4444' }} 
+                                        onClick={() => {
+                                          const reason = prompt('Please enter the reason for disqualification:');
+                                          if (reason) {
+                                            handleDisqualifyLead(lead.id, reason);
+                                          }
+                                        }}
+                                      >
+                                        Disqualify
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
-                ))}
-              </div>
-
-              {/* Table List View */}
-              <div className="panel-card" style={{ marginTop: '24px' }}>
-                <div className="panel-title">
-                  <h3>All Registered Contacts</h3>
-                </div>
-                <div className="custom-table-container">
-                  <table className="custom-table">
-                    <thead>
-                      <tr>
-                        <th style={{ width: '40px' }}>
-                          <input 
-                            type="checkbox"
-                            checked={filteredLeads.length > 0 && selectedContactIds.length === filteredLeads.length}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedContactIds(filteredLeads.map(l => l.id));
-                              } else {
-                                setSelectedContactIds([]);
-                              }
-                            }}
-                          />
-                        </th>
-                        <th>Name</th>
-                        <th>Company</th>
-                        <th>Email & Phone</th>
-                        <th>Owner</th>
-                        <th>Status</th>
-                        <th>Score</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredLeads.map(lead => (
-                        <tr key={lead.id}>
-                          <td>
-                            <input 
-                              type="checkbox" 
-                              checked={selectedContactIds.includes(lead.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedContactIds([...selectedContactIds, lead.id]);
-                                } else {
-                                  setSelectedContactIds(selectedContactIds.filter(id => id !== lead.id));
-                                }
-                              }}
-                            />
-                          </td>
-                          <td>
-                            <div style={{ fontWeight: '600' }}>{lead.name}</div>
-                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{lead.id}</span>
-                          </td>
-                          <td>
-                            <span className="badge badge-cold" style={{ cursor: 'pointer' }} onClick={() => {
-                              const found = companies.find(c => c.name === lead.company);
-                              if (found) setSelectedCompanyDetail(found);
-                              else alert(`Company ${lead.company} detail view`);
-                            }}>
-                              {lead.company}
-                            </span>
-                          </td>
-                          <td>
-                            <div>{lead.email}</div>
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{lead.phone}</div>
-                          </td>
-                          <td>{lead.owner}</td>
-                          <td>
-                            <span className={`badge ${lead.status === 'Disqualified' ? 'badge-cold' : lead.status === 'Qualified' ? 'badge-hot' : 'badge-warm'}`}>
-                              {lead.status}
-                            </span>
-                          </td>
-                          <td>
-                            <span className={`badge ${lead.score >= 61 ? 'badge-hot' : lead.score >= 31 ? 'badge-warm' : 'badge-cold'}`}>
-                              {lead.score} pts
-                            </span>
-                          </td>
-                          <td>
-                            <div style={{ display: 'flex', gap: '6px' }}>
-                              <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={() => setSelectedLeadDetail(lead)}>
-                                Inspect 360°
-                              </button>
-                              {lead.status !== 'Disqualified' && lead.status !== 'Qualified' && (
-                                <>
-                                  <button className="btn btn-primary" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={() => handleConvertLead(lead.id)}>
-                                    Convert to Deal
-                                  </button>
-                                  <button 
-                                    className="btn btn-secondary" 
-                                    style={{ padding: '4px 8px', fontSize: '11px', color: '#ef4444', borderColor: '#ef4444' }} 
-                                    onClick={() => {
-                                      const reason = prompt('Please enter the reason for disqualification:');
-                                      if (reason) {
-                                        handleDisqualifyLead(lead.id, reason);
-                                      }
-                                    }}
-                                  >
-                                    Disqualify
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                </>
+              )}
             </div>
           )}
 
@@ -4857,7 +4832,54 @@ export default function App() {
                 </div>
               </div>
 
-              {companyViewMode === 'grid' ? (
+              {companies.length === 0 ? (
+                <div className="panel-card animate-fade" style={{
+                  padding: '48px 24px',
+                  textAlign: 'center',
+                  background: '#ffffff',
+                  borderRadius: '16px',
+                  border: '1px dashed #cbd5e1',
+                  margin: '20px 0'
+                }}>
+                  <div style={{
+                    width: '64px',
+                    height: '64px',
+                    borderRadius: '50%',
+                    background: '#eff6ff',
+                    color: '#1e40af',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '28px',
+                    margin: '0 auto 16px auto',
+                    boxShadow: '0 4px 12px rgba(30, 64, 175, 0.1)'
+                  }}>
+                    🏢
+                  </div>
+                  <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginBottom: '6px' }}>
+                    No Company Accounts Linked
+                  </h3>
+                  <p style={{ fontSize: '13px', color: '#64748b', maxWidth: '440px', margin: '0 auto 20px auto', lineHeight: '1.5' }}>
+                    Company accounts are dynamically aggregated as you add pipeline deals, log contacts, or import customer data. You can also register corporate accounts directly.
+                  </p>
+                  <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                    <button 
+                      className="btn btn-primary" 
+                      style={{ padding: '10px 18px', fontSize: '13px' }}
+                      onClick={() => setShowCompanyModal(true)}
+                    >
+                      + Add Company Account
+                    </button>
+                    <button 
+                      className="btn btn-secondary" 
+                      style={{ padding: '10px 18px', fontSize: '13px', backgroundColor: '#f8fafc' }}
+                      onClick={() => navigateTab('contacts')}
+                    >
+                      📇 Scan / Import Contacts
+                    </button>
+                  </div>
+                </div>
+              ) : companyViewMode === 'grid' ? (
                 /* Companies Grid View */
                 <div className="companies-grid">
                   {companies.map(comp => (
@@ -4936,7 +4958,7 @@ export default function App() {
             </div>
           )}
 
-          {/* TAB 3: DEALS & PIPELINE VELOCITY (SCREENSHOT 2) */}
+          {/* TAB 3: DEALS & PIPELINE VELOCITY */}
           {activeTab === 'kanban' && (
             <KanbanBoard
               deals={deals}
@@ -4949,7 +4971,14 @@ export default function App() {
               handleDragStart={handleDragStart}
               handleDragOver={handleDragOver}
               handleDrop={handleDrop}
-              onStageChange={(id, stage) => updateDealStage(id, stage as any)}
+              onStageChange={(id, stage, reason) => updateDealStage(id, stage as any, reason)}
+              onUpdateDeal={handleUpdateDeal}
+              onDeleteDeal={handleDeleteDeal}
+              onQuickAddDeal={(stage) => {
+                setNewLead(prev => ({ ...prev, leadSource: 'Direct Deal', status: 'New' }));
+                setShowLeadModal(true);
+              }}
+              onNavigateTab={(tab) => navigateTab(tab as any)}
               formatCurrency={formatCurrency}
             />
           )}
@@ -5543,124 +5572,293 @@ export default function App() {
           )}
 
 
-          {/* TAB 8: USER PROVISIONING & ROLES */}
-          {activeTab === 'users' && (
-            <div className="animate-fade">
-              <div className="page-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                <div className="page-title-text">
-                  <h2>User Provisioning & Roles</h2>
+          {/* TAB 8: USER PROVISIONING & ROLES (ENTERPRISE TEAM HUB) */}
+          {activeTab === 'users' && (() => {
+            const filteredUsers = dbUsersList.filter(u => {
+              const q = userSearchFilter.toLowerCase().trim();
+              const matchesSearch = !q || 
+                (u.fullName && u.fullName.toLowerCase().includes(q)) || 
+                (u.email && u.email.toLowerCase().includes(q));
+
+              const matchesRole = userRoleFilter === 'ALL' || u.role === userRoleFilter;
+              const matchesStatus = userStatusFilter === 'ALL' || 
+                (userStatusFilter === 'ACTIVE' && u.isActive !== false) || 
+                (userStatusFilter === 'DEACTIVATED' && u.isActive === false);
+
+              return matchesSearch && matchesRole && matchesStatus;
+            });
+
+            const totalAdmins = dbUsersList.filter(u => u.role === 'ADMIN').length;
+            const totalManagers = dbUsersList.filter(u => u.role === 'MANAGER').length;
+            const totalReps = dbUsersList.filter(u => u.role === 'SALES_REP' || !u.role).length;
+            const totalActive = dbUsersList.filter(u => u.isActive !== false).length;
+
+            return (
+              <div className="animate-fade">
+                {/* Header Row */}
+                <div className="page-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+                  <div className="page-title-text">
+                    <h2>Enterprise Team & User Provisioning</h2>
+                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
+                      Manage role-based access control (RBAC), multi-user credentials, and account statuses.
+                    </p>
+                  </div>
+                  {currentUser?.role === 'ADMIN' && (
+                    <button className="btn btn-primary" onClick={() => setShowAddUserModal(true)}>
+                      + Provision Team Member
+                    </button>
+                  )}
                 </div>
-                {currentUser?.role === 'ADMIN' && (
-                  <button className="btn btn-primary" onClick={() => setShowAddUserModal(true)}>+ Add User / Admin</button>
-                )}
-              </div>
 
-              <div className="panel-card">
-                <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
-                      <th style={{ padding: '12px' }}>User Name</th>
-                      <th style={{ padding: '12px' }}>Email Address</th>
-                      <th style={{ padding: '12px' }}>RBAC Role</th>
-                      <th style={{ padding: '12px' }}>Account Status</th>
-                      <th style={{ padding: '12px', textAlign: 'right' }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dbUsersList.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                          No team members registered yet. Use "+ Add User / Admin" to provision accounts.
-                        </td>
-                      </tr>
-                    ) : (
-                      dbUsersList.map(usr => {
-                        const isSelf = usr.id === currentUser?.id || usr.email === currentUser?.email;
-                        const isActive = usr.isActive !== false;
+                {/* Team KPI Stats Grid */}
+                <section className="metric-grid" style={{ marginBottom: '22px' }}>
+                  <div className="metric-card">
+                    <div className="metric-header">
+                      <span>TOTAL REGISTERED ACCOUNTS</span>
+                      <span className="trend-badge neutral">Active</span>
+                    </div>
+                    <div className="metric-val">{dbUsersList.length} Users</div>
+                  </div>
 
-                        return (
-                          <tr key={usr.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                            <td style={{ padding: '12px', fontWeight: '600' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <div style={{
-                                  width: '28px',
-                                  height: '28px',
-                                  borderRadius: '50%',
-                                  background: usr.role === 'ADMIN' ? '#d97706' : usr.role === 'MANAGER' ? '#b45309' : '#1e40af',
-                                  color: '#fff',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  fontSize: '11px',
-                                  fontWeight: 'bold'
-                                }}>
-                                  {usr.fullName ? usr.fullName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : 'U'}
-                                </div>
-                                <span>{usr.fullName} {isSelf ? ' (You)' : ''}</span>
-                              </div>
-                            </td>
-                            <td style={{ padding: '12px', color: '#475569' }}>{usr.email}</td>
-                            <td style={{ padding: '12px' }}>
-                              <span className={`badge ${usr.role === 'ADMIN' ? 'badge-hot' : usr.role === 'MANAGER' ? 'badge-warm' : 'badge-cold'}`}>
-                                {usr.role === 'ADMIN' ? 'Administrator' : usr.role === 'MANAGER' ? 'Sales Manager' : 'Sales Representative'}
-                              </span>
-                            </td>
-                            <td style={{ padding: '12px' }}>
-                              <span 
-                                className={`badge ${isActive ? 'badge-cold' : 'badge-hot'}`}
-                                style={{
-                                  cursor: currentUser?.role === 'ADMIN' && !isSelf ? 'pointer' : 'default',
-                                  backgroundColor: isActive ? '#ecfdf5' : '#fee2e2',
-                                  color: isActive ? '#047857' : '#b91c1c'
-                                }}
-                                onClick={async () => {
-                                  if (currentUser?.role === 'ADMIN' && !isSelf) {
-                                    try {
-                                      const { updateUserAction } = await import('@/app/actions/auth');
-                                      await updateUserAction(usr.id, { isActive: !isActive });
-                                      setDbUsersList(prev => prev.map(u => u.id === usr.id ? { ...u, isActive: !isActive } : u));
-                                      triggerToast(`User status updated to ${!isActive ? 'Active' : 'Deactivated'}!`, 'info');
-                                    } catch (err) {
-                                      console.error('Status toggle error:', err);
-                                    }
-                                  }
-                                }}
-                                title={currentUser?.role === 'ADMIN' && !isSelf ? 'Click to toggle Active/Deactivated' : ''}
-                              >
-                                {isActive ? '● Active' : '○ Deactivated'}
-                              </span>
-                            </td>
-                            <td style={{ padding: '12px', textAlign: 'right' }}>
-                              {currentUser?.role === 'ADMIN' && !isSelf && (
-                                <button 
-                                  className="btn btn-secondary" 
-                                  style={{ color: '#ef4444', padding: '4px 10px', fontSize: '11px' }}
-                                  onClick={async () => {
-                                    if (confirm(`Remove team member ${usr.fullName} (${usr.email}) from database?`)) {
-                                      try {
-                                        const { deleteUserAction } = await import('@/app/actions/auth');
-                                        await deleteUserAction(usr.id);
-                                        setDbUsersList(prev => prev.filter(x => x.id !== usr.id));
-                                        triggerToast(`Team member ${usr.fullName} removed from database.`, 'info');
-                                      } catch (e) {
-                                        console.error('Error deleting user:', e);
-                                      }
-                                    }
-                                  }}
-                                >
-                                  Delete
-                                </button>
-                              )}
+                  <div className="metric-card">
+                    <div className="metric-header">
+                      <span>👑 SYSTEM ADMINISTRATORS</span>
+                      <span className="trend-badge" style={{ background: '#fef3c7', color: '#92400e' }}>Global</span>
+                    </div>
+                    <div className="metric-val">{totalAdmins} Admins</div>
+                  </div>
+
+                  <div className="metric-card">
+                    <div className="metric-header">
+                      <span>💼 SALES REPRESENTATIVES</span>
+                      <span className="trend-badge" style={{ background: '#eff6ff', color: '#1e40af' }}>Field</span>
+                    </div>
+                    <div className="metric-val">{totalReps} Reps</div>
+                  </div>
+
+                  <div className="metric-card">
+                    <div className="metric-header">
+                      <span>⚡ ACTIVE SESSIONS</span>
+                      <span className="trend-badge" style={{ background: '#ecfdf5', color: '#047857' }}>{totalActive} Active</span>
+                    </div>
+                    <div className="metric-val">{totalManagers} Managers</div>
+                  </div>
+                </section>
+
+                {/* Search & Filters Toolbar */}
+                <div className="panel-card" style={{ padding: '16px 20px', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flex: 1, minWidth: '240px' }}>
+                      <input
+                        type="text"
+                        placeholder="🔍 Search users by name or email..."
+                        value={userSearchFilter}
+                        onChange={(e) => setUserSearchFilter(e.target.value)}
+                        style={{
+                          width: '100%',
+                          maxWidth: '320px',
+                          padding: '8px 12px',
+                          fontSize: '12.5px',
+                          borderRadius: '8px',
+                          border: '1px solid #cbd5e1'
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--text-muted)' }}>Role:</span>
+                        <select
+                          value={userRoleFilter}
+                          onChange={(e) => setUserRoleFilter(e.target.value)}
+                          style={{ padding: '6px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', backgroundColor: '#fff' }}
+                        >
+                          <option value="ALL">All Roles ({dbUsersList.length})</option>
+                          <option value="ADMIN">Administrators ({totalAdmins})</option>
+                          <option value="MANAGER">Sales Managers ({totalManagers})</option>
+                          <option value="SALES_REP">Sales Reps ({totalReps})</option>
+                        </select>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--text-muted)' }}>Status:</span>
+                        <select
+                          value={userStatusFilter}
+                          onChange={(e) => setUserStatusFilter(e.target.value)}
+                          style={{ padding: '6px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', backgroundColor: '#fff' }}
+                        >
+                          <option value="ALL">All Statuses</option>
+                          <option value="ACTIVE">Active Only</option>
+                          <option value="DEACTIVATED">Deactivated Only</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Team Members Data Table */}
+                <div className="panel-card" style={{ padding: 0, overflow: 'hidden' }}>
+                  <div className="custom-table-container">
+                    <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr>
+                          <th>Team Member</th>
+                          <th>Work Email</th>
+                          <th>Role Assignment</th>
+                          <th>Account Status</th>
+                          <th style={{ textAlign: 'right' }}>Security Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredUsers.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} style={{ padding: '36px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                              No team members match your criteria. Click "+ Provision Team Member" to add one.
                             </td>
                           </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
+                        ) : (
+                          filteredUsers.map(usr => {
+                            const isSelf = usr.id === currentUser?.id || usr.email === currentUser?.email;
+                            const isActive = usr.isActive !== false;
+
+                            return (
+                              <tr key={usr.id}>
+                                <td>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <div style={{
+                                      width: '32px',
+                                      height: '32px',
+                                      borderRadius: '50%',
+                                      background: usr.role === 'ADMIN' ? '#d97706' : usr.role === 'MANAGER' ? '#b45309' : '#1e40af',
+                                      color: '#fff',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      fontSize: '12px',
+                                      fontWeight: 'bold'
+                                    }}>
+                                      {usr.fullName ? usr.fullName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : 'U'}
+                                    </div>
+                                    <div>
+                                      <div style={{ fontWeight: '700', fontSize: '13px' }}>
+                                        {usr.fullName} {isSelf && <span style={{ color: '#3b82f6', fontSize: '11px' }}>(You)</span>}
+                                      </div>
+                                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                        {usr.role === 'ADMIN' ? 'System Administrator' : usr.role === 'MANAGER' ? 'Sales Manager' : 'Sales Representative'}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td style={{ color: '#475569', fontSize: '12.5px' }}>{usr.email}</td>
+                                <td>
+                                  {currentUser?.role === 'ADMIN' && !isSelf ? (
+                                    <select
+                                      value={usr.role || 'SALES_REP'}
+                                      onChange={async (e) => {
+                                        const newRole = e.target.value;
+                                        try {
+                                          const { changeUserRoleAction } = await import('@/app/actions/auth');
+                                          await changeUserRoleAction(usr.id, newRole);
+                                          setDbUsersList(prev => prev.map(u => u.id === usr.id ? { ...u, role: newRole } : u));
+                                          triggerToast(`Role for ${usr.fullName} updated to ${newRole}!`, 'success');
+                                        } catch (err) {
+                                          console.error('Role update error:', err);
+                                        }
+                                      }}
+                                      style={{
+                                        fontSize: '11.5px',
+                                        fontWeight: '700',
+                                        padding: '4px 8px',
+                                        borderRadius: '6px',
+                                        border: '1px solid #cbd5e1',
+                                        backgroundColor: usr.role === 'ADMIN' ? '#fffbeb' : usr.role === 'MANAGER' ? '#fef3c7' : '#eff6ff',
+                                        color: usr.role === 'ADMIN' ? '#b45309' : usr.role === 'MANAGER' ? '#92400e' : '#1e40af',
+                                        cursor: 'pointer'
+                                      }}
+                                    >
+                                      <option value="ADMIN">👑 Administrator</option>
+                                      <option value="MANAGER">📊 Sales Manager</option>
+                                      <option value="SALES_REP">💼 Sales Rep</option>
+                                    </select>
+                                  ) : (
+                                    <span className={`badge ${usr.role === 'ADMIN' ? 'badge-hot' : usr.role === 'MANAGER' ? 'badge-warm' : 'badge-cold'}`}>
+                                      {usr.role === 'ADMIN' ? '👑 Administrator' : usr.role === 'MANAGER' ? '📊 Manager' : '💼 Sales Rep'}
+                                    </span>
+                                  )}
+                                </td>
+                                <td>
+                                  <span 
+                                    className={`badge ${isActive ? 'badge-cold' : 'badge-hot'}`}
+                                    style={{
+                                      cursor: currentUser?.role === 'ADMIN' && !isSelf ? 'pointer' : 'default',
+                                      backgroundColor: isActive ? '#ecfdf5' : '#fee2e2',
+                                      color: isActive ? '#047857' : '#b91c1c',
+                                      fontWeight: '700',
+                                      padding: '4px 10px'
+                                    }}
+                                    onClick={async () => {
+                                      if (currentUser?.role === 'ADMIN' && !isSelf) {
+                                        try {
+                                          const { toggleUserActiveStatusAction } = await import('@/app/actions/auth');
+                                          await toggleUserActiveStatusAction(usr.id, !isActive);
+                                          setDbUsersList(prev => prev.map(u => u.id === usr.id ? { ...u, isActive: !isActive } : u));
+                                          triggerToast(`User status updated to ${!isActive ? 'Active' : 'Deactivated'}!`, 'info');
+                                        } catch (err) {
+                                          console.error('Status toggle error:', err);
+                                        }
+                                      }
+                                    }}
+                                    title={currentUser?.role === 'ADMIN' && !isSelf ? 'Click to toggle Active/Deactivated' : ''}
+                                  >
+                                    {isActive ? '● Active' : '○ Deactivated'}
+                                  </span>
+                                </td>
+                                <td style={{ textAlign: 'right' }}>
+                                  {currentUser?.role === 'ADMIN' && !isSelf && (
+                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                      <button 
+                                        className="btn btn-secondary" 
+                                        style={{ padding: '4px 8px', fontSize: '11px' }}
+                                        onClick={() => {
+                                          setAdminResetPasswordUser(usr);
+                                          setAdminNewPasswordInput('');
+                                        }}
+                                      >
+                                        🔄 Reset Password
+                                      </button>
+                                      <button 
+                                        className="btn btn-secondary" 
+                                        style={{ color: '#ef4444', borderColor: '#fca5a5', padding: '4px 8px', fontSize: '11px' }}
+                                        onClick={async () => {
+                                          if (confirm(`Are you sure you want to remove ${usr.fullName} (${usr.email}) from the database?`)) {
+                                            try {
+                                              const { deleteUserAction } = await import('@/app/actions/auth');
+                                              await deleteUserAction(usr.id);
+                                              setDbUsersList(prev => prev.filter(x => x.id !== usr.id));
+                                              triggerToast(`User ${usr.fullName} deleted from database.`, 'info');
+                                            } catch (e) {
+                                              console.error('Error deleting user:', e);
+                                            }
+                                          }
+                                        }}
+                                      >
+                                        🗑️
+                                      </button>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
+
           {activeTab === 'scoring' && (
             <div className="panel-card animate-fade" style={{ maxWidth: '650px' }}>
               <div className="panel-title" style={{ marginBottom: '16px' }}>
@@ -6061,6 +6259,7 @@ export default function App() {
                 }}>
                   {[
                     { id: 'profile', label: 'Executive Profile', icon: '👤' },
+                    { id: 'security', label: 'Security & Password', icon: '🔒' },
                     { id: 'terms', label: 'Legal Clauses', icon: '📜' },
                     { id: 'fields', label: 'Dynamic Fields', icon: '⚙️' },
                     { id: 'backup', label: 'Backup & Export', icon: '💾' }
@@ -6105,6 +6304,100 @@ export default function App() {
                     completedTasksCount={tasks.filter(t => t.status === 'Completed').length}
                     winRatePercent={winRatePercent}
                   />
+                )}
+
+                {/* SUBTAB: SECURITY & PASSWORD CHANGE */}
+                {settingsSubTab === 'security' && (
+                  <div className="panel-card animate-fade" style={{ padding: '24px', maxWidth: '520px' }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: '800', marginBottom: '8px' }}>
+                      🔒 Change Account Password
+                    </h3>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginBottom: '20px' }}>
+                      Update your login password. Passwords must contain at least 6 characters.
+                    </p>
+
+                    <form onSubmit={async (e) => {
+                      e.preventDefault();
+                      if (!selfPasswordForm.currentPassword || !selfPasswordForm.newPassword) {
+                        triggerToast('Please fill in all password fields.', 'error');
+                        return;
+                      }
+                      if (selfPasswordForm.newPassword !== selfPasswordForm.confirmPassword) {
+                        triggerToast('New passwords do not match. Please re-type.', 'error');
+                        return;
+                      }
+                      if (selfPasswordForm.newPassword.length < 6) {
+                        triggerToast('New password must be at least 6 characters long.', 'error');
+                        return;
+                      }
+
+                      setIsUpdatingSelfPassword(true);
+                      try {
+                        const { changeUserPasswordAction } = await import('@/app/actions/auth');
+                        const res = await changeUserPasswordAction(
+                          currentUser?.email || '',
+                          selfPasswordForm.currentPassword,
+                          selfPasswordForm.newPassword
+                        );
+
+                        if (res.success) {
+                          triggerToast(res.message || 'Password successfully updated!', 'success');
+                          setSelfPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                        } else {
+                          triggerToast(res.error || 'Failed to change password.', 'error');
+                        }
+                      } catch (err: any) {
+                        triggerToast('Error updating password in database.', 'error');
+                      } finally {
+                        setIsUpdatingSelfPassword(false);
+                      }
+                    }}>
+                      <div className="form-group" style={{ marginBottom: '14px' }}>
+                        <label style={{ fontSize: '12px', fontWeight: '700' }}>Current Password *</label>
+                        <input
+                          type="password"
+                          required
+                          value={selfPasswordForm.currentPassword}
+                          onChange={(e) => setSelfPasswordForm({ ...selfPasswordForm, currentPassword: e.target.value })}
+                          placeholder="Enter your current password"
+                          style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                        />
+                      </div>
+
+                      <div className="form-group" style={{ marginBottom: '14px' }}>
+                        <label style={{ fontSize: '12px', fontWeight: '700' }}>New Password *</label>
+                        <input
+                          type="password"
+                          required
+                          value={selfPasswordForm.newPassword}
+                          onChange={(e) => setSelfPasswordForm({ ...selfPasswordForm, newPassword: e.target.value })}
+                          placeholder="At least 6 characters"
+                          style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                        />
+                      </div>
+
+                      <div className="form-group" style={{ marginBottom: '20px' }}>
+                        <label style={{ fontSize: '12px', fontWeight: '700' }}>Confirm New Password *</label>
+                        <input
+                          type="password"
+                          required
+                          value={selfPasswordForm.confirmPassword}
+                          onChange={(e) => setSelfPasswordForm({ ...selfPasswordForm, confirmPassword: e.target.value })}
+                          placeholder="Re-enter your new password"
+                          style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="btn btn-primary"
+                        disabled={isUpdatingSelfPassword}
+                        style={{ padding: '10px 20px', fontSize: '13px' }}
+                      >
+                        {isUpdatingSelfPassword ? 'Updating Password...' : 'Update Password →'}
+                      </button>
+                    </form>
+                  </div>
                 )}
 
                 {/* SUBTAB 2: TERMS AND CONDITIONS */}
@@ -8326,25 +8619,32 @@ export default function App() {
         ))}
       </div>
 
-      {/* ADD USER / ADMIN MODAL */}
+      {/* ADD USER / ADMIN MODAL (ENTERPRISE PROVISIONING) */}
       {showAddUserModal && (
         <div className="modal-overlay" style={{ zIndex: 1300 }} onClick={() => setShowAddUserModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '460px' }}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px' }}>
             <div className="modal-header">
-              <h3>Create User Account / Admin</h3>
+              <h3>+ Provision New Team Member</h3>
               <button className="modal-close-btn" onClick={() => setShowAddUserModal(false)}>×</button>
             </div>
             <form onSubmit={async (e) => {
               e.preventDefault();
               if (!newUserForm.fullName || !newUserForm.email || !newUserForm.password) return;
               try {
-                const { createUserAction } = await import('@/app/actions/auth');
-                const res = await createUserAction(newUserForm);
+                const { registerUserAction } = await import('@/app/actions/auth');
+                const res = await registerUserAction({
+                  fullName: newUserForm.fullName,
+                  email: newUserForm.email,
+                  password: newUserForm.password,
+                  role: newUserForm.role,
+                  title: newUserForm.title,
+                  phone: newUserForm.phone
+                });
                 if (res.success && res.user) {
                   setDbUsersList(prev => [res.user, ...prev]);
                   setShowAddUserModal(false);
-                  setNewUserForm({ fullName: '', email: '', password: '', role: 'SALES_REP' });
-                  triggerToast(`User ${res.user.fullName} provisioned as ${res.user.role}!`, 'success');
+                  setNewUserForm({ fullName: '', email: '', password: '12345678', role: 'SALES_REP', title: 'Sales Representative', phone: '' });
+                  triggerToast(`User ${res.user.fullName} provisioned successfully as ${res.user.role}!`, 'success');
                 } else {
                   alert(res.error || 'Failed to create user account.');
                 }
@@ -8352,49 +8652,146 @@ export default function App() {
                 alert('Error creating user in database.');
               }
             }}>
-              <div className="form-group">
-                <label>Full Name *</label>
+              <div className="form-group" style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Full Name *</label>
                 <input 
                   type="text" 
                   required 
                   value={newUserForm.fullName} 
                   onChange={(e) => setNewUserForm({ ...newUserForm, fullName: e.target.value })} 
                   placeholder="e.g. Balasaraswathi"
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
                 />
               </div>
-              <div className="form-group">
-                <label>Work Email Address *</label>
+
+              <div className="form-group" style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Work Email Address *</label>
                 <input 
                   type="email" 
                   required 
                   value={newUserForm.email} 
                   onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })} 
                   placeholder="e.g. balu@anveshak.com"
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
                 />
               </div>
-              <div className="form-group">
-                <label>Initial Password *</label>
-                <input 
-                  type="password" 
-                  required 
-                  value={newUserForm.password} 
-                  onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })} 
-                />
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                <div className="form-group">
+                  <label style={{ fontSize: '12px', fontWeight: 'bold' }}>System Role (RBAC) *</label>
+                  <select 
+                    value={newUserForm.role} 
+                    onChange={(e) => {
+                      const r = e.target.value;
+                      const autoTitle = r === 'ADMIN' ? 'System Administrator' : r === 'MANAGER' ? 'Sales Manager' : 'Sales Representative';
+                      setNewUserForm({ ...newUserForm, role: r, title: autoTitle });
+                    }}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                  >
+                    <option value="SALES_REP">💼 Sales Representative</option>
+                    <option value="MANAGER">📊 Sales Manager</option>
+                    <option value="ADMIN">👑 Administrator</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Initial Password *</label>
+                  <input 
+                    type="password" 
+                    required 
+                    value={newUserForm.password} 
+                    onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })} 
+                    placeholder="Min 6 chars"
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                  />
+                </div>
               </div>
-              <div className="form-group">
-                <label>System Role *</label>
-                <select 
-                  value={newUserForm.role} 
-                  onChange={(e) => setNewUserForm({ ...newUserForm, role: e.target.value })}
-                >
-                  <option value="ADMIN">ADMIN (System Administrator - Full Access)</option>
-                  <option value="MANAGER">MANAGER (Sales Manager - Team Access)</option>
-                  <option value="SALES_REP">SALES_REP (Sales Representative - Individual Pipeline)</option>
-                </select>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                <div className="form-group">
+                  <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Job Title</label>
+                  <input 
+                    type="text" 
+                    value={newUserForm.title} 
+                    onChange={(e) => setNewUserForm({ ...newUserForm, title: e.target.value })} 
+                    placeholder="e.g. Senior Key Account Executive"
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Phone Number</label>
+                  <input 
+                    type="tel" 
+                    value={newUserForm.phone} 
+                    onChange={(e) => setNewUserForm({ ...newUserForm, phone: e.target.value })} 
+                    placeholder="+91 98400 00000"
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                  />
+                </div>
               </div>
+
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '20px' }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setShowAddUserModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Create User Account →</button>
+                <button type="submit" className="btn btn-primary">Provision Team Member →</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ADMIN RESET USER PASSWORD MODAL */}
+      {adminResetPasswordUser && (
+        <div className="modal-overlay" style={{ zIndex: 1350 }} onClick={() => setAdminResetPasswordUser(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
+            <div className="modal-header">
+              <h3>🔄 Reset Password for {adminResetPasswordUser.fullName}</h3>
+              <button className="modal-close-btn" onClick={() => setAdminResetPasswordUser(null)}>×</button>
+            </div>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              if (!adminNewPasswordInput || adminNewPasswordInput.length < 6) {
+                triggerToast('Password must be at least 6 characters long.', 'error');
+                return;
+              }
+
+              try {
+                const { adminResetPasswordAction } = await import('@/app/actions/auth');
+                const res = await adminResetPasswordAction(adminResetPasswordUser.id, adminNewPasswordInput);
+                if (res.success) {
+                  triggerToast(`Password reset successfully for ${adminResetPasswordUser.fullName}!`, 'success');
+                  setAdminResetPasswordUser(null);
+                  setAdminNewPasswordInput('');
+                } else {
+                  triggerToast(res.error || 'Failed to reset password.', 'error');
+                }
+              } catch (err: any) {
+                triggerToast('Error resetting password in database.', 'error');
+              }
+            }}>
+              <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginBottom: '14px' }}>
+                Enter a new temporary or permanent password for user <strong>{adminResetPasswordUser.email}</strong>.
+              </p>
+
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 'bold' }}>New Password *</label>
+                <input
+                  type="password"
+                  required
+                  value={adminNewPasswordInput}
+                  onChange={(e) => setAdminNewPasswordInput(e.target.value)}
+                  placeholder="Enter new password (min 6 characters)"
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setAdminResetPasswordUser(null)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  Set New Password →
+                </button>
               </div>
             </form>
           </div>

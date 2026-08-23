@@ -447,3 +447,132 @@ export async function deleteUserAction(id: string) {
 
   return { success: true };
 }
+
+/**
+ * Admin Action: Reset Password for any team member
+ */
+export async function adminResetPasswordAction(userId: string, newPassword: string) {
+  const cleanPass = newPassword.trim();
+  if (!cleanPass || cleanPass.length < 6) {
+    return { success: false, error: 'New password must be at least 6 characters long.' };
+  }
+
+  try {
+    // 1. Update in Supabase users_list
+    const { data: supaUpdated, error: sErr } = await supabase
+      .from('users_list')
+      .update({ password: cleanPass })
+      .eq('id', userId)
+      .select()
+      .single();
+
+    // 2. Update in Prisma
+    try {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { password: cleanPass }
+      });
+    } catch (e) {}
+
+    return { 
+      success: true, 
+      message: 'Password successfully reset by Administrator.',
+      user: supaUpdated 
+    };
+  } catch (err: any) {
+    console.error('adminResetPasswordAction error:', err);
+    return { success: false, error: err.message || 'Failed to reset password.' };
+  }
+}
+
+/**
+ * Self-Service Action: Change Current User's Password
+ */
+export async function changeUserPasswordAction(email: string, currentPassword: string, newPassword: string) {
+  const cleanEmail = email.trim().toLowerCase();
+  const cleanCurrent = currentPassword.trim();
+  const cleanNew = newPassword.trim();
+
+  if (!cleanEmail || !cleanCurrent || !cleanNew) {
+    return { success: false, error: 'Current password and new password are required.' };
+  }
+
+  if (cleanNew.length < 6) {
+    return { success: false, error: 'New password must be at least 6 characters long.' };
+  }
+
+  try {
+    // 1. Verify Current Password from Supabase users_list
+    const { data: users, error } = await supabase
+      .from('users_list')
+      .select('*')
+      .eq('email', cleanEmail)
+      .limit(1);
+
+    if (error || !users || users.length === 0) {
+      return { success: false, error: 'User account not found.' };
+    }
+
+    const user = users[0];
+    if (user.password !== cleanCurrent) {
+      return { success: false, error: 'Current password does not match our records.' };
+    }
+
+    // 2. Update to New Password
+    await supabase
+      .from('users_list')
+      .update({ password: cleanNew })
+      .eq('id', user.id);
+
+    try {
+      await prisma.user.update({
+        where: { email: cleanEmail },
+        data: { password: cleanNew }
+      });
+    } catch (e) {}
+
+    return { success: true, message: 'Your password has been successfully updated!' };
+  } catch (err: any) {
+    console.error('changeUserPasswordAction error:', err);
+    return { success: false, error: err.message || 'Failed to update password.' };
+  }
+}
+
+/**
+ * Admin Action: Change User Role (RBAC)
+ */
+export async function changeUserRoleAction(userId: string, newRole: string) {
+  const validRoles = ['ADMIN', 'MANAGER', 'SALES_REP'];
+  if (!validRoles.includes(newRole)) {
+    return { success: false, error: 'Invalid role specified.' };
+  }
+
+  try {
+    await supabase.from('users_list').update({ role: newRole }).eq('id', userId);
+    try {
+      await prisma.user.update({ where: { id: userId }, data: { role: newRole } });
+    } catch (e) {}
+
+    return { success: true, message: `Role updated to ${newRole}.` };
+  } catch (err: any) {
+    console.error('changeUserRoleAction error:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Admin Action: Toggle Active / Deactivated Status
+ */
+export async function toggleUserActiveStatusAction(userId: string, isActive: boolean) {
+  try {
+    await supabase.from('users_list').update({ is_active: isActive }).eq('id', userId);
+    try {
+      await prisma.user.update({ where: { id: userId }, data: { isActive } });
+    } catch (e) {}
+
+    return { success: true, message: `User status changed to ${isActive ? 'Active' : 'Deactivated'}.` };
+  } catch (err: any) {
+    console.error('toggleUserActiveStatusAction error:', err);
+    return { success: false, error: err.message };
+  }
+}
