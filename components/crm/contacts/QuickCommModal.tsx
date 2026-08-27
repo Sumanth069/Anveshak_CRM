@@ -272,7 +272,7 @@ export default function QuickCommModal({
             color: '#991b1b'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', marginBottom: '4px' }}>
-              <span>⚠️ DO NOT CONTACT NOTICE</span>
+              <span>DO NOT CONTACT NOTICE</span>
             </div>
             <p style={{ margin: '0 0 8px' }}>
               This contact has opted out or has been flagged for no outreach.
@@ -309,10 +309,10 @@ export default function QuickCommModal({
               }}
               onClick={() => setActiveChannel(chan)}
             >
-              {chan === 'WhatsApp' && '💬 WhatsApp'}
-              {chan === 'Call' && '📞 Phone Call'}
-              {chan === 'Email' && '✉️ Email'}
-              {chan === 'Meeting' && '🤝 Meeting'}
+              {chan === 'WhatsApp' && 'WhatsApp'}
+              {chan === 'Call' && 'Phone Call'}
+              {chan === 'Email' && 'Email'}
+              {chan === 'Meeting' && 'Meeting'}
             </button>
           ))}
         </div>
@@ -400,7 +400,7 @@ export default function QuickCommModal({
                   onClick={handleSendWhatsApp}
                   disabled={isSubmitting || isBlocked}
                 >
-                  {isSubmitting ? 'Opening WhatsApp...' : '🚀 Open in WhatsApp & Auto-Log'}
+                  {isSubmitting ? 'Opening WhatsApp...' : 'Open in WhatsApp & Auto-Log'}
                 </button>
               ) : (
                 <button
@@ -409,7 +409,7 @@ export default function QuickCommModal({
                   onClick={handleSendEmail}
                   disabled={isSubmitting || isBlocked}
                 >
-                  {isSubmitting ? 'Opening Email...' : '✉️ Open Email Client & Auto-Log'}
+                  {isSubmitting ? 'Opening Email...' : 'Open Email Client & Auto-Log'}
                 </button>
               )}
             </div>
@@ -433,7 +433,7 @@ export default function QuickCommModal({
                     className="btn btn-primary"
                     style={{ backgroundColor: '#10b981', borderColor: '#10b981', color: '#fff', fontSize: '12px', padding: '6px 14px', textDecoration: 'none' }}
                   >
-                    📞 Tap to Call
+                    Tap to Call
                   </a>
                 )}
               </div>
@@ -520,7 +520,7 @@ export default function QuickCommModal({
                 onClick={handleLogMeeting}
                 disabled={isSubmitting}
               >
-                {isSubmitting ? 'Saving...' : '🤝 Save Meeting to Timeline'}
+                {isSubmitting ? 'Saving...' : 'Save Meeting to Timeline'}
               </button>
             </div>
           </div>

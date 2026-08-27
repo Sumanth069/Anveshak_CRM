@@ -361,7 +361,7 @@ export default function ExcelImportModal({
         <div className="modal-header" style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
           <div>
             <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#0f172a' }}>
-              📥 Batch Contact Importer (Excel / CSV)
+              Batch Contact Importer (Excel / CSV)
             </h3>
             <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b' }}>
               Import contact lists with automatic deduplication scoring, column mapping, and rollback safety.
@@ -380,7 +380,7 @@ export default function ExcelImportModal({
               background: '#f8fafc',
               marginBottom: '20px'
             }}>
-              <div style={{ fontSize: '36px', marginBottom: '12px' }}>📁</div>
+              <div style={{ fontSize: '36px', marginBottom: '12px' }}></div>
               <h4 style={{ margin: '0 0 6px', fontSize: '16px', color: '#1e293b' }}>
                 Upload your Spreadsheet
               </h4>

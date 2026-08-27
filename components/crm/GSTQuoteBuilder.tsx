@@ -154,7 +154,7 @@ export default function GSTQuoteBuilder({
             className={`btn ${subView === 'repository' ? 'btn-primary' : 'btn-secondary'}`} 
             onClick={() => setSubView('repository')}
           >
-            📂 Quote Repository ({quotes.length})
+            Quote Repository ({quotes.length})
           </button>
         </div>
       </div>
@@ -354,7 +354,7 @@ export default function GSTQuoteBuilder({
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px', gap: '10px' }}>
                   <button className="btn btn-secondary" onClick={() => setWizardStep(2)}>← Back</button>
                   <button className="btn btn-primary" onClick={handleFinalizeAndSave} style={{ backgroundColor: '#10b981' }}>
-                    ✔ Finalize & Save Quote
+                    Finalize & Save Quote
                   </button>
                 </div>
               </div>
@@ -387,7 +387,7 @@ export default function GSTQuoteBuilder({
                   margin: '0 auto 16px auto',
                   boxShadow: '0 4px 12px rgba(30, 64, 175, 0.1)'
                 }}>
-                  📄
+                  
                 </div>
                 <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginBottom: '6px' }}>
                   No Quotations Generated Yet
@@ -438,7 +438,7 @@ export default function GSTQuoteBuilder({
                             <td>
                               <div style={{ display: 'flex', gap: '8px' }}>
                                 <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={() => onOpenPortalSandbox(quote)}>
-                                  🌐 Open Portal Preview
+                                  Open Portal Preview
                                 </button>
                                 <button className="btn btn-secondary" style={{ color: 'var(--danger)', padding: '4px 8px', fontSize: '11px' }} onClick={() => onDeleteQuote(quote.id)}>
                                   Delete
@@ -474,14 +474,14 @@ export default function GSTQuoteBuilder({
                           style={{ fontSize: '11.5px', padding: '6px 8px', justifyContent: 'center', minHeight: '34px' }} 
                           onClick={() => onOpenPortalSandbox(quote)}
                         >
-                          🌐 Portal Preview
+                          Portal Preview
                         </button>
                         <button 
                           className="btn btn-secondary" 
                           style={{ color: 'var(--danger)', borderColor: '#fee2e2', padding: '6px 10px', minHeight: '34px' }} 
                           onClick={() => onDeleteQuote(quote.id)}
                         >
-                          🗑️
+                          
                         </button>
                       </div>
                     </div>

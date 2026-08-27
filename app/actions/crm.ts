@@ -210,25 +210,100 @@ export async function fetchCrmInitialState(userEmail?: string, userFullName?: st
         prisma.auditLog.findMany({ orderBy: { timestamp: 'desc' }, take: 100 })
       ]);
 
-      let deals = deduplicateDeals(rawDeals.map(d => ({ ...d, stage: normalizeDealStage(d.stage || undefined) })));
-      let leads = deduplicateLeads(rawLeads);
-      let userTasks = tasks;
-      let pCompanies = companies;
-      let pQuotes = quotes;
-      let pAudit = auditLogs;
+      let deals = deduplicateDeals(rawDeals.map((d: any) => ({
+        id: d.id,
+        name: d.name,
+        company: d.company || '',
+        value: Number(d.value) || 0,
+        stage: normalizeDealStage(d.stage || undefined),
+        probability: Number(d.probability) || 0,
+        expectedClose: d.expectedClose ? (typeof d.expectedClose === 'string' ? d.expectedClose : d.expectedClose.toISOString().split('T')[0]) : '',
+        owner: d.owner || '',
+        lostReason: d.lostReason || undefined,
+        customValues: d.customValues || {},
+        daysInStage: Number(d.daysInStage) || 0,
+        createdAt: d.createdAt ? d.createdAt.toISOString() : undefined,
+        updatedAt: d.updatedAt ? d.updatedAt.toISOString() : undefined
+      })));
+
+      let leads = deduplicateLeads(rawLeads.map((l: any) => ({
+        id: l.id,
+        name: l.name,
+        company: l.company || '',
+        email: l.email || '',
+        phone: l.phone || '',
+        status: l.status || 'New',
+        score: Number(l.score) || 0,
+        owner: l.owner || '',
+        customValues: l.customValues || {},
+        activities: l.activities || [],
+        createdAt: l.createdAt ? l.createdAt.toISOString() : undefined,
+        updatedAt: l.updatedAt ? l.updatedAt.toISOString() : undefined
+      })));
+
+      let userTasks = tasks.map((t: any) => ({
+        id: t.id,
+        title: t.title,
+        description: t.description || '',
+        dueDate: t.dueDate ? (typeof t.dueDate === 'string' ? t.dueDate : t.dueDate.toISOString().split('T')[0]) : '',
+        priority: t.priority || 'Medium',
+        status: t.status || 'Open',
+        category: t.category || 'General',
+        assignee: t.assignee || '',
+        linkedTo: t.linkedTo || '',
+        createdAt: t.createdAt ? t.createdAt.toISOString() : undefined,
+        updatedAt: t.updatedAt ? t.updatedAt.toISOString() : undefined
+      }));
+
+      let pCompanies = companies.map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        industry: c.industry || '',
+        website: c.website || '',
+        city: c.city || '',
+        state: c.state || '',
+        address: c.address || '',
+        contactsCount: Number(c.contactsCount) || 0,
+        totalDealValue: Number(c.totalDealValue) || 0,
+        createdAt: c.createdAt ? c.createdAt.toISOString() : undefined,
+        updatedAt: c.updatedAt ? c.updatedAt.toISOString() : undefined
+      }));
+
+      let pQuotes = quotes.map((q: any) => ({
+        id: q.id,
+        dealId: q.dealId || '',
+        company: q.company || '',
+        contact: q.contact || '',
+        items: q.items || [],
+        gstType: q.gstType || 'intra',
+        status: q.status || 'Draft',
+        totalAmount: Number(q.totalAmount) || 0,
+        createdAt: q.createdAt ? q.createdAt.toISOString() : undefined,
+        termsAndConditions: q.termsAndConditions || ''
+      }));
+
+      let pAudit = auditLogs.map((a: any) => ({
+        id: a.id,
+        user: a.user,
+        action: a.action,
+        entity: a.entity,
+        timestamp: a.timestamp ? (typeof a.timestamp === 'string' ? a.timestamp : a.timestamp.toISOString()) : new Date().toISOString(),
+        beforeState: a.beforeState || '',
+        afterState: a.afterState || ''
+      }));
 
       if (isSalesRole && (activeName || activeEmail)) {
         leads = leads.filter(l => {
-          const o = (l.owner || '').toLowerCase();
-          return o === activeName || o === activeEmail;
+          const o = (l.owner || '').trim().toLowerCase();
+          return o === activeName || o === activeEmail || (activeName && (o.includes(activeName) || activeName.includes(o)));
         });
         deals = deals.filter(d => {
-          const o = (d.owner || '').toLowerCase();
-          return o === activeName || o === activeEmail;
+          const o = (d.owner || '').trim().toLowerCase();
+          return o === activeName || o === activeEmail || (activeName && (o.includes(activeName) || activeName.includes(o)));
         });
         userTasks = userTasks.filter(t => {
-          const a = (t.assignee || '').toLowerCase();
-          return a === activeName || a === activeEmail;
+          const a = (t.assignee || '').trim().toLowerCase();
+          return a === activeName || a === activeEmail || (activeName && (a.includes(activeName) || activeName.includes(a)));
         });
         const activeDealCompanies = new Set(deals.map(d => (d.company || '').toLowerCase()));
         const activeLeadCompanies = new Set(leads.map(l => (l.company || '').toLowerCase()));
@@ -236,8 +311,8 @@ export async function fetchCrmInitialState(userEmail?: string, userFullName?: st
         const activeDealIds = new Set(deals.map(d => d.id));
         pQuotes = pQuotes.filter(q => activeDealIds.has(q.dealId));
         pAudit = pAudit.filter(a => {
-          const u = (a.user || '').toLowerCase();
-          return u === activeName || u === activeEmail;
+          const u = (a.user || '').trim().toLowerCase();
+          return u === activeName || u === activeEmail || (activeName && (u.includes(activeName) || activeName.includes(u)));
         });
       }
 
@@ -471,15 +546,30 @@ export async function createDealAction(deal: any) {
         name: name,
         company: company || null,
         value: Number(deal.value) || 0,
-        probability: deal.probability || 0,
+        probability: Number(deal.probability) || 0,
         stage: normalizedStage,
         owner: deal.owner || null,
         expectedClose: deal.expectedClose || null,
         lostReason: deal.lostReason || null,
-        daysInStage: deal.daysInStage || 0
+        daysInStage: Number(deal.daysInStage) || 0
       }
     });
-    return { success: true, data: { ...created, stage: normalizeDealStage(created.stage || undefined) } };
+    return {
+      success: true,
+      data: {
+        id: created.id,
+        name: created.name,
+        company: created.company || '',
+        value: Number(created.value) || 0,
+        probability: Number(created.probability) || 0,
+        stage: normalizeDealStage(created.stage || undefined),
+        owner: created.owner || '',
+        expectedClose: created.expectedClose ? (typeof created.expectedClose === 'string' ? created.expectedClose : created.expectedClose.toISOString().split('T')[0]) : '',
+        lostReason: created.lostReason || undefined,
+        daysInStage: Number(created.daysInStage) || 0,
+        createdAt: created.createdAt ? created.createdAt.toISOString() : undefined
+      }
+    };
   } catch (err: any) {
     // If Prisma fails, try inserting to Supabase directly
     try {
@@ -488,15 +578,31 @@ export async function createDealAction(deal: any) {
         name: (deal.name || '').trim(),
         company: (deal.company || '').trim() || null,
         value: Number(deal.value) || 0,
-        probability: deal.probability || 0,
+        probability: Number(deal.probability) || 0,
         stage: normalizedStage,
         owner: deal.owner || null,
         expected_close: deal.expectedClose || null,
         lost_reason: deal.lostReason || null,
-        days_in_stage: deal.daysInStage || 0
+        days_in_stage: Number(deal.daysInStage) || 0
       }]).select().single();
       if (!sErr && sCreated) {
-        return { success: true, data: { ...sCreated, stage: normalizeDealStage(sCreated.stage) } };
+        return {
+          success: true,
+          data: {
+            id: sCreated.id,
+            name: sCreated.name,
+            company: sCreated.company || '',
+            value: Number(sCreated.value) || 0,
+            probability: Number(sCreated.probability) || 0,
+            stage: normalizeDealStage(sCreated.stage),
+            owner: sCreated.owner || '',
+            expectedClose: sCreated.expected_close || '',
+            lostReason: sCreated.lost_reason || undefined,
+            daysInStage: Number(sCreated.days_in_stage) || 0,
+            createdAt: sCreated.created_at,
+            updatedAt: sCreated.updated_at
+          }
+        };
       }
     } catch (sEx) {
       console.error('Supabase direct insert failed:', sEx);
@@ -524,7 +630,22 @@ export async function updateDealAction(id: string, updates: any) {
       where: { id },
       data: pData
     });
-    return { success: true, data: { ...updated, stage: normalizeDealStage(updated.stage || undefined) } };
+    return {
+      success: true,
+      data: {
+        id: updated.id,
+        name: updated.name,
+        company: updated.company || '',
+        value: Number(updated.value) || 0,
+        probability: Number(updated.probability) || 0,
+        stage: normalizeDealStage(updated.stage || undefined),
+        owner: updated.owner || '',
+        expectedClose: updated.expectedClose ? (typeof updated.expectedClose === 'string' ? updated.expectedClose : updated.expectedClose.toISOString().split('T')[0]) : '',
+        lostReason: updated.lostReason || undefined,
+        daysInStage: Number(updated.daysInStage) || 0,
+        createdAt: updated.createdAt ? updated.createdAt.toISOString() : undefined
+      }
+    };
   } catch (pErr) {
     console.warn('Prisma updateDealAction fallback to Supabase:', pErr);
   }
@@ -750,11 +871,25 @@ export async function createCompanyAction(company: any) {
           city: company.city || null,
           state: company.state || null,
           address: company.address || null,
-          contactsCount: company.contactsCount || 0,
-          totalDealValue: company.totalDealValue || 0
+          contactsCount: Number(company.contactsCount) || 0,
+          totalDealValue: Number(company.totalDealValue) || 0
         }
       });
-      return { success: true, data: created };
+      return {
+        success: true,
+        data: {
+          id: created.id,
+          name: created.name,
+          industry: created.industry || '',
+          website: created.website || '',
+          city: created.city || '',
+          state: created.state || '',
+          address: created.address || '',
+          contactsCount: Number(created.contactsCount) || 0,
+          totalDealValue: Number(created.totalDealValue) || 0,
+          createdAt: created.createdAt ? created.createdAt.toISOString() : undefined
+        }
+      };
     } catch (pEx) {
       console.warn('Prisma createCompanyAction warning:', pEx);
     }
@@ -817,7 +952,7 @@ export async function createQuoteAction(quote: any) {
             gstType: sCreated.gst_type,
             items: sCreated.items,
             status: sCreated.status,
-            totalAmount: sCreated.total_amount,
+            totalAmount: Number(sCreated.total_amount) || 0,
             termsAndConditions: sCreated.terms_and_conditions,
             createdAt: sCreated.created_at
           }
@@ -841,7 +976,21 @@ export async function createQuoteAction(quote: any) {
           termsAndConditions: quote.termsAndConditions || null
         }
       });
-      return { success: true, data: created };
+      return {
+        success: true,
+        data: {
+          id: created.id,
+          dealId: created.dealId || '',
+          company: created.company,
+          contact: created.contact || '',
+          gstType: created.gstType || 'intra',
+          items: created.items || [],
+          status: created.status || 'Draft',
+          totalAmount: Number(created.totalAmount) || 0,
+          termsAndConditions: created.termsAndConditions || '',
+          createdAt: created.createdAt ? created.createdAt.toISOString() : undefined
+        }
+      };
     } catch (pEx) {
       console.warn('Prisma createQuoteAction warning:', pEx);
     }
@@ -1062,7 +1211,7 @@ export async function scanVisitingCardVisionAction(imageDataBase64: string) {
 
     const base64Data = imageDataBase64.replace(/^data:image\/\w+;base64,/, '');
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1099,7 +1248,7 @@ export async function scanVisitingCardVisionAction(imageDataBase64: string) {
 
     const data = await response.json();
     const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const cleanJson = candidateText.replace(/```json/g, '').replace(/```/g, '').trim();
+    const cleanJson = candidateText.replace(/```json/gi, '').replace(/```/g, '').trim();
     const parsed = JSON.parse(cleanJson);
 
     return {

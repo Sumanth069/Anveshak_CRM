@@ -180,6 +180,63 @@ const ScanIcon = () => (
 const CameraIcon = () => (
   <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H3a2 2 0 01-2-2V9z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
 );
+const ZapIcon = ({ size = 16, color = "currentColor" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+);
+const ShieldIcon = ({ size = 16, color = "currentColor" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+);
+const BriefcaseIcon = ({ size = 16, color = "currentColor" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+);
+const TrendingUpIcon = ({ size = 16, color = "currentColor" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+);
+const UserIcon = ({ size = 16, color = "currentColor" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+);
+const BuildingIcon = ({ size = 16, color = "currentColor" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5m0 0h4m-4 0V11m0 10V11m4 10V11m-4 0h4M7 7h.01M7 11h.01M7 15h.01M17 7h.01M17 11h.01M17 15h.01"/></svg>
+);
+const MapPinIcon = ({ size = 16, color = "currentColor" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+);
+const MailIcon = ({ size = 16, color = "currentColor" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+);
+const PhoneIcon = ({ size = 16, color = "currentColor" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+);
+const TrashIcon = ({ size = 14, color = "currentColor" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+);
+const EditIcon = ({ size = 14, color = "currentColor" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+);
+const LockIcon = ({ size = 16, color = "currentColor" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+);
+const SaveIcon = ({ size = 16, color = "currentColor" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
+);
+const FileTextIcon = ({ size = 16, color = "currentColor" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+);
+const SearchIcon = ({ size = 15, color = "currentColor" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+);
+const RefreshCwIcon = ({ size = 15, color = "currentColor" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+);
+const AlertTriangleIcon = ({ size = 16, color = "currentColor" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+);
+const CheckCircleIcon = ({ size = 16, color = "currentColor" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+);
+const MessageSquareIcon = ({ size = 16, color = "currentColor" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+);
 
 // Empty baseline arrays — exclusively populated from PostgreSQL Database
 const initialLeads: Lead[] = [];
@@ -2280,7 +2337,7 @@ export default function App() {
       d.name.trim().toLowerCase().includes(targetComp)
     );
     if (existing) {
-      triggerToast(`⚠️ Deal already exists in pipeline: "${existing.name}" (${existing.stage})`, 'warning');
+      triggerToast(`Deal already exists in pipeline: "${existing.name}" (${existing.stage})`, 'warning');
       navigateTab('kanban');
       setSelectedDealDetail(existing);
       return;
@@ -2512,11 +2569,10 @@ export default function App() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: '32px',
           boxShadow: '0 10px 25px -5px rgba(99, 102, 241, 0.5)',
           animation: 'pulse 1.5s infinite ease-in-out'
         }}>
-          ⚡
+          <ZapIcon size={32} color="#ffffff" />
         </div>
         <h2 style={{ marginTop: '20px', fontSize: '18px', fontWeight: '700', letterSpacing: '-0.02em', color: '#e2e8f0' }}>
           Anveshak Enterprise CRM
@@ -2555,20 +2611,18 @@ export default function App() {
           {/* Logo & Header */}
           <div style={{ textAlign: 'center', marginBottom: '24px' }}>
             <div style={{
-              width: '54px',
-              height: '54px',
-              borderRadius: '16px',
-              background: 'linear-gradient(135deg, #6366f1, #3b82f6)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '26px',
-              fontWeight: 'bold',
-              boxShadow: '0 10px 25px -5px rgba(99, 102, 241, 0.4)',
-              marginBottom: '14px'
-            }}>
-              ⚡
-            </div>
+          width: '64px',
+          height: '64px',
+          borderRadius: '20px',
+          background: 'linear-gradient(135deg, #6366f1, #3b82f6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 10px 25px -5px rgba(99, 102, 241, 0.5)',
+          animation: 'pulse 1.5s infinite ease-in-out'
+        }}>
+          <ZapIcon size={32} color="#ffffff" />
+        </div>
             <h1 style={{ fontSize: '22px', fontWeight: '700', letterSpacing: '-0.02em', marginBottom: '6px' }}>
               Anveshak CRM Portal
             </h1>
@@ -2649,7 +2703,7 @@ export default function App() {
                 }
               }}
             >
-              ⚠️ {loginError}
+              {loginError}
               {loginError.includes('Create Account') && (
                 <div style={{ marginTop: '6px', fontWeight: '700', color: '#60a5fa', textDecoration: 'underline' }}>
                   Click here to Create Account →
@@ -2982,15 +3036,14 @@ export default function App() {
           width: '64px',
           height: '64px',
           borderRadius: '20px',
-          background: 'linear-gradient(135deg, #10b981, #059669)',
+          background: 'linear-gradient(135deg, #6366f1, #3b82f6)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: '30px',
-          boxShadow: '0 10px 25px -5px rgba(16, 185, 129, 0.4)',
+          boxShadow: '0 10px 25px -5px rgba(99, 102, 241, 0.5)',
           animation: 'pulse 1.5s infinite ease-in-out'
         }}>
-          ⚡
+          <ZapIcon size={32} color="#ffffff" />
         </div>
         <h2 style={{ marginTop: '20px', fontSize: '18px', fontWeight: '700', letterSpacing: '-0.02em', color: '#e2e8f0' }}>
           Loading Workspace for {currentUser.fullName || currentUser.email}...
@@ -3219,7 +3272,7 @@ export default function App() {
                   <h2>
                     {currentUser?.role === 'ADMIN' 
                       ? `Enterprise Command Center • ${currentAgentName}` 
-                      : `Sales Workspace • Hello, ${currentAgentName.split(' ')[0]} 👋`}
+                      : `Sales Workspace • Hello, ${currentAgentName.split(' ')[0]} `}
                   </h2>
                   <p>
                     {currentUser?.role === 'ADMIN' 
@@ -3235,7 +3288,7 @@ export default function App() {
                     borderColor: currentUser?.role === 'ADMIN' ? '#fcd34d' : '#bfdbfe'
                   }}
                 >
-                  {currentUser?.role === 'ADMIN' ? '👑 Administrator View • Global Metrics' : '💼 Sales Rep Mode • Personal Workspace'}
+                  {currentUser?.role === 'ADMIN' ? 'Administrator View • Global Metrics' : 'Sales Rep Mode • Personal Workspace'}
                 </div>
               </div>
 
@@ -3250,14 +3303,14 @@ export default function App() {
                   color: '#fff'
                 }}>
                   <h3 style={{ fontSize: '17px', fontWeight: '700', marginBottom: '8px', color: '#60a5fa' }}>
-                    🚀 Welcome to your Personal Sales Workspace, {currentAgentName.split(' ')[0]}!
+                    Welcome to your Personal Sales Workspace, {currentAgentName.split(' ')[0]}!
                   </h3>
                   <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '16px', lineHeight: '1.5' }}>
                     Your workspace is active and isolated. Start by adding contacts, creating deals, or managing your tasks.
                   </p>
                   <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                     <button className="btn btn-primary" onClick={() => navigateTab('contacts')}>
-                      📇 Go to My Contacts
+                      Go to My Contacts
                     </button>
                     <button className="btn btn-secondary" style={{ color: '#fff', borderColor: '#475569', backgroundColor: '#1e293b' }} onClick={() => setShowLeadModal(true)}>
                       + Create New Deal
@@ -3599,7 +3652,7 @@ export default function App() {
                     }} 
                     onClick={() => setShowExcelImportModal(true)}
                   >
-                    📥 Import Excel
+                    Import Excel
                   </button>
 
                   <button 
@@ -3686,7 +3739,7 @@ export default function App() {
                       triggerToast('Exported contacts to CSV file!', 'success');
                     }}
                   >
-                    📤 CSV
+                    CSV
                   </button>
                 </div>
               </div>
@@ -3715,7 +3768,7 @@ export default function App() {
               <div className="mobile-only-cards">
                 {filteredContacts.length === 0 ? (
                   <div className="panel-card" style={{ textAlign: 'center', padding: '36px 16px', color: '#64748b' }}>
-                    <div style={{ fontSize: '28px', marginBottom: '8px' }}>🔍</div>
+                    
                     <p style={{ margin: '0 0 6px', fontWeight: '700', color: 'var(--text-main)' }}>No matching contacts found</p>
                     <p style={{ margin: 0, fontSize: '12px' }}>Try adjusting your filters or tap "+ Manual Add" above.</p>
                   </div>
@@ -3787,7 +3840,7 @@ export default function App() {
                         {/* Middle: Phone, Email, Provenance */}
                         <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '8px 10px', fontSize: '11.5px', display: 'flex', flexDirection: 'column', gap: '4px', border: '1px solid var(--border-subtle)' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ color: 'var(--text-muted)' }}>📞 Phone:</span>
+                            <span style={{ color: 'var(--text-muted)' }}>Phone:</span>
                             {rawPhone ? (
                               <a href={`tel:${rawPhone}`} style={{ fontWeight: '700', color: '#1e40af', textDecoration: 'none' }}>
                                 {normPhone.isValid ? normPhone.display : rawPhone}
@@ -3798,7 +3851,7 @@ export default function App() {
                           </div>
                           {cnt.email && (
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <span style={{ color: 'var(--text-muted)' }}>✉️ Email:</span>
+                              <span style={{ color: 'var(--text-muted)' }}>Email:</span>
                               <a href={`mailto:${cnt.email}`} style={{ color: '#475569', textDecoration: 'none', maxWidth: '210px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {cnt.email}
                               </a>
@@ -3817,14 +3870,14 @@ export default function App() {
                             style={{ backgroundColor: '#10b981', borderColor: '#10b981', color: '#fff', fontSize: '11.5px', padding: '6px 8px', justifyContent: 'center', minHeight: '34px' }}
                             onClick={() => setShowQuickCommContact(cnt)}
                           >
-                            💬 Contact
+                            Contact
                           </button>
                           <button
                             className="btn btn-secondary"
                             style={{ fontSize: '11.5px', padding: '6px 8px', justifyContent: 'center', minHeight: '34px' }}
                             onClick={() => setSelectedContactFor360(cnt.id)}
                           >
-                            🔍 360° Profile
+                            360° Profile
                           </button>
                         </div>
 
@@ -3904,9 +3957,7 @@ export default function App() {
                                 }
                               }
                             }}
-                          >
-                            🗑️
-                          </button>
+                          ><TrashIcon size={13} color="#dc2626" /></button>
                         </div>
                       </div>
                     );
@@ -3932,7 +3983,7 @@ export default function App() {
                     {filteredContacts.length === 0 ? (
                       <tr>
                         <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
-                          <div style={{ fontSize: '28px', marginBottom: '8px' }}>🔍</div>
+                          
                           <p style={{ margin: '0 0 8px', fontWeight: '600' }}>No matching contacts found</p>
                           <p style={{ margin: 0, fontSize: '12px' }}>Try clearing filters or add a new contact above.</p>
                         </td>
@@ -4060,7 +4111,7 @@ export default function App() {
                                   title="Quick WhatsApp / Call / Email"
                                   onClick={() => setShowQuickCommContact(cnt)}
                                 >
-                                  💬 Contact
+                                  Contact
                                 </button>
 
                                 {/* 360 Profile Trigger */}
@@ -4185,7 +4236,7 @@ export default function App() {
                 <div style={{ flex: 1, minWidth: '180px' }}>
                   <input 
                     type="text" 
-                    placeholder="🔍 Search leads by name, email, phone or company..." 
+                    placeholder="Search leads by name, email, phone or company..." 
                     value={searchQuery} 
                     onChange={(e) => setSearchQuery(e.target.value)} 
                     style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '13px', background: '#f8fafc' }}
@@ -4234,14 +4285,14 @@ export default function App() {
               {selectedContactIds.length > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', padding: '10px 16px', borderRadius: '8px', marginBottom: '16px' }} className="animate-fade">
                   <div style={{ fontSize: '13px', color: '#1e40af', fontWeight: 'bold' }}>
-                    📎 {selectedContactIds.length} Contact(s) Selected
+                    {selectedContactIds.length} Contact(s) Selected
                   </div>
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setShowBulkReassignModal(true)}>
-                      👤 Reassign Owner
+                      Reassign Owner
                     </button>
                     <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setShowBulkTagModal(true)}>
-                      🏷️ Bulk Tag
+                      Bulk Tag
                     </button>
                     <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', color: '#dc2626' }} onClick={() => setSelectedContactIds([])}>
                       Clear Selection
@@ -4273,7 +4324,7 @@ export default function App() {
                     margin: '0 auto 16px auto',
                     boxShadow: '0 4px 12px rgba(30, 64, 175, 0.1)'
                   }}>
-                    👥
+                    
                   </div>
                   <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginBottom: '6px' }}>
                     No Leads in Queue
@@ -4294,7 +4345,7 @@ export default function App() {
                       style={{ padding: '10px 18px', fontSize: '13px', backgroundColor: '#f8fafc' }}
                       onClick={() => navigateTab('contacts')}
                     >
-                      📇 Browse Contacts Directory
+                      Browse Contacts Directory
                     </button>
                   </div>
                 </div>
@@ -4345,7 +4396,7 @@ export default function App() {
                             color: contact.score >= 61 ? '#dc2626' : contact.score >= 31 ? '#b45309' : '#475569',
                             border: `1px solid ${contact.score >= 61 ? '#fca5a5' : contact.score >= 31 ? '#fde68a' : '#cbd5e1'}`
                           }}>
-                            {contact.score >= 61 ? '🔥 HOT' : contact.score >= 31 ? '⚡ WARM' : '❄️ COLD'} ({contact.score})
+                            {contact.score >= 61 ? 'HOT' : contact.score >= 31 ? 'WARM' : 'COLD'} ({contact.score})
                           </span>
                         </div>
 
@@ -4382,7 +4433,7 @@ export default function App() {
                           marginTop: '2px',
                           textAlign: 'center'
                         }}>
-                          🏢 {contact.company}
+                          {contact.company}
                         </div>
                         
                         <div style={{
@@ -4397,7 +4448,7 @@ export default function App() {
                           alignItems: 'center',
                           gap: '4px'
                         }}>
-                          <span>👤</span> Owner: <strong style={{ color: '#1e293b' }}>{contact.owner}</strong>
+                           Owner: <strong style={{ color: '#1e293b' }}>{contact.owner}</strong>
                         </div>
 
                         {contact.tags && contact.tags.length > 0 && (
@@ -4427,7 +4478,7 @@ export default function App() {
                               onClick={() => openEmailComposer(contact.name, contact.email)}
                               title={`Email ${contact.name}`}
                             >
-                              ✉️ Email
+                              Email
                             </button>
                             
                             <button 
@@ -4449,7 +4500,7 @@ export default function App() {
                               onClick={() => openWhatsAppModalForContact(contact.name, contact.phone)}
                               title={`WhatsApp ${contact.name}`}
                             >
-                              💬 Chat
+                              Chat
                             </button>
                             
                             <button 
@@ -4468,7 +4519,7 @@ export default function App() {
                               onClick={() => startVoIPCall(contact.name, contact.phone)}
                               title={`Call ${contact.name}`}
                             >
-                              📞 Call
+                              Call
                             </button>
                           </div>
 
@@ -4539,7 +4590,7 @@ export default function App() {
                                   setShowConvertLeadModal(true);
                                 }}
                               >
-                                ⚡ Convert to Deal →
+                                Convert to Deal →
                               </button>
                             );
                           })()}
@@ -4652,9 +4703,7 @@ export default function App() {
                                     style={{ padding: '4px 8px', fontSize: '11px', color: '#dc2626', borderColor: '#fca5a5' }} 
                                     onClick={() => handleDeleteLead(lead.id)}
                                     title="Delete Lead Record"
-                                  >
-                                    🗑️
-                                  </button>
+                                  ><TrashIcon size={13} color="#dc2626" /></button>
                                 </div>
                               </td>
                             </tr>
@@ -4720,7 +4769,7 @@ export default function App() {
                     margin: '0 auto 16px auto',
                     boxShadow: '0 4px 12px rgba(30, 64, 175, 0.1)'
                   }}>
-                    🏢
+                    
                   </div>
                   <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginBottom: '6px' }}>
                     No Company Accounts Linked
@@ -4741,7 +4790,7 @@ export default function App() {
                       style={{ padding: '10px 18px', fontSize: '13px', backgroundColor: '#f8fafc' }}
                       onClick={() => navigateTab('contacts')}
                     >
-                      📇 Scan / Import Contacts
+                      Scan / Import Contacts
                     </button>
                   </div>
                 </div>
@@ -4760,7 +4809,7 @@ export default function App() {
                       <div className="contact-company" style={{ color: '#d49b38', fontWeight: '600' }}>{comp.industry}</div>
                       
                       <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        📍 {comp.address}
+                        {comp.address}
                       </div>
 
                       <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '16px', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11.5px' }}>
@@ -4783,9 +4832,7 @@ export default function App() {
                           style={{ padding: '4px 8px', fontSize: '11px', color: '#dc2626', borderColor: '#fca5a5' }} 
                           onClick={() => handleDeleteCompany(comp.id)}
                           title="Delete Company Account"
-                        >
-                          🗑️
-                        </button>
+                        ><TrashIcon size={13} color="#dc2626" /></button>
                       </div>
                     </div>
                   ))}
@@ -4810,7 +4857,7 @@ export default function App() {
                           <tr key={comp.id}>
                             <td style={{ fontWeight: '700', color: '#1e40af' }}>{comp.name}</td>
                             <td>{comp.industry}</td>
-                            <td style={{ fontSize: '12px' }}>📍 {comp.address}, {comp.city}, {comp.state}</td>
+                            <td style={{ fontSize: '12px' }}>{comp.address}, {comp.city}, {comp.state}</td>
                             <td style={{ fontWeight: 'bold' }}>{comp.contactsCount} Contacts</td>
                             <td style={{ fontWeight: 'bold', color: '#10b981' }}>{formatCurrency(comp.totalDealValue)}</td>
                             <td>
@@ -4827,9 +4874,7 @@ export default function App() {
                                   style={{ padding: '4px 8px', fontSize: '11px', color: '#dc2626', borderColor: '#fca5a5' }} 
                                   onClick={() => handleDeleteCompany(comp.id)}
                                   title="Delete Company Account"
-                                >
-                                  🗑️
-                                </button>
+                                ><TrashIcon size={13} color="#dc2626" /></button>
                               </div>
                             </td>
                           </tr>
@@ -4919,7 +4964,7 @@ export default function App() {
                         onClick={() => setTaskWorkspaceMode('my')}
                         style={{ padding: '6px 12px', fontSize: '12px' }}
                       >
-                        👤 My Tasks ({tasks.filter(t => isUserTask(t.assignee)).length})
+                        My Tasks ({tasks.filter(t => isUserTask(t.assignee)).length})
                       </button>
                       
                       {currentRole !== 'Sales Rep' && (
@@ -4928,7 +4973,7 @@ export default function App() {
                           onClick={() => setTaskWorkspaceMode('team')}
                           style={{ padding: '6px 12px', fontSize: '12px' }}
                         >
-                          👥 Team Tasks ({tasks.length})
+                          Team Tasks ({tasks.length})
                         </button>
                       )}
                     </div>
@@ -4984,7 +5029,7 @@ export default function App() {
                           checked={taskOverdueFilter} 
                           onChange={(e) => setTaskOverdueFilter(e.target.checked)} 
                         />
-                        <span style={{ color: 'var(--danger)', fontWeight: 'bold' }}>⚠️ Overdue Only</span>
+                        <span style={{ color: 'var(--danger)', fontWeight: 'bold' }}>Overdue Only</span>
                       </label>
                     </div>
 
@@ -5025,7 +5070,7 @@ export default function App() {
                                   <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>{t.description}</div>
                                 </td>
                                 <td style={{ fontSize: '12px', fontWeight: '500' }}>
-                                  {t.linkedTo ? `🔗 ${t.linkedTo}` : '—'}
+                                  {t.linkedTo ? `${t.linkedTo}` : '—'}
                                 </td>
                                 <td style={{ color: isOverdue ? 'var(--danger)' : '#334155', fontWeight: isOverdue ? 'bold' : 'normal', fontSize: '12px' }}>
                                   {t.dueDate} {isOverdue && <span style={{ fontSize: '10px', color: 'var(--danger)', background: '#fee2e2', padding: '2px 6px', borderRadius: '4px', marginLeft: '6px' }}>OVERDUE</span>}
@@ -5046,7 +5091,7 @@ export default function App() {
                                       }
                                     }}
                                   >
-                                    🗑️ Delete
+                                    Delete
                                   </button>
                                 </td>
                               </tr>
@@ -5101,10 +5146,10 @@ export default function App() {
 
                           <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '8px 10px', fontSize: '11.5px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid var(--border-subtle)' }}>
                             <span style={{ color: 'var(--text-muted)' }}>
-                              {t.linkedTo ? `🔗 ${t.linkedTo}` : `👤 ${t.assignee}`}
+                              {t.linkedTo ? `${t.linkedTo}` : `${t.assignee}`}
                             </span>
                             <span style={{ color: isOverdue ? 'var(--danger)' : '#334155', fontWeight: isOverdue ? 'bold' : '600', fontSize: '11px' }}>
-                              📅 {t.dueDate} {isOverdue && <span style={{ fontSize: '9.5px', color: 'var(--danger)', background: '#fee2e2', padding: '2px 5px', borderRadius: '4px', marginLeft: '4px' }}>OVERDUE</span>}
+                              {t.dueDate} {isOverdue && <span style={{ fontSize: '9.5px', color: 'var(--danger)', background: '#fee2e2', padding: '2px 5px', borderRadius: '4px', marginLeft: '4px' }}>OVERDUE</span>}
                             </span>
                           </div>
 
@@ -5118,7 +5163,7 @@ export default function App() {
                                 }
                               }}
                             >
-                              🗑️ Delete Task
+                              Delete Task
                             </button>
                           </div>
                         </div>
@@ -5126,7 +5171,7 @@ export default function App() {
                     })}
                     {displayTasks.length === 0 && (
                       <div className="panel-card" style={{ textAlign: 'center', padding: '28px 16px', color: '#64748b' }}>
-                        <div style={{ fontSize: '24px', marginBottom: '6px' }}>📋</div>
+                        
                         <p style={{ margin: 0, fontWeight: '600', fontSize: '12.5px' }}>No tasks match the active filters.</p>
                       </div>
                     )}
@@ -5167,7 +5212,7 @@ export default function App() {
                       style={{ background: '#eff6ff', color: '#1e40af', borderLeft: '3px solid #3b82f6', fontSize: '9.5px', padding: '2px 4px', borderRadius: '3px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} 
                       title={`Task: ${t.title}`}
                     >
-                      📋 {t.title}
+                      {t.title}
                     </div>
                   ))}
                   {dayDeals.map(d => (
@@ -5176,7 +5221,7 @@ export default function App() {
                       style={{ background: '#ecfdf5', color: '#065f46', borderLeft: '3px solid #10b981', fontSize: '9.5px', padding: '2px 4px', borderRadius: '3px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}
                       title={`Deal: ${d.name} (${formatCurrency(d.value)})`}
                     >
-                      💼 {d.company} ({formatCurrency(d.value)})
+                      {d.company} ({formatCurrency(d.value)})
                     </div>
                   ))}
                   {dayActs.map(a => (
@@ -5185,7 +5230,7 @@ export default function App() {
                       style={{ background: '#fffbeb', color: '#92400e', borderLeft: '3px solid #f59e0b', fontSize: '9.5px', padding: '2px 4px', borderRadius: '3px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}
                       title={`Activity: ${a.type} with ${a.entityName}`}
                     >
-                      📞 {a.type}
+                      {a.type}
                     </div>
                   ))}
                 </div>
@@ -5336,7 +5381,7 @@ export default function App() {
                     <div className="panel-card animate-fade" style={{ padding: '20px', borderLeft: '4px solid #d49b38' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', marginBottom: '16px' }}>
                         <h3 style={{ fontSize: '14px', fontWeight: '800', margin: 0 }}>
-                          📅 Inspect Day: {calendarMonth} {selectedCalendarDay}, 2026
+                          Inspect Day: {calendarMonth} {selectedCalendarDay}, 2026
                         </h3>
                         <button 
                           className="btn btn-secondary" 
@@ -5349,7 +5394,7 @@ export default function App() {
 
                       <div style={{ marginBottom: '16px' }}>
                         <h4 style={{ fontSize: '12px', fontWeight: 'bold', color: '#1e40af', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span>📋</span> Tasks Scheduled ({inspectedTasks.length})
+                           Tasks Scheduled ({inspectedTasks.length})
                         </h4>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                           {inspectedTasks.map(t => (
@@ -5364,7 +5409,7 @@ export default function App() {
                                 <div style={{ fontSize: '12.5px', fontWeight: '700', textDecoration: t.status === 'Completed' ? 'line-through' : 'none' }}>{t.title}</div>
                                 <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t.description}</div>
                                 <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
-                                  <span className="badge badge-secondary" style={{ fontSize: '9px' }}>👤 {t.assignee}</span>
+                                  <span className="badge badge-secondary" style={{ fontSize: '9px' }}>{t.assignee}</span>
                                   <span className={`badge ${t.priority === 'High' ? 'badge-hot' : t.priority === 'Medium' ? 'badge-warm' : 'badge-cold'}`} style={{ fontSize: '9px' }}>{t.priority}</span>
                                 </div>
                               </div>
@@ -5376,13 +5421,13 @@ export default function App() {
 
                       <div style={{ marginBottom: '16px' }}>
                         <h4 style={{ fontSize: '12px', fontWeight: 'bold', color: '#065f46', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span>💼</span> Expected Pipeline Closures ({inspectedDeals.length})
+                           Expected Pipeline Closures ({inspectedDeals.length})
                         </h4>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                           {inspectedDeals.map(d => (
                             <div key={d.id} style={{ background: '#ecfdf5', padding: '10px', borderRadius: '6px', border: '1px solid #a7f3d0' }}>
                               <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#065f46' }}>{d.name}</div>
-                              <div style={{ fontSize: '11px', color: '#047857', marginTop: '2px' }}>🏢 {d.company}</div>
+                              <div style={{ fontSize: '11px', color: '#047857', marginTop: '2px' }}>{d.company}</div>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
                                 <span style={{ fontSize: '13px', fontWeight: '800' }}>{formatCurrency(d.value)}</span>
                                 <span className="badge badge-secondary" style={{ fontSize: '9px', background: '#d1fae5', color: '#065f46' }}>Stage: {d.stage}</span>
@@ -5395,7 +5440,7 @@ export default function App() {
 
                       <div>
                         <h4 style={{ fontSize: '12px', fontWeight: 'bold', color: '#92400e', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span>📞</span> Activities Logged ({inspectedActs.length})
+                           Activities Logged ({inspectedActs.length})
                         </h4>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                           {inspectedActs.map(a => (
@@ -5514,7 +5559,7 @@ export default function App() {
 
                   <div className="metric-card">
                     <div className="metric-header">
-                      <span>👑 SYSTEM ADMINISTRATORS</span>
+                      <span>SYSTEM ADMINISTRATORS</span>
                       <span className="trend-badge" style={{ background: '#fef3c7', color: '#92400e' }}>Global</span>
                     </div>
                     <div className="metric-val">{totalAdmins} Admins</div>
@@ -5522,7 +5567,7 @@ export default function App() {
 
                   <div className="metric-card">
                     <div className="metric-header">
-                      <span>💼 SALES REPRESENTATIVES</span>
+                      <span>SALES REPRESENTATIVES</span>
                       <span className="trend-badge" style={{ background: '#eff6ff', color: '#1e40af' }}>Field</span>
                     </div>
                     <div className="metric-val">{totalReps} Reps</div>
@@ -5530,7 +5575,7 @@ export default function App() {
 
                   <div className="metric-card">
                     <div className="metric-header">
-                      <span>⚡ ACTIVE SESSIONS</span>
+                      <span>ACTIVE SESSIONS</span>
                       <span className="trend-badge" style={{ background: '#ecfdf5', color: '#047857' }}>{totalActive} Active</span>
                     </div>
                     <div className="metric-val">{totalManagers} Managers</div>
@@ -5543,7 +5588,7 @@ export default function App() {
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flex: 1, minWidth: '240px' }}>
                       <input
                         type="text"
-                        placeholder="🔍 Search users by name or email..."
+                        placeholder="Search users by name or email..."
                         value={userSearchFilter}
                         onChange={(e) => setUserSearchFilter(e.target.value)}
                         style={{
@@ -5668,13 +5713,13 @@ export default function App() {
                                         cursor: 'pointer'
                                       }}
                                     >
-                                      <option value="ADMIN">👑 Administrator</option>
-                                      <option value="MANAGER">📊 Sales Manager</option>
-                                      <option value="SALES_REP">💼 Sales Rep</option>
+                                      <option value="ADMIN">Administrator</option>
+                                      <option value="MANAGER">Sales Manager</option>
+                                      <option value="SALES_REP">Sales Rep</option>
                                     </select>
                                   ) : (
                                     <span className={`badge ${usr.role === 'ADMIN' ? 'badge-hot' : usr.role === 'MANAGER' ? 'badge-warm' : 'badge-cold'}`}>
-                                      {usr.role === 'ADMIN' ? '👑 Administrator' : usr.role === 'MANAGER' ? '📊 Manager' : '💼 Sales Rep'}
+                                      {usr.role === 'ADMIN' ? 'Administrator' : usr.role === 'MANAGER' ? 'Manager' : 'Sales Rep'}
                                     </span>
                                   )}
                                 </td>
@@ -5716,7 +5761,7 @@ export default function App() {
                                           setAdminNewPasswordInput('');
                                         }}
                                       >
-                                        🔄 Reset Password
+                                        Reset Password
                                       </button>
                                       <button 
                                         className="btn btn-secondary" 
@@ -5733,9 +5778,7 @@ export default function App() {
                                             }
                                           }
                                         }}
-                                      >
-                                        🗑️
-                                      </button>
+                                      ><TrashIcon size={13} color="#dc2626" /></button>
                                     </div>
                                   )}
                                 </td>
@@ -5899,7 +5942,7 @@ export default function App() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
                           <div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                              <strong style={{ fontSize: '14px', color: '#0f172a' }}>📦 {batch.fileName || 'Spreadsheet Import'}</strong>
+                              <strong style={{ fontSize: '14px', color: '#0f172a' }}>{batch.fileName || 'Spreadsheet Import'}</strong>
                               <span className="badge badge-cold" style={{ fontSize: '10px' }}>
                                 {batch.sourceType || 'Excel Import'}
                               </span>
@@ -6018,7 +6061,7 @@ export default function App() {
                                 style={{ padding: '2px 8px', fontSize: '11.5px', whiteSpace: 'nowrap' }}
                                 onClick={() => setSelectedAuditLogForDiff(log)}
                               >
-                                🔍 Compare Diff (Side-by-Side)
+                                Compare Diff (Side-by-Side)
                               </button>
                             </div>
                             
@@ -6107,9 +6150,9 @@ export default function App() {
                   if (data.customFields) setCustomFields(data.customFields);
                   if (data.termsTemplates) setTermsTemplates(data.termsTemplates);
                   if (data.auditLogs) setAuditLogs(data.auditLogs);
-                  alert('✅ CRM Database successfully restored from backup file!');
+                  alert('CRM Database successfully restored from backup file!');
                 } catch (err) {
-                  alert('❌ Failed to parse backup file. Please ensure it is a valid Anveshak CRM backup JSON.');
+                  alert('Failed to parse backup file. Please ensure it is a valid Anveshak CRM backup JSON.');
                 }
               };
               reader.readAsText(file);
@@ -6150,11 +6193,11 @@ export default function App() {
                   width: 'fit-content'
                 }}>
                   {[
-                    { id: 'profile', label: 'Executive Profile', icon: '👤' },
-                    { id: 'security', label: 'Security & Password', icon: '🔒' },
-                    { id: 'terms', label: 'Legal Clauses', icon: '📜' },
-                    { id: 'fields', label: 'Dynamic Fields', icon: '⚙️' },
-                    { id: 'backup', label: 'Backup & Export', icon: '💾' }
+                    { id: 'profile', label: 'Executive Profile', icon: '' },
+                    { id: 'security', label: 'Security & Password', icon: '' },
+                    { id: 'terms', label: 'Legal Clauses', icon: '' },
+                    { id: 'fields', label: 'Dynamic Fields', icon: '' },
+                    { id: 'backup', label: 'Backup & Export', icon: '' }
                   ].map(tab => (
                     <button 
                       key={tab.id}
@@ -6202,7 +6245,7 @@ export default function App() {
                 {settingsSubTab === 'security' && (
                   <div className="panel-card animate-fade" style={{ padding: '24px', maxWidth: '520px' }}>
                     <h3 style={{ fontSize: '16px', fontWeight: '800', marginBottom: '8px' }}>
-                      🔒 Change Account Password
+                      Change Account Password
                     </h3>
                     <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginBottom: '20px' }}>
                       Update your login password. Passwords must contain at least 6 characters.
@@ -6295,7 +6338,7 @@ export default function App() {
                 {/* SUBTAB 2: TERMS AND CONDITIONS */}
                 {settingsSubTab === 'terms' && (
                   <div className="panel-card animate-fade" style={{ padding: '24px' }}>
-                    <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '18px' }}>📜 Legal Clauses & Contract Terms</h3>
+                    <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '18px' }}>Legal Clauses & Contract Terms</h3>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {termsTemplates.map((template) => (
@@ -6315,7 +6358,7 @@ export default function App() {
                                 }
                               }}
                             >
-                              🗑️ Delete
+                              Delete
                             </button>
                           </div>
                           <textarea 
@@ -6348,7 +6391,7 @@ export default function App() {
                           };
                           setTermsTemplates([...termsTemplates, nextT]);
                           form.reset();
-                          alert('✅ Registered T&C Template!');
+                          alert('Registered T&C Template!');
                         }}
                         style={{ background: '#eff6ff', padding: '14px', borderRadius: '8px', border: '1px solid #bfdbfe', marginTop: '12px' }}
                       >
@@ -6370,7 +6413,7 @@ export default function App() {
                 {/* SUBTAB 3: DYNAMIC CUSTOM FIELDS */}
                 {settingsSubTab === 'fields' && (
                   <div className="panel-card animate-fade" style={{ padding: '24px' }}>
-                    <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '18px' }}>⚙️ Dynamic Custom Fields</h3>
+                    <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '18px' }}>Dynamic Custom Fields</h3>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                       <div>
@@ -6408,7 +6451,7 @@ export default function App() {
                           };
                           setCustomFields([...customFields, nextF]);
                           setCustomFieldLabel('');
-                          alert(`✅ Dynamic field "${customFieldLabel}" successfully registered!`);
+                          alert(`Dynamic field "${customFieldLabel}" successfully registered!`);
                         }}
                         style={{ padding: '16px', border: '1px solid var(--border-color)', borderRadius: '8px', background: '#f8fafc' }}
                       >
@@ -6434,7 +6477,7 @@ export default function App() {
                 {/* SUBTAB 4: DATA BACKUP & EXPORT */}
                 {settingsSubTab === 'backup' && (
                   <div className="panel-card animate-fade" style={{ padding: '24px' }}>
-                    <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '18px' }}>💾 Database Backup & Export</h3>
+                    <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '18px' }}>Database Backup & Export</h3>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
                       <div style={{ borderRight: '1px solid var(--border-color)', paddingRight: '24px' }}>
@@ -6448,7 +6491,7 @@ export default function App() {
                           disabled={isBackingUp}
                           onClick={runBackupSimulation}
                         >
-                          {isBackingUp ? 'Generating Package...' : '💾 Generate ZIP Backup'}
+                          {isBackingUp ? 'Generating Package...' : 'Generate ZIP Backup'}
                         </button>
 
                         {isBackingUp && (
@@ -6491,7 +6534,7 @@ export default function App() {
                             id="restore-file-input"
                           />
                           <label htmlFor="restore-file-input" style={{ cursor: 'pointer', display: 'block', margin: 0 }}>
-                            <div style={{ fontSize: '24px', marginBottom: '6px' }}>📂</div>
+                            <div style={{ fontSize: '24px', marginBottom: '6px' }}></div>
                             <div style={{ fontSize: '12.5px', fontWeight: 'bold', color: '#1e40af' }}>Select backup .json file</div>
                             <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '2px' }}>Supported formats: Anveshak export (.json)</div>
                           </label>
@@ -6501,7 +6544,7 @@ export default function App() {
 
                     {/* Database Initialization Panel */}
                     <div style={{ marginTop: '24px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
-                      <h4 style={{ fontSize: '13px', fontWeight: 'bold', marginBottom: '8px' }}>🏢 Production Workspace Database Initialization</h4>
+                      <h4 style={{ fontSize: '13px', fontWeight: 'bold', marginBottom: '8px' }}>Production Workspace Database Initialization</h4>
                       <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '14px' }}>
                         Choose whether to wipe the database and start fresh in clean production mode, or load sample demonstration data.
                       </p>
@@ -6532,7 +6575,7 @@ export default function App() {
                               } catch (e) {
                                 console.error('Prisma wipe database error:', e);
                               }
-                              alert('✅ Database wiped successfully! CRM is now in clean production slate.');
+                              alert('Database wiped successfully! CRM is now in clean production slate.');
                             }
                           }}
                         >
@@ -6576,7 +6619,7 @@ export default function App() {
                               } catch (e) {
                                 console.error('Prisma demo seed error:', e);
                               }
-                              alert('✅ Demo database loaded successfully!');
+                              alert('Demo database loaded successfully!');
                             }
                           }}
                         >
@@ -6607,7 +6650,7 @@ export default function App() {
               {/* Visiting Card Scanner Widget */}
               <div className="card-scanner-box" style={{ marginBottom: '16px', padding: '12px', border: '1px dashed var(--border-color)', borderRadius: 'var(--radius-sm)', backgroundColor: 'rgba(0,0,0,0.02)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#0d9488', letterSpacing: '0.05em' }}>📷 AI VISITING CARD SCANNER</span>
+                  <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#0d9488', letterSpacing: '0.05em' }}>AI VISITING CARD SCANNER</span>
                   <label className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '10px', cursor: 'pointer', margin: 0, borderStyle: 'dashed' }}>
                     Scan Card
                     <input 
@@ -6779,7 +6822,7 @@ export default function App() {
         <div className="modal-overlay">
           <div className="modal-content" style={{ borderColor: 'var(--warning)' }}>
             <div className="modal-header">
-              <h3 style={{ color: 'var(--warning)' }}>⚠️ Duplicate In-System Warning</h3>
+              <h3 style={{ color: 'var(--warning)' }}>Duplicate In-System Warning</h3>
               <button className="modal-close-btn" onClick={() => setShowDuplicateModal(false)}>×</button>
             </div>
             
@@ -6915,7 +6958,7 @@ export default function App() {
                   style={{ cursor: 'pointer' }}
                 />
                 <label htmlFor="auto-schedule-checkbox" style={{ cursor: 'pointer', textTransform: 'none', margin: 0 }}>
-                  📅 Auto-schedule Follow-up Task Checklist Item
+                  Auto-schedule Follow-up Task Checklist Item
                 </label>
               </div>
 
@@ -7052,7 +7095,7 @@ export default function App() {
                   margin: '12px 0 20px 0'
                 }}>
                   <h4 style={{ margin: '0 0 6px 0', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', color: qteStatus === 'Accepted' ? '#166534' : qteStatus === 'Rejected' ? '#991b1b' : '#92400e' }}>
-                    <span>🌐</span> Customer Portal Sandbox — Simulated Client Response
+                    <span></span> Customer Portal Sandbox — Simulated Client Response
                   </h4>
                   <p style={{ fontSize: '12px', margin: '0 0 12px 0', color: qteStatus === 'Accepted' ? '#166534' : qteStatus === 'Rejected' ? '#991b1b' : '#92400e' }}>
                     This panel simulates what the customer sees when opening the quote link in their browser.
@@ -7065,21 +7108,21 @@ export default function App() {
                         style={{ backgroundColor: '#10b981', color: '#ffffff', border: 'none', padding: '6px 12px', fontSize: '12px' }}
                         onClick={() => handlePortalAcceptQuote(selectedQuoteForPortal)}
                       >
-                        ✔ Accept Quote & Close Deal
+                        Accept Quote & Close Deal
                       </button>
                       <button 
                         className="btn btn-primary" 
                         style={{ backgroundColor: '#ef4444', color: '#ffffff', border: 'none', padding: '6px 12px', fontSize: '12px' }}
                         onClick={() => handlePortalRejectQuote(selectedQuoteForPortal)}
                       >
-                        ✘ Reject Quote
+                        Reject Quote
                       </button>
                     </div>
                   ) : (
                     <div style={{ fontSize: '12.5px', fontWeight: 'bold', color: qteStatus === 'Accepted' ? '#156534' : '#991b1b' }}>
                       {qteStatus === 'Accepted' 
-                        ? '✅ This quotation was Accepted. The linked deal is marked as Won (100% Win Forecast Value).'
-                        : '❌ This quotation was Rejected.'}
+                        ? 'This quotation was Accepted. The linked deal is marked as Won (100% Win Forecast Value).'
+                        : 'This quotation was Rejected.'}
                     </div>
                   )}
                 </div>
@@ -7102,7 +7145,7 @@ export default function App() {
                 <div className="invoice-details-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
                   <div>
                     <h4 style={{ color: '#475569', marginBottom: '4px', textTransform: 'uppercase', fontSize: '10px', fontWeight: 'bold' }}>BILLED TO:</h4>
-                    <p style={{ fontWeight: 'bold', fontSize: '13px', color: '#0f172a' }}>🏢 {qteCompany}</p>
+                    <p style={{ fontWeight: 'bold', fontSize: '13px', color: '#0f172a' }}>{qteCompany}</p>
                     <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Attn: {qteContact}</p>
                   </div>
                   <div style={{ textAlign: 'right' }}>
@@ -7181,7 +7224,7 @@ export default function App() {
                   setSelectedQuoteForPortal(null);
                 }}>Close Preview</button>
                 <button className="btn btn-primary" onClick={() => {
-                  alert('🖨️ PDF generated successfully. Downloading locally. Action logged in Audit Trail.');
+                  alert('PDF generated successfully. Downloading locally. Action logged in Audit Trail.');
                   setShowQuotePreview(false);
                   setSelectedQuoteForPortal(null);
                   
@@ -7209,7 +7252,7 @@ export default function App() {
           <div className="modal-content wide" style={{ width: '900px', maxWidth: '95%' }}>
             <div className="modal-header">
               <div>
-                <h3 style={{ fontSize: '18px', fontWeight: '800' }}>💼 Deal Inspection Profile: {selectedDealDetail.name}</h3>
+                <h3 style={{ fontSize: '18px', fontWeight: '800' }}>Deal Inspection Profile: {selectedDealDetail.name}</h3>
                 <p style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>Transaction ID: {selectedDealDetail.id}</p>
               </div>
               <button className="modal-close-btn" onClick={() => setSelectedDealDetail(null)}>×</button>
@@ -7224,7 +7267,7 @@ export default function App() {
 
                 <div>
                   <label style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>Company</label>
-                  <strong style={{ fontSize: '13px', color: '#1e3a8a' }}>🏢 {selectedDealDetail.company}</strong>
+                  <strong style={{ fontSize: '13px', color: '#1e3a8a' }}>{selectedDealDetail.company}</strong>
                 </div>
 
                 <div>
@@ -7239,7 +7282,7 @@ export default function App() {
 
                 <div>
                   <label style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>Expected Close Date</label>
-                  <span style={{ fontSize: '12.5px', fontWeight: '600' }}>📅 {selectedDealDetail.expectedClose}</span>
+                  <span style={{ fontSize: '12.5px', fontWeight: '600' }}>{selectedDealDetail.expectedClose}</span>
                 </div>
 
                 <div>
@@ -7276,21 +7319,21 @@ export default function App() {
                     onClick={() => setDealDetailTab('stepper')}
                     style={{ padding: '8px 16px', fontSize: '13px', background: 'none', border: 'none', borderBottom: dealDetailTab === 'stepper' ? '2px solid var(--primary-color)' : 'none', cursor: 'pointer', fontWeight: 'bold' }}
                   >
-                    🚦 Pipeline Stepper
+                    Pipeline Stepper
                   </button>
                   <button 
                     className={`tab-btn ${dealDetailTab === 'velocity' ? 'active' : ''}`}
                     onClick={() => setDealDetailTab('velocity')}
                     style={{ padding: '8px 16px', fontSize: '13px', background: 'none', border: 'none', borderBottom: dealDetailTab === 'velocity' ? '2px solid var(--primary-color)' : 'none', cursor: 'pointer', fontWeight: 'bold' }}
                   >
-                    📈 Deal Velocity
+                    Deal Velocity
                   </button>
                   <button 
                     className={`tab-btn ${dealDetailTab === 'tasks' ? 'active' : ''}`}
                     onClick={() => setDealDetailTab('tasks')}
                     style={{ padding: '8px 16px', fontSize: '13px', background: 'none', border: 'none', borderBottom: dealDetailTab === 'tasks' ? '2px solid var(--primary-color)' : 'none', cursor: 'pointer', fontWeight: 'bold' }}
                   >
-                    ☑ Linked Tasks
+                    Linked Tasks
                   </button>
                 </div>
 
@@ -7379,7 +7422,7 @@ export default function App() {
                             {selectedDealDetail.daysInStage} Days
                           </div>
                           {selectedDealDetail.daysInStage > 14 && (
-                            <span style={{ fontSize: '10px', color: '#ef4444', fontWeight: 'bold' }}>⚠️ Stale Warning: Deal stuck in stage {">"} 14 days!</span>
+                            <span style={{ fontSize: '10px', color: '#ef4444', fontWeight: 'bold' }}>Stale Warning: Deal stuck in stage {">"} 14 days!</span>
                           )}
                         </div>
                         <div>
@@ -7454,7 +7497,7 @@ export default function App() {
                 style={{ color: '#dc2626', borderColor: '#fca5a5' }} 
                 onClick={() => handleDeleteDeal(selectedDealDetail.id)}
               >
-                🗑️ Delete Deal
+                Delete Deal
               </button>
               <button className="btn btn-secondary" onClick={() => setSelectedDealDetail(null)}>Close Profile</button>
             </div>
@@ -7479,7 +7522,7 @@ export default function App() {
                     {selectedLeadDetail.name.split(' ').map(n=>n[0]).join('')}
                   </div>
                   <h4 style={{ fontSize: '16px', fontWeight: '800', margin: '0 0 4px 0' }}>{selectedLeadDetail.name}</h4>
-                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>🏢 {selectedLeadDetail.company}</p>
+                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>{selectedLeadDetail.company}</p>
                 </div>
 
                 <div style={{ borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)', padding: '14px 0', textAlign: 'center' }}>
@@ -7490,16 +7533,16 @@ export default function App() {
                 </div>
 
                 <div style={{ fontSize: '12.5px', display: 'flex', flexDirection: 'column', gap: '10px', color: 'var(--text-main)' }}>
-                  <div>📧 <strong>Email:</strong><br/><span style={{ color: 'var(--text-muted)' }}>{selectedLeadDetail.email}</span></div>
-                  <div>📞 <strong>Phone:</strong><br/><span style={{ color: 'var(--text-muted)' }}>{selectedLeadDetail.phone}</span></div>
-                  <div>📍 <strong>Address:</strong><br/><span style={{ color: 'var(--text-muted)' }}>Karnataka B2G Territory</span></div>
-                  <div>👤 <strong>Assigned Rep:</strong><br/><span style={{ color: 'var(--text-muted)' }}>{selectedLeadDetail.owner}</span></div>
+                  <div><strong>Email:</strong><br/><span style={{ color: 'var(--text-muted)' }}>{selectedLeadDetail.email}</span></div>
+                  <div><strong>Phone:</strong><br/><span style={{ color: 'var(--text-muted)' }}>{selectedLeadDetail.phone}</span></div>
+                  <div><strong>Address:</strong><br/><span style={{ color: 'var(--text-muted)' }}>Karnataka B2G Territory</span></div>
+                  <div><strong>Assigned Rep:</strong><br/><span style={{ color: 'var(--text-muted)' }}>{selectedLeadDetail.owner}</span></div>
                 </div>
 
                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', borderTop: '1px solid var(--border-color)', paddingTop: '14px', marginTop: '10px' }}>
-                  <button className="btn btn-secondary" style={{ padding: '6px 0', fontSize: '11px', justifyContent: 'center' }} onClick={() => openEmailComposer(selectedLeadDetail.name, selectedLeadDetail.email)}>✉️ Email</button>
-                  <button className="btn btn-secondary" style={{ padding: '6px 0', fontSize: '11px', color: '#25D366', borderColor: '#25D366', justifyContent: 'center' }} onClick={() => openWhatsAppModalForContact(selectedLeadDetail.name, selectedLeadDetail.phone)}>💬 WhatsApp</button>
-                  <button className="btn btn-secondary" style={{ padding: '6px 0', fontSize: '11px', justifyContent: 'center' }} onClick={() => startVoIPCall(selectedLeadDetail.name, selectedLeadDetail.phone)}>📞 Call</button>
+                  <button className="btn btn-secondary" style={{ padding: '6px 0', fontSize: '11px', justifyContent: 'center' }} onClick={() => openEmailComposer(selectedLeadDetail.name, selectedLeadDetail.email)}>Email</button>
+                  <button className="btn btn-secondary" style={{ padding: '6px 0', fontSize: '11px', color: '#25D366', borderColor: '#25D366', justifyContent: 'center' }} onClick={() => openWhatsAppModalForContact(selectedLeadDetail.name, selectedLeadDetail.phone)}>WhatsApp</button>
+                  <button className="btn btn-secondary" style={{ padding: '6px 0', fontSize: '11px', justifyContent: 'center' }} onClick={() => startVoIPCall(selectedLeadDetail.name, selectedLeadDetail.phone)}>Call</button>
                 </div>
 
                 <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -7507,7 +7550,7 @@ export default function App() {
                     setNewActivity({ ...newActivity, entityName: selectedLeadDetail.company });
                     setShowActivityModal(true);
                   }}>
-                    📞 Log Activity
+                    Log Activity
                   </button>
                   <button className="btn btn-secondary" style={{ fontSize: '11.5px', justifyContent: 'center' }} onClick={() => {
                     setNewTask({ ...newTask, linkedTo: selectedLeadDetail.company });
@@ -7603,7 +7646,7 @@ export default function App() {
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <input 
                           type="text" 
-                          placeholder="✍️ Type a new markdown call note/meeting minutes..."
+                          placeholder="Type a new markdown call note/meeting minutes..."
                           value={contactNoteInput}
                           onChange={(e) => setContactNoteInput(e.target.value)}
                           style={{ flex: 1, padding: '8px 12px', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '13px' }}
@@ -7712,7 +7755,7 @@ export default function App() {
                 style={{ color: '#dc2626', borderColor: '#fca5a5' }} 
                 onClick={() => handleDeleteLead(selectedLeadDetail.id)}
               >
-                🗑️ Delete Lead
+                Delete Lead
               </button>
               <button className="btn btn-secondary" onClick={() => setSelectedLeadDetail(null)}>Close</button>
             </div>
@@ -7731,7 +7774,7 @@ export default function App() {
 
             <div style={{ padding: '10px 0' }}>
               <h2>{selectedCompanyDetail.name}</h2>
-              <p style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{selectedCompanyDetail.industry} • 📍 {selectedCompanyDetail.address}</p>
+              <p style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{selectedCompanyDetail.industry} • {selectedCompanyDetail.address}</p>
               
               <div style={{ margin: '16px 0', padding: '12px', background: '#f8fafc', borderRadius: '8px', display: 'flex', gap: '24px' }}>
                 <div>
@@ -7775,7 +7818,7 @@ export default function App() {
                 style={{ color: '#dc2626', borderColor: '#fca5a5' }} 
                 onClick={() => handleDeleteCompany(selectedCompanyDetail.id)}
               >
-                🗑️ Delete Company Account
+                Delete Company Account
               </button>
               <button className="btn btn-secondary" onClick={() => setSelectedCompanyDetail(null)}>Close</button>
             </div>
@@ -8026,7 +8069,7 @@ export default function App() {
         <div className="modal-overlay" style={{ zIndex: 1200 }}>
           <div className="modal-content" style={{ width: '600px', top: '10%' }}>
             <div className="modal-header">
-              <h3>🔍 Global Index Autocomplete Search (SHR-01)</h3>
+              <h3>Global Index Autocomplete Search (SHR-01)</h3>
               <button className="modal-close-btn" onClick={() => {
                 setShowGlobalSearch(false);
                 setGlobalSearchQuery('');
@@ -8089,7 +8132,7 @@ export default function App() {
                   {/* Centralized Contacts */}
                   {matchedContacts.length > 0 && (
                     <div>
-                      <div style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#64748b', marginBottom: '6px' }}>📇 Centralized Contacts</div>
+                      <div style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#64748b', marginBottom: '6px' }}>Centralized Contacts</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         {matchedContacts.map(c => (
                           <div 
@@ -8113,7 +8156,7 @@ export default function App() {
                   {/* Leads */}
                   {matchedLeads.length > 0 && (
                     <div>
-                      <div style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#64748b', marginBottom: '6px' }}>🎯 Leads Queue</div>
+                      <div style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#64748b', marginBottom: '6px' }}>Leads Queue</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         {matchedLeads.map(l => (
                           <div 
@@ -8137,7 +8180,7 @@ export default function App() {
                   {/* Deals */}
                   {matchedDeals.length > 0 && (
                     <div>
-                      <div style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#64748b', marginBottom: '6px' }}>💼 Pipelines & Deals</div>
+                      <div style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#64748b', marginBottom: '6px' }}>Pipelines & Deals</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         {matchedDeals.map(d => (
                           <div 
@@ -8161,7 +8204,7 @@ export default function App() {
                   {/* Tasks */}
                   {matchedTasks.length > 0 && (
                     <div>
-                      <div style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#64748b', marginBottom: '6px' }}>📋 Work Tasks</div>
+                      <div style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#64748b', marginBottom: '6px' }}>Work Tasks</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         {matchedTasks.map(t => (
                           <div 
@@ -8184,7 +8227,7 @@ export default function App() {
                   {/* Quotes */}
                   {matchedQuotes.length > 0 && (
                     <div>
-                      <div style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#64748b', marginBottom: '6px' }}>📄 Quotations & Invoices</div>
+                      <div style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#64748b', marginBottom: '6px' }}>Quotations & Invoices</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         {matchedQuotes.map(q => (
                           <div 
@@ -8223,7 +8266,7 @@ export default function App() {
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '14px', marginBottom: '16px' }}>
-              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800' }}>🔔 Alert Notifications (SHR-02)</h3>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800' }}>Alert Notifications (SHR-02)</h3>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button 
                   className="btn btn-secondary" 
@@ -8292,7 +8335,7 @@ export default function App() {
         <div className="modal-overlay" style={{ zIndex: 1250 }}>
           <div className="modal-content" style={{ maxWidth: '560px' }}>
             <div className="modal-header">
-              <h3>✉️ Compose Professional Email</h3>
+              <h3>Compose Professional Email</h3>
               <button className="modal-close-btn" onClick={() => setShowEmailComposer(false)}>×</button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -8346,7 +8389,7 @@ export default function App() {
 
               <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '12px' }}>
                 <button className="btn btn-secondary" onClick={() => setShowEmailComposer(false)}>Cancel</button>
-                <button className="btn btn-primary" onClick={handleSendEmail}>✉️ Open in Mail Client</button>
+                <button className="btn btn-primary" onClick={handleSendEmail}>Open in Mail Client</button>
               </div>
             </div>
           </div>
@@ -8358,7 +8401,7 @@ export default function App() {
         <div className="modal-overlay" style={{ zIndex: 1250 }}>
           <div className="modal-content" style={{ maxWidth: '480px' }}>
             <div className="modal-header">
-              <h3>💬 Send WhatsApp Message</h3>
+              <h3>Send WhatsApp Message</h3>
               <button className="modal-close-btn" onClick={() => setShowWhatsAppModal(false)}>×</button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -8404,7 +8447,7 @@ export default function App() {
 
               <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '12px' }}>
                 <button className="btn btn-secondary" onClick={() => setShowWhatsAppModal(false)}>Cancel</button>
-                <button className="btn btn-primary" style={{ backgroundColor: '#25D366', borderColor: '#25D366' }} onClick={handleSendWhatsApp}>💬 Open WhatsApp Web</button>
+                <button className="btn btn-primary" style={{ backgroundColor: '#25D366', borderColor: '#25D366' }} onClick={handleSendWhatsApp}>Open WhatsApp Web</button>
               </div>
             </div>
           </div>
@@ -8431,7 +8474,7 @@ export default function App() {
           transition: 'all 0.3s ease'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>📞 Outgoing VoIP Call</span>
+            <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Outgoing VoIP Call</span>
             <span style={{
               width: '8px',
               height: '8px',
@@ -8479,7 +8522,7 @@ export default function App() {
                 style={{ backgroundColor: '#EF4444', borderColor: '#EF4444', color: '#ffffff', width: '100%', padding: '8px', justifyContent: 'center' }} 
                 onClick={endVoIPCall}
               >
-                🛑 End Call & Log
+                End Call & Log
               </button>
             ) : (
               <button 
@@ -8523,8 +8566,8 @@ export default function App() {
             }}
           >
             <span>
-              {t.type === 'success' && '✅'}
-              {t.type === 'warning' && '⚠️'}
+              {t.type === 'success' && ''}
+              {t.type === 'warning' && ''}
               {t.type === 'info' && 'ℹ️'}
             </span>
             {t.message}
@@ -8601,9 +8644,9 @@ export default function App() {
                     }}
                     style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
                   >
-                    <option value="SALES_REP">💼 Sales Representative</option>
-                    <option value="MANAGER">📊 Sales Manager</option>
-                    <option value="ADMIN">👑 Administrator</option>
+                    <option value="SALES_REP">Sales Representative</option>
+                    <option value="MANAGER">Sales Manager</option>
+                    <option value="ADMIN">Administrator</option>
                   </select>
                 </div>
 
@@ -8658,7 +8701,7 @@ export default function App() {
         <div className="modal-overlay" style={{ zIndex: 1350 }} onClick={() => setAdminResetPasswordUser(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
             <div className="modal-header">
-              <h3>🔄 Reset Password for {adminResetPasswordUser.fullName}</h3>
+              <h3>Reset Password for {adminResetPasswordUser.fullName}</h3>
               <button className="modal-close-btn" onClick={() => setAdminResetPasswordUser(null)}>×</button>
             </div>
             <form onSubmit={async (e) => {
@@ -8920,7 +8963,7 @@ export default function App() {
                   className="btn btn-secondary" 
                   style={{ flex: 1, padding: '12px', justifyContent: 'center', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
                 >
-                  📁 Browse Image File
+                  Browse Image File
                 </label>
               </div>
 
@@ -8958,7 +9001,7 @@ export default function App() {
                           }
                         }}
                       >
-                        🔄 Rotate 90°
+                        Rotate 90°
                       </button>
                     </div>
                     <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '8px' }}>
@@ -9018,7 +9061,7 @@ export default function App() {
                     (candidate.email && l.email && l.email.toLowerCase() === candidate.email.toLowerCase())
                   );
                   if (existingInLeads) {
-                    triggerToast(`⚠️ Contact already in database as a lead: "${existingInLeads.name}" (${existingInLeads.company})!`, 'warning');
+                    triggerToast(`Contact already in database as a lead: "${existingInLeads.name}" (${existingInLeads.company})!`, 'warning');
                     setShowScanModal(false);
                     setScannedImagePreview(null);
                     return;
@@ -9031,7 +9074,7 @@ export default function App() {
                     const { createContactAction } = await import('@/app/actions/contacts');
                     const res = await createContactAction(candidate, currentUser?.fullName || 'KP Sumanth');
                     if (res && res.isDuplicate) {
-                      triggerToast(res.error || `⚠️ Contact "${candidate.name}" is already in the database!`, 'warning');
+                      triggerToast(res.error || `Contact "${candidate.name}" is already in the database!`, 'warning');
                       setShowScanModal(false);
                       setScannedImagePreview(null);
                       return;
@@ -9218,7 +9261,7 @@ export default function App() {
                   d.name.trim().toLowerCase() === convertDealForm.dealName.trim().toLowerCase()
                 );
                 if (existing) {
-                  triggerToast(`⚠️ Deal already exists in pipeline: "${existing.name}" (${existing.stage})`, 'warning');
+                  triggerToast(`Deal already exists in pipeline: "${existing.name}" (${existing.stage})`, 'warning');
                   setShowConvertLeadModal(false);
                   navigateTab('kanban');
                   setSelectedDealDetail(existing);

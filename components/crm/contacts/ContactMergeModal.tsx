@@ -101,7 +101,7 @@ export default function ContactMergeModal({
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: 'var(--text-main)' }}>
-                🔀 Smart Duplicate Resolution & Merge
+                Smart Duplicate Resolution & Merge
               </h3>
               <span style={{
                 background: matchScore >= 80 ? '#fef2f2' : '#fffbeb',

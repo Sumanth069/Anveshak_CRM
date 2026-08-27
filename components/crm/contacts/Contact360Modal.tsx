@@ -186,7 +186,7 @@ export default function Contact360Modal({
                   </span>
                   {contactData.doNotContact ? (
                     <span style={{ backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', padding: '2px 8px', borderRadius: '8px', fontSize: '11px', fontWeight: '700' }}>
-                      🚫 Do Not Contact
+                      Do Not Contact
                     </span>
                   ) : (
                     <span style={{ backgroundColor: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', padding: '2px 8px', borderRadius: '8px', fontSize: '11px', fontWeight: '600' }}>
@@ -204,7 +204,7 @@ export default function Contact360Modal({
                 style={{ fontSize: '12px', padding: '6px 12px', minHeight: '34px' }}
                 onClick={() => setIsEditing(!isEditing)}
               >
-                {isEditing ? 'Cancel' : '✏️ Edit'}
+                {isEditing ? 'Cancel' : 'Edit'}
               </button>
               <button className="modal-close-btn" style={{ position: 'static' }} onClick={onClose}>✕</button>
             </div>
@@ -218,7 +218,7 @@ export default function Contact360Modal({
                 style={{ backgroundColor: '#10b981', borderColor: '#10b981', color: '#fff', fontSize: '12px', padding: '8px 14px', flex: 1 }}
                 onClick={() => setShowQuickComm(true)}
               >
-                💬 WhatsApp / Call / Email
+                WhatsApp / Call / Email
               </button>
 
               <button
@@ -226,7 +226,7 @@ export default function Contact360Modal({
                 style={{ backgroundColor: '#1e40af', borderColor: '#1e40af', fontSize: '12px', padding: '8px 14px', flex: 1 }}
                 onClick={() => onConvertToLead(contactData)}
               >
-                🎯 Convert to Lead →
+                Convert to Lead →
               </button>
             </div>
 
@@ -238,10 +238,10 @@ export default function Contact360Modal({
           {/* SUB-TABS NAVIGATION (HORIZONTAL SCROLL ON MOBILE) */}
           <div className="c360-tabs-nav">
             {[
-              { id: 'overview', label: '📋 Profile & Metadata' },
-              { id: 'timeline', label: `💬 Timeline (${communications.length})` },
-              { id: 'pipeline', label: `💼 Deals & Tasks (${linkedDeals.length + linkedTasks.length})` },
-              { id: 'merge', label: `🔀 Provenance (${mergeLogs.length})` }
+              { id: 'overview', label: 'Profile & Metadata' },
+              { id: 'timeline', label: `Timeline (${communications.length})` },
+              { id: 'pipeline', label: `Deals & Tasks (${linkedDeals.length + linkedTasks.length})` },
+              { id: 'merge', label: `Provenance (${mergeLogs.length})` }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -361,7 +361,7 @@ export default function Contact360Modal({
                     <div className="c360-col-section">
                       <div className="c360-card">
                         <div className="c360-card-header">
-                          <h4>📞 Contact Information</h4>
+                          <h4>Contact Information</h4>
                         </div>
                         
                         <div className="c360-field-group">
@@ -407,7 +407,7 @@ export default function Contact360Modal({
 
                       <div className="c360-card">
                         <div className="c360-card-header">
-                          <h4>📝 Notes & Remarks</h4>
+                          <h4>Notes & Remarks</h4>
                         </div>
                         <p style={{ margin: 0, fontSize: '12.5px', color: '#334155', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>
                           {contactData.notes || 'No notes added yet for this contact.'}
@@ -419,7 +419,7 @@ export default function Contact360Modal({
                     <div className="c360-col-section">
                       <div className="c360-card">
                         <div className="c360-card-header">
-                          <h4>📍 Source & Provenance</h4>
+                          <h4>Source & Provenance</h4>
                         </div>
 
                         <div className="c360-field-group">
@@ -448,7 +448,7 @@ export default function Contact360Modal({
                       {/* Danger Zone */}
                       <div className="c360-danger-card">
                         <div style={{ fontWeight: '700', fontSize: '12px', color: '#dc2626', marginBottom: '4px' }}>
-                          ⚠️ Danger Zone
+                          Danger Zone
                         </div>
                         <p style={{ margin: '0 0 10px', fontSize: '11px', color: '#991b1b', lineHeight: '1.4' }}>
                           Permanently delete this contact record and all associated timeline communications.
@@ -483,7 +483,7 @@ export default function Contact360Modal({
 
                 {communications.length === 0 ? (
                   <div className="c360-empty-state">
-                    <div style={{ fontSize: '28px', marginBottom: '8px' }}>💬</div>
+                    
                     <p style={{ margin: '0 0 4px', fontWeight: '700', color: 'var(--text-main)' }}>No communications logged</p>
                     <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>Use the button above to log calls, WhatsApps, or meeting notes.</p>
                   </div>
@@ -502,7 +502,7 @@ export default function Contact360Modal({
                               fontSize: '10.5px',
                               fontWeight: '700'
                             }}>
-                              {comm.type === 'WhatsApp' ? '💬 WhatsApp' : comm.type === 'Call' ? '📞 Call' : comm.type === 'Email' ? '✉️ Email' : '🤝 Meeting'}
+                              {comm.type === 'WhatsApp' ? 'WhatsApp' : comm.type === 'Call' ? 'Call' : comm.type === 'Email' ? 'Email' : 'Meeting'}
                             </span>
                             <span style={{ fontSize: '12.5px', fontWeight: '700', color: 'var(--text-main)' }}>
                               {comm.subject || comm.type}

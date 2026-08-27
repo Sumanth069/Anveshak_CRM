@@ -46,6 +46,29 @@ interface KanbanBoardProps {
   formatCurrency: (val: number) => string;
 }
 
+
+const TrashIcon = ({ size = 14, color = "currentColor" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+);
+const EditIcon = ({ size = 14, color = "currentColor" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+);
+const BriefcaseIcon = ({ size = 16, color = "currentColor" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+);
+const PlusIcon = ({ size = 16, color = "currentColor" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
+);
+const BuildingIcon = ({ size = 13, color = "currentColor" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5m0 0h4m-4 0V11m0 10V11m4 10V11m-4 0h4M7 7h.01M7 11h.01M7 15h.01M17 7h.01M17 11h.01M17 15h.01"/></svg>
+);
+const CalendarIcon = ({ size = 13, color = "currentColor" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+);
+const TrophyIcon = ({ size = 14, color = "currentColor" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+);
+
 export default function KanbanBoard({
   deals,
   filteredDeals,
@@ -210,7 +233,7 @@ export default function KanbanBoard({
           {/* Quick Search */}
           <input
             type="text"
-            placeholder="🔍 Search deals or companies..."
+            placeholder="Search deals or companies..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{
@@ -278,7 +301,7 @@ export default function KanbanBoard({
           marginBottom: '24px',
           boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)'
         }}>
-          <div style={{ fontSize: '40px', marginBottom: '12px' }}>💼</div>
+          <div style={{ marginBottom: "12px", display: "flex", justifyContent: "center" }}><BriefcaseIcon size={40} color="#3b82f6" /></div>
           <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#f8fafc', marginBottom: '8px' }}>
             Pipeline is Ready for Your Deals
           </h3>
@@ -299,7 +322,7 @@ export default function KanbanBoard({
                 style={{ padding: '10px 22px', fontSize: '13px', backgroundColor: '#334155', color: '#fff', borderColor: '#475569' }}
                 onClick={() => onNavigateTab('contacts')}
               >
-                📇 Convert from Contacts Directory →
+                Convert from Contacts Directory →
               </button>
             )}
           </div>
@@ -371,16 +394,14 @@ export default function KanbanBoard({
                             style={{ padding: '4px 8px', fontSize: '11px', marginRight: '6px' }}
                             onClick={(e) => openEditModal(deal, e)}
                           >
-                            ✏️ Edit
+                            Edit
                           </button>
                           {onDeleteDeal && (
                             <button 
                               className="btn btn-secondary" 
                               style={{ padding: '4px 8px', fontSize: '11px', color: '#dc2626', borderColor: '#fca5a5' }}
                               onClick={(e) => { e.stopPropagation(); if (confirm(`Delete deal "${deal.name}"?`)) onDeleteDeal(deal.id); }}
-                            >
-                              🗑️
-                            </button>
+                            ><TrashIcon size={13} color="#dc2626" /></button>
                           )}
                         </td>
                       </tr>
@@ -469,7 +490,7 @@ export default function KanbanBoard({
                         style={{ cursor: onQuickAddDeal ? 'pointer' : 'default' }}
                         onClick={() => onQuickAddDeal && onQuickAddDeal(stage)}
                       >
-                        <div style={{ fontSize: '18px', marginBottom: '4px' }}>➕</div>
+                        <div style={{ marginBottom: "4px", display: "flex", justifyContent: "center" }}><PlusIcon size={18} color="#94a3b8" /></div>
                         <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--text-muted)', fontWeight: '600' }}>
                           Drop deals here or click to add
                         </p>
@@ -501,9 +522,7 @@ export default function KanbanBoard({
                                     color: '#64748b',
                                     padding: '0 2px'
                                   }}
-                                >
-                                  ✏️
-                                </button>
+                                ><EditIcon size={13} color="#64748b" /></button>
                                 {onDeleteDeal && (
                                   <button 
                                     title="Delete Deal"
@@ -519,15 +538,13 @@ export default function KanbanBoard({
                                       color: '#dc2626',
                                       padding: '0 2px'
                                     }}
-                                  >
-                                    🗑️
-                                  </button>
+                                  ><TrashIcon size={13} color="#dc2626" /></button>
                                 )}
                               </div>
                             </div>
 
                             <div style={{ fontSize: '11.5px', color: '#d49b38', fontWeight: '700', margin: '2px 0 6px 0', textTransform: 'uppercase' }}>
-                              🏢 {deal.company}
+                              {deal.company}
                             </div>
 
                             <div className="kanban-card-value" style={{ fontSize: '14px', fontWeight: '800', color: '#10b981' }}>
@@ -535,7 +552,7 @@ export default function KanbanBoard({
                             </div>
                             
                             <div style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '4px 0 8px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <span>📅 Close: <strong>{deal.expectedClose}</strong></span>
+                              <span>Close: <strong>{deal.expectedClose}</strong></span>
                               <span style={{ fontWeight: '700', color: '#3b82f6' }}>{deal.probability}%</span>
                             </div>
 
@@ -550,7 +567,7 @@ export default function KanbanBoard({
                                 className="days-badge" 
                                 style={deal.daysInStage > 14 ? { backgroundColor: '#fee2e2', color: '#ef4444', fontWeight: 'bold', padding: '2px 6px', borderRadius: '4px', fontSize: '10px' } : { backgroundColor: '#f1f5f9', color: '#64748b', padding: '2px 6px', borderRadius: '4px', fontSize: '10px' }}
                               >
-                                {deal.daysInStage > 14 ? `⚠️ ${deal.daysInStage}d` : `${deal.daysInStage}d`}
+                                {deal.daysInStage > 14 ? `${deal.daysInStage}d` : `${deal.daysInStage}d`}
                               </span>
                             </div>
 
@@ -611,7 +628,7 @@ export default function KanbanBoard({
                                     }}
                                     onClick={(e) => handleStageAdvance(deal.id, 'Won', e)}
                                   >
-                                    Won 🏆
+                                    Won (Closed)
                                   </button>
                                   <button
                                     title="Mark Deal as Lost"
@@ -738,7 +755,7 @@ export default function KanbanBoard({
                       setEditingDeal(null);
                     }}
                   >
-                    🗑️ Delete Deal
+                    Delete Deal
                   </button>
                 ) : <div />}
                 <div style={{ display: 'flex', gap: '10px' }}>

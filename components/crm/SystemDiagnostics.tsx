@@ -13,7 +13,7 @@ export default function SystemDiagnostics({
 }: SystemDiagnosticsProps) {
   return (
     <div className="panel-card animate-fade" style={{ padding: '24px' }}>
-      <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '12px' }}>📊 System Diagnostics & Health Monitor</h3>
+      <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '12px' }}>System Diagnostics & Health Monitor</h3>
       <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginBottom: '20px' }}>
         Live performance metrics monitoring CPU load, active database connection threads, and average API latency.
       </p>
@@ -59,7 +59,7 @@ export default function SystemDiagnostics({
             disabled={diagnosticsBenchmarkRun && diagnosticsBenchmarkProgress < 100}
             onClick={runDiagnosticsBenchmark}
           >
-            {diagnosticsBenchmarkRun && diagnosticsBenchmarkProgress < 100 ? 'Running...' : '⚡ Run Benchmark'}
+            {diagnosticsBenchmarkRun && diagnosticsBenchmarkProgress < 100 ? 'Running...' : 'Run Benchmark'}
           </button>
         </div>
 

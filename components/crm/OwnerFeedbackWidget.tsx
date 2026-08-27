@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 
 interface OwnerFeedbackWidgetProps {
   activeTab: string;
-  currentUser?: { fullName?: string; email?: string } | null;
+  currentUser?: { fullName?: string; email?: string; role?: string; title?: string } | null;
 }
 
 interface FeedbackItem {
@@ -18,6 +18,9 @@ interface FeedbackItem {
 }
 
 // Clean SVG Vector Icons (No Emojis)
+const UserIcon = () => (
+  <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+);
 const MessageSquareIcon = () => (
   <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
 );
@@ -139,12 +142,15 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
     if (!noteText.trim()) return;
 
     setIsSubmitting(true);
+    const roleTag = currentUser?.role === 'ADMIN' ? 'Admin' : currentUser?.role === 'MANAGER' ? 'Manager' : 'Sales Rep';
+    const author = currentUser?.fullName ? `${currentUser.fullName} (${roleTag})` : 'Anveshak Team';
+
     const newNote: FeedbackItem = {
       id: `FB-${Date.now().toString().slice(-5)}`,
       pageTab: activeTab,
       category,
       noteText: noteText.trim(),
-      authorName: currentUser?.fullName || 'CRM Owner',
+      authorName: author,
       status: 'New',
       createdAt: new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
     };
@@ -163,7 +169,7 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
         pageTab: activeTab,
         category,
         noteText: noteText.trim(),
-        authorName: currentUser?.fullName || 'CRM Owner'
+        authorName: author
       });
       if (res && res.success && res.data) {
         newNote.id = res.data.id || newNote.id;
@@ -350,7 +356,9 @@ export default function OwnerFeedbackWidget({ activeTab, currentUser }: OwnerFee
                     </div>
                     <p className="feedback-text">{item.noteText}</p>
                     <div className="feedback-card-meta">
-                      <span>By: {item.authorName}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#d49b38', fontWeight: '600' }}>
+                        <UserIcon /> {item.authorName}
+                      </span>
                       <span>{item.createdAt}</span>
                     </div>
                   </div>

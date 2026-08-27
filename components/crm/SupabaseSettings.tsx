@@ -24,13 +24,13 @@ export default function SupabaseSettings({
 
   const handleTestConnection = () => {
     if (!url || !key) {
-      setTestResult('⚠️ Please provide both the Supabase API URL and the Anon Key first.');
+      setTestResult('Please provide both the Supabase API URL and the Anon Key first.');
       return;
     }
-    setTestResult('⏳ Testing connection...');
+    setTestResult('Testing connection...');
     setTimeout(() => {
       onSaveConfig(url, key);
-      setTestResult('✅ Connected successfully to Supabase PostgreSQL database!');
+      setTestResult('Connected successfully to Supabase PostgreSQL database!');
     }, 1000);
   };
 
@@ -43,12 +43,12 @@ export default function SupabaseSettings({
     onClearConfig();
     setUrl('');
     setKey('');
-    setTestResult('🔌 Disconnected. Reverted to Local Storage Sandbox.');
+    setTestResult('Disconnected. Reverted to Local Storage Sandbox.');
   };
 
   return (
     <div className="panel-card animate-fade" style={{ padding: '24px' }}>
-      <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '12px' }}>🔌 Supabase Connection wizard</h3>
+      <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '12px' }}>Supabase Connection wizard</h3>
       <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginBottom: '20px' }}>
         Link this CRM module directly to your Anveshak Hub Supabase instance. If credentials are empty, the module operates in local-only Sandbox mode.
       </p>
@@ -91,10 +91,10 @@ export default function SupabaseSettings({
           borderRadius: '8px', 
           fontSize: '12px', 
           fontWeight: '600',
-          backgroundColor: testResult.startsWith('✅') ? '#ecfdf5' : testResult.startsWith('⏳') ? '#fffbeb' : '#fef2f2',
-          color: testResult.startsWith('✅') ? '#047857' : testResult.startsWith('⏳') ? '#b45309' : '#b91c1c',
+          backgroundColor: testResult.startsWith('') ? '#ecfdf5' : testResult.startsWith('⏳') ? '#fffbeb' : '#fef2f2',
+          color: testResult.startsWith('') ? '#047857' : testResult.startsWith('⏳') ? '#b45309' : '#b91c1c',
           border: '1px solid',
-          borderColor: testResult.startsWith('✅') ? '#a7f3d0' : testResult.startsWith('⏳') ? '#fde68a' : '#fecaca'
+          borderColor: testResult.startsWith('') ? '#a7f3d0' : testResult.startsWith('⏳') ? '#fde68a' : '#fecaca'
         }}>
           {testResult}
         </div>

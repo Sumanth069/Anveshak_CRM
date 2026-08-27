@@ -36,7 +36,7 @@ export default function ContactFiltersBar({
       <div className="contact-filters-grid">
         {/* Search Input */}
         <div className="contact-search-box">
-          <span className="contact-search-icon">🔍</span>
+          
           <input
             type="text"
             placeholder="Search name, phone, email, company..."

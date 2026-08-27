@@ -117,7 +117,7 @@ export default function UserProfileCard({
     }
 
     setIsSaving(false);
-    triggerToast('🎉 Executive Profile & credentials saved successfully!', 'success');
+    triggerToast('Executive Profile & credentials saved successfully!', 'success');
   };
 
   const formatLakhs = (val: number) => {
@@ -187,7 +187,7 @@ export default function UserProfileCard({
                 }}
                 title="Change Photo"
               >
-                📷
+                
               </label>
               <input 
                 type="file" 
@@ -212,18 +212,18 @@ export default function UserProfileCard({
                   fontSize: '11px',
                   fontWeight: '700'
                 }}>
-                  🟢 Active Session
+                  Active Session
                 </span>
               </div>
 
               <div style={{ color: '#94a3b8', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                <span>💼 {formState.title || (currentRole.toUpperCase() + ' Specialist')}</span>
+                <span>{formState.title || (currentRole.toUpperCase() + ' Specialist')}</span>
                 <span>•</span>
-                <span style={{ color: '#cbd5e1' }}>🏢 {formState.department || 'Enterprise Solutions'}</span>
+                <span style={{ color: '#cbd5e1' }}>{formState.department || 'Enterprise Solutions'}</span>
               </div>
 
               <div style={{ marginTop: '6px', fontSize: '12px', color: '#60a5fa', fontFamily: 'monospace' }}>
-                ✉️ {formState.email || currentUser?.email || 'user@anveshakhub.com'}
+                {formState.email || currentUser?.email || 'user@anveshakhub.com'}
               </div>
             </div>
           </div>
@@ -240,7 +240,7 @@ export default function UserProfileCard({
               Access Tier
             </div>
             <div style={{ fontSize: '15px', fontWeight: '800', color: '#fbbf24', marginTop: '2px' }}>
-              👑 {currentRole.toUpperCase()}
+              {currentRole.toUpperCase()}
             </div>
           </div>
 
@@ -281,7 +281,7 @@ export default function UserProfileCard({
         {/* Card: Personal & Work Info */}
         <div className="profile-card-section">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px' }}>
-            <span style={{ fontSize: '18px' }}>👤</span>
+            
             <div>
               <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#0f172a' }}>Personal & Corporate Information</h3>
             </div>
@@ -357,7 +357,7 @@ export default function UserProfileCard({
 
             <div className="form-group" style={{ marginBottom: 0, gridColumn: '1 / -1' }}>
               <label style={{ fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '6px', display: 'block' }}>
-                🔒 Update Password (leave empty to keep current password)
+                Update Password (leave empty to keep current password)
               </label>
               <input 
                 type="password" 
@@ -373,7 +373,7 @@ export default function UserProfileCard({
         {/* Card: Notification Preferences & Audio Telemetry */}
         <div className="profile-card-section">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px' }}>
-            <span style={{ fontSize: '18px' }}>🔔</span>
+            
             <div>
               <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#0f172a' }}>Workspace Audio & Alerts</h3>
             </div>
@@ -383,7 +383,7 @@ export default function UserProfileCard({
             <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', cursor: 'pointer' }}>
               <div>
                 <div style={{ fontWeight: '700', fontSize: '13.5px', color: '#1e293b' }}>
-                  🔊 Audio Cues & Sound Alerts
+                  Audio Cues & Sound Alerts
                 </div>
               </div>
               <input 
@@ -440,7 +440,7 @@ export default function UserProfileCard({
               transition: 'all 0.2s ease'
             }}
           >
-            {isSaving ? 'Saving...' : '💾 Save Profile Settings'}
+            {isSaving ? 'Saving...' : 'Save Profile Settings'}
           </button>
         </div>
 

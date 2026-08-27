@@ -40,7 +40,7 @@ export default function AuditDiffModal({
     <div className="modal-overlay" style={{ zIndex: 1200 }}>
       <div className="modal-content wide" style={{ width: '800px' }}>
         <div className="modal-header">
-          <h3>🔍 Registry Log Diff Comparison</h3>
+          <h3>Registry Log Diff Comparison</h3>
           <button className="modal-close-btn" onClick={() => setSelectedAuditLogForDiff(null)}>×</button>
         </div>
         
