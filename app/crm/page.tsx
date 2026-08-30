@@ -129,6 +129,27 @@ interface TermsTemplate {
 // Global Constants & SVG Vector Icons
 const initialStages = ['New', 'Contacted', 'Proposal Sent', 'Negotiation', 'Won', 'Lost'];
 
+function deduplicateContacts(contacts: any[]): any[] {
+  const seen = new Set<string>();
+  const unique: any[] = [];
+  for (const c of contacts) {
+    if (!c) continue;
+    const p = (c.preferredPhone || c.phone || '').replace(/[^0-9]/g, '');
+    const e = (c.email || '').trim().toLowerCase();
+    const nc = `${(c.name || '').trim().toLowerCase()}::${(c.company || '').trim().toLowerCase()}`;
+    let key = '';
+    if (p && p.length >= 7) key = `p:${p.slice(-10)}`;
+    else if (e) key = `e:${e}`;
+    else if (nc !== '::') key = `nc:${nc}`;
+    else key = `id:${c.id || Math.random()}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(c);
+    }
+  }
+  return unique;
+}
+
 const DashboardIcon = () => (
   <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
 );
@@ -691,12 +712,28 @@ export default function App() {
       try {
         const { scanVisitingCardVisionAction } = await import('@/app/actions/crm');
         const visionResult = await scanVisitingCardVisionAction(imageDataUrl);
-        if (visionResult && visionResult.success && visionResult.data && (visionResult.data.firstName || visionResult.data.company)) {
-          setScannedResultForm(visionResult.data);
-          setScanProgress(100);
-          triggerToast('Visiting card parsed with AI Vision API (99.9% Precision)!', 'success');
-          setIsScanningCard(false);
-          return;
+        if (visionResult && visionResult.success && visionResult.data) {
+          const d = visionResult.data;
+          if (d.firstName || d.lastName || d.fullName || d.company || d.phone || d.email) {
+            setScannedResultForm({
+              firstName: d.firstName || '',
+              lastName: d.lastName || '',
+              fullName: d.fullName || `${d.firstName || ''} ${d.lastName || ''}`.trim(),
+              company: d.company || '',
+              designation: d.designation || '',
+              phone: d.phone || '',
+              email: d.email || '',
+              website: d.website || '',
+              linkedin: d.linkedin || '',
+              address: d.address || '',
+              city: d.city || '',
+              pincode: d.pincode || ''
+            });
+            setScanProgress(100);
+            triggerToast('Visiting card parsed with AI Vision API (99.9% Precision)!', 'success');
+            setIsScanningCard(false);
+            return;
+          }
         }
       } catch (visionErr) {
         console.log('AI Vision API skipped, executing local multi-strategy OCR engine:', visionErr);
@@ -4797,45 +4834,55 @@ export default function App() {
               ) : companyViewMode === 'grid' ? (
                 /* Companies Grid View */
                 <div className="companies-grid">
-                  {companies.map(comp => (
-                    <div key={comp.id} className="company-card">
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                        <div className="contact-avatar" style={{ margin: 0, backgroundColor: '#eff6ff', color: '#1e40af' }}>
-                          {comp.name.slice(0, 2).toUpperCase()}
-                        </div>
-                        <span className="badge badge-cold" style={{ fontSize: '9px' }}>{comp.state}</span>
-                      </div>
-                      <h3 className="contact-name" style={{ fontSize: '14.5px', marginBottom: '4px' }}>{comp.name}</h3>
-                      <div className="contact-company" style={{ color: '#d49b38', fontWeight: '600' }}>{comp.industry}</div>
-                      
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        {comp.address}
-                      </div>
+                  {companies.map(comp => {
+                    const compNameLower = (comp.name || '').trim().toLowerCase();
+                    const matchingContacts = contactsList.filter(c => (c.company || '').trim().toLowerCase() === compNameLower);
+                    const matchingLeads = leads.filter(l => (l.company || '').trim().toLowerCase() === compNameLower);
+                    const combinedAffiliated = deduplicateContacts([...matchingContacts, ...matchingLeads]);
+                    const matchingDeals = deals.filter(d => (d.company || '').trim().toLowerCase() === compNameLower);
+                    const dynamicRollup = matchingDeals.reduce((acc, d) => acc + (Number(d.value) || 0), 0) || comp.totalDealValue || 0;
+                    const displayCount = Math.max(combinedAffiliated.length, Number(comp.contactsCount) || 0);
 
-                      <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '16px', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11.5px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: 'var(--text-muted)' }}>Affiliated Contacts:</span>
-                          <strong>{comp.contactsCount} Contacts</strong>
+                    return (
+                      <div key={comp.id} className="company-card">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                          <div className="contact-avatar" style={{ margin: 0, backgroundColor: '#eff6ff', color: '#1e40af' }}>
+                            {comp.name.slice(0, 2).toUpperCase()}
+                          </div>
+                          <span className="badge badge-cold" style={{ fontSize: '9px' }}>{comp.state || 'Karnataka'}</span>
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: 'var(--text-muted)' }}>Total B2G Roll-up:</span>
-                          <strong style={{ color: '#10b981' }}>{formatCurrency(comp.totalDealValue)}</strong>
+                        <h3 className="contact-name" style={{ fontSize: '14.5px', marginBottom: '4px' }}>{comp.name}</h3>
+                        <div className="contact-company" style={{ color: '#d49b38', fontWeight: '600' }}>{comp.industry || 'Manufacturing / B2G'}</div>
+                        
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          {comp.address || `${comp.city || 'Bangalore'}, ${comp.state || 'Karnataka'}`}
                         </div>
-                      </div>
 
-                      <div style={{ marginTop: 'auto', paddingTop: '14px', display: 'flex', gap: '8px' }}>
-                        <button className="btn btn-secondary" style={{ flex: 1, fontSize: '11px', justifyContent: 'center' }} onClick={() => setSelectedCompanyDetail(comp)}>
-                          Inspect Account Profile
-                        </button>
-                        <button 
-                          className="btn btn-secondary" 
-                          style={{ padding: '4px 8px', fontSize: '11px', color: '#dc2626', borderColor: '#fca5a5' }} 
-                          onClick={() => handleDeleteCompany(comp.id)}
-                          title="Delete Company Account"
-                        ><TrashIcon size={13} color="#dc2626" /></button>
+                        <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '16px', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11.5px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Affiliated Contacts:</span>
+                            <strong>{displayCount} Contacts</strong>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Total B2G Roll-up:</span>
+                            <strong style={{ color: '#10b981' }}>{formatCurrency(dynamicRollup)}</strong>
+                          </div>
+                        </div>
+
+                        <div style={{ marginTop: 'auto', paddingTop: '14px', display: 'flex', gap: '8px' }}>
+                          <button className="btn btn-secondary" style={{ flex: 1, fontSize: '11px', justifyContent: 'center' }} onClick={() => setSelectedCompanyDetail({ ...comp, contactsCount: displayCount, totalDealValue: dynamicRollup })}>
+                            Inspect Account Profile
+                          </button>
+                          <button 
+                            className="btn btn-secondary" 
+                            style={{ padding: '4px 8px', fontSize: '11px', color: '#dc2626', borderColor: '#fca5a5' }} 
+                            onClick={() => handleDeleteCompany(comp.id)}
+                            title="Delete Company Account"
+                          ><TrashIcon size={13} color="#dc2626" /></button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 /* Companies Dense Table View */
@@ -4853,32 +4900,42 @@ export default function App() {
                         </tr>
                       </thead>
                       <tbody>
-                        {companies.map(comp => (
-                          <tr key={comp.id}>
-                            <td style={{ fontWeight: '700', color: '#1e40af' }}>{comp.name}</td>
-                            <td>{comp.industry}</td>
-                            <td style={{ fontSize: '12px' }}>{comp.address}, {comp.city}, {comp.state}</td>
-                            <td style={{ fontWeight: 'bold' }}>{comp.contactsCount} Contacts</td>
-                            <td style={{ fontWeight: 'bold', color: '#10b981' }}>{formatCurrency(comp.totalDealValue)}</td>
-                            <td>
-                              <div style={{ display: 'flex', gap: '6px' }}>
-                                <button 
-                                  className="btn btn-secondary" 
-                                  style={{ padding: '4px 8px', fontSize: '11px' }} 
-                                  onClick={() => setSelectedCompanyDetail(comp)}
-                                >
-                                  View 360° Profile
-                                </button>
-                                <button 
-                                  className="btn btn-secondary" 
-                                  style={{ padding: '4px 8px', fontSize: '11px', color: '#dc2626', borderColor: '#fca5a5' }} 
-                                  onClick={() => handleDeleteCompany(comp.id)}
-                                  title="Delete Company Account"
-                                ><TrashIcon size={13} color="#dc2626" /></button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
+                        {companies.map(comp => {
+                          const compNameLower = (comp.name || '').trim().toLowerCase();
+                          const matchingContacts = contactsList.filter(c => (c.company || '').trim().toLowerCase() === compNameLower);
+                          const matchingLeads = leads.filter(l => (l.company || '').trim().toLowerCase() === compNameLower);
+                          const combinedAffiliated = deduplicateContacts([...matchingContacts, ...matchingLeads]);
+                          const matchingDeals = deals.filter(d => (d.company || '').trim().toLowerCase() === compNameLower);
+                          const dynamicRollup = matchingDeals.reduce((acc, d) => acc + (Number(d.value) || 0), 0) || comp.totalDealValue || 0;
+                          const displayCount = Math.max(combinedAffiliated.length, Number(comp.contactsCount) || 0);
+
+                          return (
+                            <tr key={comp.id}>
+                              <td style={{ fontWeight: '700', color: '#1e40af' }}>{comp.name}</td>
+                              <td>{comp.industry || 'Manufacturing / B2G'}</td>
+                              <td style={{ fontSize: '12px' }}>{comp.address || ''}, {comp.city || 'Bangalore'}, {comp.state || 'Karnataka'}</td>
+                              <td style={{ fontWeight: 'bold' }}>{displayCount} Contacts</td>
+                              <td style={{ fontWeight: 'bold', color: '#10b981' }}>{formatCurrency(dynamicRollup)}</td>
+                              <td>
+                                <div style={{ display: 'flex', gap: '6px' }}>
+                                  <button 
+                                    className="btn btn-secondary" 
+                                    style={{ padding: '4px 8px', fontSize: '11px' }} 
+                                    onClick={() => setSelectedCompanyDetail({ ...comp, contactsCount: displayCount, totalDealValue: dynamicRollup })}
+                                  >
+                                    View 360° Profile
+                                  </button>
+                                  <button 
+                                    className="btn btn-secondary" 
+                                    style={{ padding: '4px 8px', fontSize: '11px', color: '#dc2626', borderColor: '#fca5a5' }} 
+                                    onClick={() => handleDeleteCompany(comp.id)}
+                                    title="Delete Company Account"
+                                  ><TrashIcon size={13} color="#dc2626" /></button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -7774,42 +7831,108 @@ export default function App() {
 
             <div style={{ padding: '10px 0' }}>
               <h2>{selectedCompanyDetail.name}</h2>
-              <p style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{selectedCompanyDetail.industry} • {selectedCompanyDetail.address}</p>
+              <p style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{selectedCompanyDetail.industry || 'Manufacturing / B2G'} • {selectedCompanyDetail.address || `${selectedCompanyDetail.city || 'Bangalore'}, ${selectedCompanyDetail.state || 'Karnataka'}`}</p>
               
-              <div style={{ margin: '16px 0', padding: '12px', background: '#f8fafc', borderRadius: '8px', display: 'flex', gap: '24px' }}>
+              <div style={{ margin: '16px 0', padding: '12px', background: '#f8fafc', borderRadius: '8px', display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
                 <div>
                   <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>City & State:</span>
-                  <div style={{ fontWeight: 'bold' }}>{selectedCompanyDetail.city}, {selectedCompanyDetail.state}</div>
+                  <div style={{ fontWeight: 'bold' }}>{selectedCompanyDetail.city || 'Bangalore'}, {selectedCompanyDetail.state || 'Karnataka'}</div>
                 </div>
-                <div>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Website:</span>
-                  <div><a href={selectedCompanyDetail.website} target="_blank" rel="noreferrer" style={{ color: '#1e40af' }}>{selectedCompanyDetail.website}</a></div>
-                </div>
+                {selectedCompanyDetail.website && (
+                  <div>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Website:</span>
+                    <div><a href={selectedCompanyDetail.website.startsWith('http') ? selectedCompanyDetail.website : `https://${selectedCompanyDetail.website}`} target="_blank" rel="noreferrer" style={{ color: '#1e40af' }}>{selectedCompanyDetail.website}</a></div>
+                  </div>
+                )}
                 <div>
                   <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Total B2G Roll-up Value:</span>
                   <div style={{ fontWeight: 'bold', color: '#10b981' }}>{formatCurrency(selectedCompanyDetail.totalDealValue)}</div>
                 </div>
               </div>
 
-              <h4 style={{ fontSize: '13px', fontWeight: 'bold', marginBottom: '8px' }}>Affiliated Contacts ({selectedCompanyDetail.contactsCount})</h4>
-              <table className="custom-table">
-                <thead>
-                  <tr>
-                    <th>Contact Name</th>
-                    <th>Email</th>
-                    <th>Phone</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {leads.filter(l => l.company === selectedCompanyDetail.name).map(c => (
-                    <tr key={c.id}>
-                      <td style={{ fontWeight: 'bold' }}>{c.name}</td>
-                      <td>{c.email}</td>
-                      <td>{c.phone}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              {(() => {
+                const compNameLower = (selectedCompanyDetail.name || '').trim().toLowerCase();
+                const matchingContacts = contactsList.filter(c => (c.company || '').trim().toLowerCase() === compNameLower);
+                const matchingLeads = leads.filter(l => (l.company || '').trim().toLowerCase() === compNameLower);
+                const combinedAffiliated = deduplicateContacts([...matchingContacts, ...matchingLeads]);
+                const matchingDeals = deals.filter(d => (d.company || '').trim().toLowerCase() === compNameLower);
+
+                return (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <h4 style={{ fontSize: '13px', fontWeight: 'bold', margin: 0 }}>
+                        Affiliated Contacts ({combinedAffiliated.length})
+                      </h4>
+                      <button 
+                        className="btn btn-secondary" 
+                        style={{ padding: '4px 10px', fontSize: '11px' }}
+                        onClick={() => {
+                          setNewLead({ ...newLead, company: selectedCompanyDetail.name, city: selectedCompanyDetail.city || 'Bangalore', state: selectedCompanyDetail.state || 'Karnataka' });
+                          setShowLeadModal(true);
+                        }}
+                      >
+                        + Add Person to this Company
+                      </button>
+                    </div>
+
+                    {combinedAffiliated.length === 0 ? (
+                      <p style={{ fontSize: '12px', color: 'var(--text-muted)', padding: '12px', background: '#f8fafc', borderRadius: '6px', margin: '8px 0' }}>
+                        No direct contacts linked yet. Click "+ Add Person to this Company" or scan a card to attach representatives.
+                      </p>
+                    ) : (
+                      <table className="custom-table" style={{ marginTop: '8px' }}>
+                        <thead>
+                          <tr>
+                            <th>Contact Person</th>
+                            <th>Role / Designation</th>
+                            <th>Email</th>
+                            <th>Phone (Direct)</th>
+                            <th>Source</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {combinedAffiliated.map((c: any) => (
+                            <tr key={c.id}>
+                              <td style={{ fontWeight: 'bold', color: '#0f172a' }}>{c.name}</td>
+                              <td style={{ fontSize: '12px', color: '#64748b' }}>{c.designation || 'Representative'}</td>
+                              <td>
+                                {c.email ? (
+                                  <a href={`mailto:${c.email}`} style={{ color: '#1e40af', fontSize: '12px' }}>{c.email}</a>
+                                ) : <span style={{ color: '#94a3b8' }}>—</span>}
+                              </td>
+                              <td>
+                                {c.phone || c.preferredPhone ? (
+                                  <a href={`tel:${c.phone || c.preferredPhone}`} style={{ color: '#059669', fontWeight: '600', fontSize: '12px' }}>{c.phone || c.preferredPhone}</a>
+                                ) : <span style={{ color: '#94a3b8' }}>—</span>}
+                              </td>
+                              <td>
+                                <span className="badge badge-cold" style={{ fontSize: '10px' }}>{c.sourceType || c.category || 'Direct'}</span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+
+                    {matchingDeals.length > 0 && (
+                      <div style={{ marginTop: '16px' }}>
+                        <h4 style={{ fontSize: '13px', fontWeight: 'bold', marginBottom: '8px' }}>Linked Pipeline Deals ({matchingDeals.length})</h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {matchingDeals.map(d => (
+                            <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '12px' }}>
+                              <span style={{ fontWeight: '600', color: '#1e293b' }}>{d.name}</span>
+                              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                <span style={{ color: '#059669', fontWeight: 'bold' }}>{formatCurrency(d.value)}</span>
+                                <span className="badge badge-hot">{d.stage}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="modal-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -9055,25 +9178,22 @@ export default function App() {
                     return;
                   }
 
-                  // Duplicate check against leads
+                  // Inform if already tracked in Leads
                   const existingInLeads = leads.find(l => 
                     (cleanPhone && cleanPhone.length >= 7 && l.phone && l.phone.replace(/[^0-9]/g, '').slice(-10) === cleanPhone.replace(/[^0-9]/g, '').slice(-10)) ||
                     (candidate.email && l.email && l.email.toLowerCase() === candidate.email.toLowerCase())
                   );
                   if (existingInLeads) {
-                    triggerToast(`Contact already in database as a lead: "${existingInLeads.name}" (${existingInLeads.company})!`, 'warning');
-                    setShowScanModal(false);
-                    setScannedImagePreview(null);
-                    return;
+                    triggerToast(`Contact linked with existing lead: "${existingInLeads.name}" (${existingInLeads.company})`, 'info');
                   }
 
                   let dbId = `CNT-${Date.now().toString().slice(-4)}`;
 
-                  // Persist Scanned Contact to Supabase Database via Server Action
+                  // Persist Scanned Contact & Company to PostgreSQL Database via Server Action
                   try {
                     const { createContactAction } = await import('@/app/actions/contacts');
                     const res = await createContactAction(candidate, currentUser?.fullName || 'KP Sumanth');
-                    if (res && res.isDuplicate) {
+                    if (res && res.isDuplicate && !res.success) {
                       triggerToast(res.error || `Contact "${candidate.name}" is already in the database!`, 'warning');
                       setShowScanModal(false);
                       setScannedImagePreview(null);
@@ -9081,7 +9201,7 @@ export default function App() {
                     }
                     if (res && res.success && res.contact) {
                       dbId = res.contact.id;
-                      triggerToast(`Scanned contact ${contactFullName} saved to database!`, 'success');
+                      triggerToast(`Scanned contact "${contactFullName}" saved to database!`, 'success');
                     }
                   } catch (dbErr) {
                     console.error('Database save error for scanned contact:', dbErr);
@@ -9102,6 +9222,28 @@ export default function App() {
                     isConverted: false
                   };
                   setContactsList(prev => [newEntry, ...prev]);
+
+                  // Also auto-sync into Companies state
+                  if (candidate.company) {
+                    setCompanies(prev => {
+                      const exists = prev.some(c => c.name.toLowerCase() === candidate.company.toLowerCase());
+                      if (!exists) {
+                        return [{
+                          id: `COMP-${Date.now()}`,
+                          name: candidate.company,
+                          industry: 'Manufacturing / B2G',
+                          website: '',
+                          city: candidate.city || 'Bangalore',
+                          state: 'Karnataka',
+                          address: candidate.address || '',
+                          contactsCount: 1,
+                          totalDealValue: 0
+                        }, ...prev];
+                      }
+                      return prev.map(c => c.name.toLowerCase() === candidate.company.toLowerCase() ? { ...c, contactsCount: (c.contactsCount || 0) + 1 } : c);
+                    });
+                  }
+
                   setShowScanModal(false);
                   setScannedImagePreview(null);
                   setScannedResultForm({ firstName: '', lastName: '', fullName: '', company: '', designation: '', phone: '', email: '', website: '', linkedin: '', address: '', city: '', pincode: '' });

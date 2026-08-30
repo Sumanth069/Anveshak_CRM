@@ -42,3 +42,10 @@ test-results/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# cypress testing & test artifacts
+/cypress/
+cypress.config.js
+cypress.config.ts
+scripts/generate_report.js
+

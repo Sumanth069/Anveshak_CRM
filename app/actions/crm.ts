@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { supabase } from '@/lib/supabase';
+import { normalizePhone } from '@/lib/phone';
 
 function normalizeDealStage(stage?: string): string {
   if (!stage) return 'New';
@@ -118,18 +119,26 @@ export async function fetchCrmInitialState(userEmail?: string, userFullName?: st
 
       // Multi-user scoping for Sales Representatives / Managers
       // Multi-user scoping for Sales Representatives / Managers
-      let userCompanies = (cRes.data || []).map((c: any) => ({
-        id: c.id,
-        name: c.name,
-        industry: c.industry,
-        website: c.website,
-        city: c.city,
-        state: c.state,
-        address: c.address,
-        contactsCount: Number(c.contacts_count) || 0,
-        totalDealValue: Number(c.total_deal_value) || 0,
-        createdAt: c.created_at
-      }));
+      let userCompanies = (cRes.data || []).map((c: any) => {
+        const compName = (c.name || '').trim().toLowerCase();
+        const matchingLeads = mappedLeads.filter(l => (l.company || '').trim().toLowerCase() === compName);
+        const matchingDeals = mappedDeals.filter(d => (d.company || '').trim().toLowerCase() === compName);
+        const rolledDealValue = matchingDeals.reduce((sum, d) => sum + (Number(d.value) || 0), 0);
+        const computedCount = Math.max(Number(c.contacts_count) || 0, matchingLeads.length);
+
+        return {
+          id: c.id,
+          name: c.name,
+          industry: c.industry || 'Manufacturing / B2G',
+          website: c.website,
+          city: c.city || 'Bangalore',
+          state: c.state || 'Karnataka',
+          address: c.address,
+          contactsCount: computedCount,
+          totalDealValue: rolledDealValue || Number(c.total_deal_value) || 0,
+          createdAt: c.created_at
+        };
+      });
 
       let userQuotes = (qRes.data || []).map((q: any) => ({
         id: q.id,
@@ -398,6 +407,67 @@ export async function createLeadAction(lead: any) {
           });
         } catch (e) {}
 
+        // Auto-sync into Unified Centralized Contacts Pool & Companies
+        try {
+          const normPhone = phone ? normalizePhone(phone) : null;
+          const cleanPhone = normPhone?.isValid ? normPhone.e164 : (phone || null);
+
+          const contactPayload = {
+            name: name,
+            company: lead.company || null,
+            email: email || null,
+            preferred_phone: cleanPhone,
+            phone: cleanPhone,
+            category: 'Lead',
+            source_type: 'Lead Capture',
+            tags: ['Lead'],
+            owner: lead.owner || 'KP Sumanth',
+            notes: `Lead in Pipeline (Status: ${lead.status || 'New'})`
+          };
+
+          await supabase.from('contacts').insert([contactPayload]);
+
+          await prisma.contact.create({
+            data: {
+              name: name,
+              company: lead.company || null,
+              email: email || null,
+              preferredPhone: cleanPhone,
+              category: 'Lead',
+              sourceType: 'Lead Capture',
+              tags: ['Lead'],
+              owner: lead.owner || 'KP Sumanth',
+              notes: `Lead in Pipeline (Status: ${lead.status || 'New'})`
+            }
+          }).catch(() => {});
+
+          if (lead.company) {
+            const compPayload = {
+              name: lead.company,
+              industry: 'Manufacturing / B2G',
+              city: 'Bangalore',
+              state: 'Karnataka',
+              contacts_count: 1,
+              total_deal_value: 0
+            };
+            await supabase.from('companies').upsert([compPayload], { onConflict: 'name' });
+            await prisma.company.upsert({
+              where: { name: lead.company },
+              update: { contactsCount: { increment: 1 } },
+              create: {
+                name: lead.company,
+                industry: 'Manufacturing / B2G',
+                city: 'Bangalore',
+                state: 'Karnataka',
+                contactsCount: 1,
+                totalDealValue: 0
+              }
+            }).catch(() => {});
+          }
+        } catch (syncEx) {
+          console.warn('Lead to Contacts/Companies pool sync warning:', syncEx);
+        }
+
         return { success: true, data: sCreated };
       }
     } catch (supaInsertErr) {
@@ -420,6 +490,26 @@ export async function createLeadAction(lead: any) {
           activities: lead.activities || []
         }
       });
+
+      // Auto-sync into Unified Centralized Contacts Pool
+      try {
+        const normPhone = phone ? normalizePhone(phone) : null;
+        const cleanPhone = normPhone?.isValid ? normPhone.e164 : (phone || null);
+        await prisma.contact.create({
+          data: {
+            name: name,
+            company: lead.company || null,
+            email: email || null,
+            preferredPhone: cleanPhone,
+            category: 'Lead',
+            sourceType: 'Lead Capture',
+            tags: ['Lead'],
+            owner: lead.owner || 'KP Sumanth',
+            notes: `Lead in Pipeline (Status: ${lead.status || 'New'})`
+          }
+        }).catch(() => {});
+      } catch (e) {}
+
       return { success: true, data: created };
     } catch (prismaErr: any) {
       console.error('Prisma lead create error:', prismaErr);
@@ -840,6 +930,44 @@ export async function createCompanyAction(company: any) {
 
     try {
       const { data: sCreated, error: sErr } = await supabase.from('companies').upsert([cPayload], { onConflict: 'name' }).select().single();
+
+      // Auto-create company representative in contacts directory if contact info provided
+      if (company.contactPerson || company.phone || company.email) {
+        try {
+          const contactName = company.contactPerson || `${name} Representative`;
+          const phone = company.phone || null;
+          const email = company.email || null;
+          const supaContact = {
+            name: contactName,
+            company: name,
+            email: email,
+            preferred_phone: phone,
+            phone: phone,
+            category: 'Company Contact',
+            source_type: 'Account Creation',
+            owner: company.owner || 'KP Sumanth',
+            tags: ['Company Contact'],
+            notes: `Official contact for ${name}`
+          };
+          await supabase.from('contacts').insert([supaContact]);
+          await prisma.contact.create({
+            data: {
+              name: contactName,
+              company: name,
+              email: email,
+              preferredPhone: phone,
+              category: 'Company Contact',
+              sourceType: 'Account Creation',
+              tags: ['Company Contact'],
+              owner: company.owner || 'KP Sumanth',
+              notes: `Official contact for ${name}`
+            }
+          }).catch(() => {});
+        } catch (cEx) {
+          console.warn('Company contact auto-creation warning:', cEx);
+        }
+      }
+
       if (!sErr && sCreated) {
         return {
           success: true,
@@ -1209,7 +1337,9 @@ export async function scanVisitingCardVisionAction(imageDataBase64: string) {
       return { success: false, error: 'GEMINI_API_KEY is not configured in environment.' };
     }
 
-    const base64Data = imageDataBase64.replace(/^data:image\/\w+;base64,/, '');
+    const mimeMatch = imageDataBase64.match(/^data:(image\/[a-zA-Z0-9.+_-]+);base64,/);
+    const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+    const base64Data = imageDataBase64.replace(/^data:image\/[a-zA-Z0-9.+_-]+;base64,/, '').replace(/\s/g, '');
 
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
@@ -1219,53 +1349,87 @@ export async function scanVisitingCardVisionAction(imageDataBase64: string) {
           {
             parts: [
               {
-                text: `You are an expert AI visiting card reader. Analyze the attached business card image and extract ALL fields into strict JSON format with no markdown syntax wrapping. Return ONLY a valid JSON object matching these exact keys:
+                text: `You are an expert AI visiting card reader with 100% precision. Analyze the provided visiting / business card image carefully. Extract all text and map it accurately into the following JSON schema:
 {
-  "firstName": "string",
-  "lastName": "string",
-  "company": "string",
-  "designation": "string",
-  "phone": "string",
-  "email": "string",
-  "website": "string",
-  "linkedin": "string",
-  "address": "string",
-  "city": "string",
-  "pincode": "string"
-}`
+  "firstName": "First name of the person (or empty string)",
+  "lastName": "Last name / surname of the person (or empty string)",
+  "fullName": "Full name of the person",
+  "company": "Company / Organization / Enterprise name",
+  "designation": "Job title / Designation / Role",
+  "phone": "Primary contact number with country code (e.g. +91 98450 12345)",
+  "email": "Official work email address",
+  "website": "Company website or URL (e.g. https://example.com)",
+  "linkedin": "LinkedIn profile URL or handle",
+  "address": "Street address or office location",
+  "city": "City name",
+  "pincode": "Postal code / PIN code"
+}
+Ensure names, company, phone, email, and designation are identified correctly even if formatted in stylized fonts, multiple columns, or Indian business card formats. Return ONLY valid JSON.`
               },
               {
                 inline_data: {
-                  mime_type: 'image/jpeg',
+                  mime_type: mimeType,
                   data: base64Data
                 }
               }
             ]
           }
-        ]
+        ],
+        generationConfig: {
+          response_mime_type: 'application/json',
+          temperature: 0.1
+        }
       })
     });
 
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('Gemini Vision API error response:', response.status, errText);
+      return { success: false, error: `Gemini API returned status ${response.status}` };
+    }
+
     const data = await response.json();
-    const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const cleanJson = candidateText.replace(/```json/gi, '').replace(/```/g, '').trim();
+    const parts = data.candidates?.[0]?.content?.parts || [];
+    let candidateText = '';
+    for (const p of parts) {
+      if (p.text) candidateText += p.text;
+    }
+
+    const jsonMatch = candidateText.match(/\{[\s\S]*\}/);
+    const cleanJson = jsonMatch ? jsonMatch[0] : candidateText.replace(/```json/gi, '').replace(/```/g, '').trim();
+    if (!cleanJson) {
+      return { success: false, error: 'No structured text could be extracted from image.' };
+    }
+
     const parsed = JSON.parse(cleanJson);
+
+    const fName = (parsed.firstName || '').trim();
+    const lName = (parsed.lastName || '').trim();
+    let computedFullName = (parsed.fullName || '').trim();
+    if (!computedFullName && (fName || lName)) {
+      computedFullName = `${fName} ${lName}`.trim();
+    }
+    if (computedFullName && !fName && !lName) {
+      const nameParts = computedFullName.split(' ');
+      parsed.firstName = nameParts[0] || '';
+      parsed.lastName = nameParts.slice(1).join(' ') || '';
+    }
 
     return {
       success: true,
       data: {
-        firstName: parsed.firstName || '',
-        lastName: parsed.lastName || '',
-        fullName: `${parsed.firstName || ''} ${parsed.lastName || ''}`.trim(),
-        company: parsed.company || '',
-        designation: parsed.designation || '',
-        phone: parsed.phone || '',
-        email: parsed.email || '',
-        website: parsed.website || '',
-        linkedin: parsed.linkedin || '',
-        address: parsed.address || '',
-        city: parsed.city || '',
-        pincode: parsed.pincode || ''
+        firstName: parsed.firstName || fName || '',
+        lastName: parsed.lastName || lName || '',
+        fullName: computedFullName,
+        company: (parsed.company || '').trim(),
+        designation: (parsed.designation || '').trim(),
+        phone: (parsed.phone || '').trim(),
+        email: (parsed.email || '').trim(),
+        website: (parsed.website || '').trim(),
+        linkedin: (parsed.linkedin || '').trim(),
+        address: (parsed.address || '').trim(),
+        city: (parsed.city || '').trim(),
+        pincode: (parsed.pincode || '').trim()
       }
     };
   } catch (err: any) {

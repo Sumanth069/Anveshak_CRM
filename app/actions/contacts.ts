@@ -338,6 +338,37 @@ export async function createContactAction(data: any, authorName = 'System User')
       .select()
       .single();
 
+    // 3. Auto-upsert company in companies table if company name is present
+    if (company) {
+      try {
+        const compPayload = {
+          name: company,
+          industry: data.category || 'Manufacturing / B2G',
+          city: data.city || 'Bangalore',
+          state: data.state || 'Karnataka',
+          address: data.address || null,
+          contacts_count: 1,
+          total_deal_value: 0
+        };
+        await supabase.from('companies').upsert([compPayload], { onConflict: 'name' });
+        await prisma.company.upsert({
+          where: { name: company },
+          update: { contactsCount: { increment: 1 } },
+          create: {
+            name: company,
+            industry: data.category || 'Manufacturing / B2G',
+            city: data.city || 'Bangalore',
+            state: data.state || 'Karnataka',
+            address: data.address || null,
+            contactsCount: 1,
+            totalDealValue: 0
+          }
+        });
+      } catch (cSyncErr) {
+        console.warn('Company auto-upsert warning:', cSyncErr);
+      }
+    }
+
     if (!sErr && createdRow) {
       const mapped = mapContactFromSupabase(createdRow);
       return { success: true, contact: mapped };
@@ -378,6 +409,24 @@ export async function createContactAction(data: any, authorName = 'System User')
         importBatchId: data.importBatchId || null
       }
     });
+
+    if (company) {
+      try {
+        await prisma.company.upsert({
+          where: { name: company },
+          update: { contactsCount: { increment: 1 } },
+          create: {
+            name: company,
+            industry: data.category || 'Manufacturing / B2G',
+            city: data.city || 'Bangalore',
+            state: data.state || 'Karnataka',
+            address: data.address || null,
+            contactsCount: 1,
+            totalDealValue: 0
+          }
+        });
+      } catch (e) {}
+    }
 
     return { success: true, contact: created };
   } catch (error: any) {
