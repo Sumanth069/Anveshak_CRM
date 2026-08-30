@@ -174,20 +174,20 @@ export default function UserProfileCard({
                   right: '-4px',
                   background: '#3b82f6',
                   color: '#ffffff',
-                  width: '28px',
-                  height: '28px',
+                  width: '26px',
+                  height: '26px',
                   borderRadius: '50%',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '14px',
+                  fontSize: '12px',
                   cursor: 'pointer',
                   boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
                   border: '2px solid #0f172a'
                 }}
                 title="Change Photo"
               >
-                
+                📷
               </label>
               <input 
                 type="file" 
