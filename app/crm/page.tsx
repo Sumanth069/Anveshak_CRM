@@ -14,6 +14,8 @@ import ContactMergeModal from '@/components/crm/contacts/ContactMergeModal';
 import ExcelImportModal from '@/components/crm/contacts/ExcelImportModal';
 import QuickCommModal from '@/components/crm/contacts/QuickCommModal';
 import UserProfileCard from '@/components/crm/UserProfileCard';
+import OutlookSyncModal from '@/components/crm/OutlookSyncModal';
+import { getOutlookWebComposeUrl, downloadIcsFile } from '@/lib/outlookCalendar';
 import { normalizePhone, formatPhoneDisplay } from '@/lib/phone';
 import { scoreDuplicate } from '@/lib/dedup';
 import { updateSupabaseConfig, isSupabaseConnected } from '@/lib/supabase';
@@ -51,6 +53,7 @@ interface Task {
   title: string;
   description: string;
   dueDate: string; // YYYY-MM-DD
+  dueTime?: string; // HH:mm
   priority: 'Low' | 'Medium' | 'High';
   status: 'Open' | 'Completed';
   assignee: string;
@@ -575,6 +578,9 @@ export default function App() {
   });
   const [isUpdatingSelfPassword, setIsUpdatingSelfPassword] = useState(false);
 
+  // Microsoft Outlook Account Connection State (Auto-Sync)
+  const [outlookAccountStatus, setOutlookAccountStatus] = useState<{ connected: boolean; outlookEmail?: string }>({ connected: false });
+
   // Data States
   const [leads, setLeads] = useState<Lead[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -935,6 +941,18 @@ export default function App() {
     const initAuthAndUsers = async () => {
       try {
         if (typeof window !== 'undefined') {
+          // Immediately purge legacy CRM cached state from localStorage
+          try {
+            const keysToRemove: string[] = [];
+            for (let i = 0; i < localStorage.length; i++) {
+              const k = localStorage.key(i);
+              if (k && (k.startsWith('ANVESHAK_CRM_STATE') || k.startsWith('ANVESHAK_DATA_'))) {
+                keysToRemove.push(k);
+              }
+            }
+            keysToRemove.forEach(k => localStorage.removeItem(k));
+          } catch (e) {}
+
           const saved = localStorage.getItem('ANVESHAK_AUTH_SESSION_V1');
           if (saved) {
             try {
@@ -961,6 +979,38 @@ export default function App() {
       }
     };
     initAuthAndUsers();
+  }, []);
+
+  // Fetch Microsoft Outlook Connection Status for active user
+  useEffect(() => {
+    if (currentUser?.email) {
+      (async () => {
+        try {
+          const { getOutlookConnectionStatusAction } = await import('@/app/actions/outlook');
+          const status = await getOutlookConnectionStatusAction(currentUser.email);
+          setOutlookAccountStatus(status);
+        } catch (e) {}
+      })();
+    }
+  }, [currentUser?.email]);
+
+  // Handle Microsoft OAuth Callback URL Parameters
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('outlook_connected') === 'true') {
+        const mail = params.get('email') || '';
+        triggerToast(`✓ Outlook account (${mail || 'Microsoft 365'}) successfully linked for background auto-sync!`, 'success');
+        setOutlookAccountStatus({ connected: true, outlookEmail: mail });
+      } else if (params.get('outlook_error')) {
+        const err = params.get('outlook_error');
+        if (err === 'missing_credentials') {
+          triggerToast('Please configure MICROSOFT_CLIENT_ID in your environment.', 'warning');
+        } else {
+          triggerToast(`Outlook link notice: ${err}`, 'info');
+        }
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -1294,6 +1344,8 @@ export default function App() {
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [showLostModal, setShowLostModal] = useState(false);
   const [showQuotePreview, setShowQuotePreview] = useState(false);
+  const [showOutlookSyncModal, setShowOutlookSyncModal] = useState(false);
+  const [syncToOutlookOnTaskCreate, setSyncToOutlookOnTaskCreate] = useState(false);
   
   const [reportsSubTab, setReportsSubTab] = useState<'funnel' | 'forecast' | 'leaderboard'>('funnel');
   
@@ -1502,23 +1554,6 @@ export default function App() {
       isMounted = false;
     };
   }, [currentUser?.email, currentUser?.role]);
-
-  // Multi-user state persistence (scoped strictly per user email in localStorage)
-  useEffect(() => {
-    if (!isInitialLoadDone || !currentUser?.email) return;
-    const storageKey = currentUser.role === 'ADMIN' ? 'ANVESHAK_CRM_STATE_V2' : `ANVESHAK_CRM_STATE_${currentUser.email}`;
-    try {
-      localStorage.setItem(storageKey, JSON.stringify({
-        leads,
-        deals,
-        tasks,
-        activities,
-        companies,
-        quotes,
-        termsTemplates
-      }));
-    } catch (e) {}
-  }, [leads, deals, tasks, activities, companies, quotes, termsTemplates, isInitialLoadDone, currentUser?.email]);
 
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
   const [scoringNotification, setScoringNotification] = useState(false);
@@ -2122,6 +2157,22 @@ export default function App() {
 
     setTasks(prev => [freshTask, ...prev]);
     setShowTaskModal(false);
+    
+    if (syncToOutlookOnTaskCreate) {
+      if (typeof window !== 'undefined') {
+        const outlookUrl = getOutlookWebComposeUrl({
+          title: `[Task] ${freshTask.title}`,
+          description: `Priority: ${freshTask.priority}\nLinked: ${freshTask.linkedTo || 'None'}\n\n${freshTask.description || ''}`,
+          startDate: freshTask.dueDate,
+          startTime: '09:00',
+          durationMinutes: 45,
+          location: freshTask.linkedTo || 'Anveshak CRM'
+        });
+        window.open(outlookUrl, '_blank', 'noopener,noreferrer');
+        triggerToast('Opening event in Outlook Calendar...', 'info');
+      }
+    }
+
     setNewTask({ title: '', description: '', dueDate: '2026-08-30', priority: 'Medium', linkedTo: '' });
     triggerToast(`Task "${freshTask.title}" created & saved!`, 'success');
 
@@ -2137,8 +2188,24 @@ export default function App() {
           assignee: freshTask.assignee,
           linkedTo: freshTask.linkedTo
         });
+
+        // Background automatic push to user's linked Microsoft Outlook Calendar
+        if (currentUser?.email) {
+          const { syncTaskToOutlookAction } = await import('@/app/actions/outlook');
+          const syncRes = await syncTaskToOutlookAction(currentUser.email, {
+            title: freshTask.title,
+            description: freshTask.description,
+            dueDate: freshTask.dueDate,
+            dueTime: '09:00',
+            priority: freshTask.priority,
+            linkedTo: freshTask.linkedTo
+          });
+          if (syncRes.success) {
+            triggerToast('✓ Automatically synced to your Microsoft Outlook Calendar!', 'success');
+          }
+        }
       } catch (err) {
-        console.error('Failed to save task to DB:', err);
+        console.error('Failed to save/sync task:', err);
       }
     })();
   };
@@ -3176,8 +3243,19 @@ export default function App() {
             className="btn-logout-icon" 
             title="Sign out of Anveshak CRM"
             onClick={async () => {
-              localStorage.removeItem('ANVESHAK_AUTH_SESSION_V1');
-              localStorage.removeItem('ANVESHAK_CRM_STATE_V2');
+              if (typeof window !== 'undefined') {
+                localStorage.removeItem('ANVESHAK_AUTH_SESSION_V1');
+                try {
+                  const keysToRemove: string[] = [];
+                  for (let i = 0; i < localStorage.length; i++) {
+                    const k = localStorage.key(i);
+                    if (k && (k.startsWith('ANVESHAK_CRM_STATE') || k.startsWith('ANVESHAK_DATA_') || k.startsWith('ANVESHAK_OWNER_FEEDBACK'))) {
+                      keysToRemove.push(k);
+                    }
+                  }
+                  keysToRemove.forEach(k => localStorage.removeItem(k));
+                } catch (e) {}
+              }
               setCurrentUser(null);
               setIsInitialLoadDone(false);
               setLeads([]);
@@ -4948,6 +5026,13 @@ export default function App() {
                     <h2>Task Queue</h2>
                   </div>
                   <div className="page-header-actions">
+                    <button 
+                      className="btn btn-secondary" 
+                      style={{ color: '#0078d4', borderColor: '#bfdbfe', background: '#eff6ff', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                      onClick={() => setShowOutlookSyncModal(true)}
+                    >
+                      📅 Sync to Outlook
+                    </button>
                     <button className="btn btn-primary" onClick={() => setShowTaskModal(true)}>
                       + Create Task
                     </button>
@@ -5042,25 +5127,24 @@ export default function App() {
                         <thead>
                           <tr>
                             <th style={{ width: '50px', textAlign: 'center' }}>Done</th>
-                            <th>Task Details</th>
-                            <th>Linked Lead/Deal</th>
+                            <th>Task Title & Summary</th>
+                            <th>Linked Entity</th>
                             <th>Due Date</th>
                             <th>Priority</th>
                             <th>Assignee</th>
-                            <th>Action</th>
+                            <th style={{ textAlign: 'right' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
                           {displayTasks.map(t => {
-                            const isOverdue = new Date(t.dueDate) < new Date('2026-07-16') && t.status === 'Open';
+                            const isOverdue = new Date(t.dueDate) < new Date() && t.status === 'Open';
                             return (
-                              <tr key={t.id} style={{ opacity: t.status === 'Completed' ? 0.65 : 1 }}>
+                              <tr key={t.id} style={{ opacity: t.status === 'Completed' ? 0.6 : 1 }}>
                                 <td style={{ textAlign: 'center' }}>
                                   <input 
                                     type="checkbox" 
                                     checked={t.status === 'Completed'} 
                                     onChange={() => toggleTaskStatus(t.id)} 
-                                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
                                   />
                                 </td>
                                 <td>
@@ -5081,18 +5165,38 @@ export default function App() {
                                   </span>
                                 </td>
                                 <td style={{ fontSize: '12px', fontWeight: '600' }}>{t.assignee}</td>
-                                <td>
-                                  <button 
-                                    className="btn btn-secondary" 
-                                    style={{ padding: '3px 8px', fontSize: '11px', color: 'var(--danger)', borderColor: '#fee2e2' }}
-                                    onClick={() => {
-                                      if (confirm(`Are you sure you want to delete task "${t.title}"?`)) {
-                                        setTasks(tasks.filter(tk => tk.id !== t.id));
-                                      }
-                                    }}
-                                  >
-                                    Delete
-                                  </button>
+                                <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                  <div style={{ display: 'inline-flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                    <button
+                                      className="btn btn-secondary"
+                                      style={{ padding: '3px 8px', fontSize: '11px', color: '#0078d4', borderColor: '#bfdbfe', background: '#eff6ff' }}
+                                      title="Open in Microsoft Outlook Calendar"
+                                      onClick={() => {
+                                        const url = getOutlookWebComposeUrl({
+                                          title: `[Task] ${t.title}`,
+                                          description: `Priority: ${t.priority}\nStatus: ${t.status}\nLinked: ${t.linkedTo || 'None'}\n\n${t.description || ''}`,
+                                          startDate: t.dueDate,
+                                          startTime: t.dueTime || '09:00',
+                                          location: t.linkedTo || 'Anveshak CRM'
+                                        });
+                                        window.open(url, '_blank', 'noopener,noreferrer');
+                                        triggerToast('Opening event in Outlook...', 'info');
+                                      }}
+                                    >
+                                      📅 Outlook
+                                    </button>
+                                    <button 
+                                      className="btn btn-secondary" 
+                                      style={{ padding: '3px 8px', fontSize: '11px', color: 'var(--danger)', borderColor: '#fee2e2' }}
+                                      onClick={() => {
+                                        if (confirm(`Are you sure you want to delete task "${t.title}"?`)) {
+                                          setTasks(tasks.filter(tk => tk.id !== t.id));
+                                        }
+                                      }}
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
                                 </td>
                               </tr>
                             );
@@ -5251,7 +5355,46 @@ export default function App() {
                     <h2>Schedule & Calendar</h2>
                   </div>
                   
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {outlookAccountStatus.connected ? (
+                      <div 
+                        style={{ 
+                          display: 'inline-flex', 
+                          alignItems: 'center', 
+                          gap: '8px', 
+                          background: '#ecfdf5', 
+                          border: '1px solid #a7f3d0', 
+                          padding: '6px 12px', 
+                          borderRadius: '8px', 
+                          fontSize: '12px', 
+                          color: '#065f46', 
+                          fontWeight: '700' 
+                        }}
+                      >
+                        <span>✓ Outlook Linked: {outlookAccountStatus.outlookEmail || currentUser?.email}</span>
+                        <button 
+                          style={{ background: 'none', border: 'none', color: '#991b1b', cursor: 'pointer', fontSize: '11px', textDecoration: 'underline', padding: 0 }}
+                          onClick={async () => {
+                            if (confirm('Disconnect Outlook auto-sync?')) {
+                              const { disconnectOutlookAction } = await import('@/app/actions/outlook');
+                              await disconnectOutlookAction(currentUser?.email || '');
+                              setOutlookAccountStatus({ connected: false });
+                              triggerToast('Outlook disconnected.', 'info');
+                            }
+                          }}
+                        >
+                          Disconnect
+                        </button>
+                      </div>
+                    ) : (
+                      <button 
+                        className="btn btn-primary"
+                        style={{ backgroundColor: '#0078d4', borderColor: '#0078d4', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: '600' }}
+                        onClick={() => setShowOutlookSyncModal(true)}
+                      >
+                        📅 Sync with Outlook
+                      </button>
+                    )}
                     <button className={`btn ${calendarViewMode === 'month' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setCalendarViewMode('month')}>
                       Monthly Grid
                     </button>
@@ -5413,6 +5556,24 @@ export default function App() {
                                   <span className={`badge ${t.priority === 'High' ? 'badge-hot' : t.priority === 'Medium' ? 'badge-warm' : 'badge-cold'}`} style={{ fontSize: '9px' }}>{t.priority}</span>
                                 </div>
                               </div>
+                              <button
+                                className="btn btn-secondary"
+                                style={{ padding: '3px 8px', fontSize: '10.5px', color: '#0078d4', borderColor: '#bfdbfe', background: '#eff6ff', whiteSpace: 'nowrap' }}
+                                title="Open event in Microsoft Outlook Calendar"
+                                onClick={() => {
+                                  const url = getOutlookWebComposeUrl({
+                                    title: `[Task] ${t.title}`,
+                                    description: `Priority: ${t.priority}\nStatus: ${t.status}\nLinked: ${t.linkedTo || 'None'}\n\n${t.description || ''}`,
+                                    startDate: t.dueDate || selectedDateStr || '',
+                                    startTime: t.dueTime || '09:00',
+                                    location: t.linkedTo || 'Anveshak CRM'
+                                  });
+                                  window.open(url, '_blank', 'noopener,noreferrer');
+                                  triggerToast('Opening task in Outlook...', 'info');
+                                }}
+                              >
+                                📅 Outlook ↗
+                              </button>
                             </div>
                           ))}
                           {inspectedTasks.length === 0 && <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: 0 }}>No tasks due on this day.</p>}
@@ -5426,8 +5587,30 @@ export default function App() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                           {inspectedDeals.map(d => (
                             <div key={d.id} style={{ background: '#ecfdf5', padding: '10px', borderRadius: '6px', border: '1px solid #a7f3d0' }}>
-                              <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#065f46' }}>{d.name}</div>
-                              <div style={{ fontSize: '11px', color: '#047857', marginTop: '2px' }}>{d.company}</div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                                <div>
+                                  <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#065f46' }}>{d.name}</div>
+                                  <div style={{ fontSize: '11px', color: '#047857', marginTop: '2px' }}>{d.company}</div>
+                                </div>
+                                <button
+                                  className="btn btn-secondary"
+                                  style={{ padding: '3px 8px', fontSize: '10.5px', color: '#0078d4', borderColor: '#bfdbfe', background: '#eff6ff', whiteSpace: 'nowrap' }}
+                                  title="Open deal milestone in Microsoft Outlook"
+                                  onClick={() => {
+                                    const url = getOutlookWebComposeUrl({
+                                      title: `[Deal Close] ${d.name} (${d.company})`,
+                                      description: `Company: ${d.company}\nStage: ${d.stage}\nValue: ₹${(d.value || 0).toLocaleString('en-IN')}\nOwner: ${d.owner || 'Unassigned'}`,
+                                      startDate: d.expectedClose || selectedDateStr || '',
+                                      startTime: '10:00',
+                                      location: d.company || 'Anveshak CRM'
+                                    });
+                                    window.open(url, '_blank', 'noopener,noreferrer');
+                                    triggerToast('Opening deal in Outlook...', 'info');
+                                  }}
+                                >
+                                  📅 Outlook ↗
+                                </button>
+                              </div>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
                                 <span style={{ fontSize: '13px', fontWeight: '800' }}>{formatCurrency(d.value)}</span>
                                 <span className="badge badge-secondary" style={{ fontSize: '9px', background: '#d1fae5', color: '#065f46' }}>Stage: {d.stage}</span>
@@ -6876,6 +7059,19 @@ export default function App() {
               <div className="form-group">
                 <label>Linked Lead/Company (Optional)</label>
                 <input type="text" value={newTask.linkedTo} onChange={(e) => setNewTask({ ...newTask, linkedTo: e.target.value })} />
+              </div>
+
+              <div className="form-group" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px', marginTop: '10px', background: '#eff6ff', padding: '10px 12px', borderRadius: '8px', border: '1px solid #bfdbfe' }}>
+                <input 
+                  type="checkbox" 
+                  id="sync-outlook-checkbox"
+                  checked={syncToOutlookOnTaskCreate} 
+                  onChange={(e) => setSyncToOutlookOnTaskCreate(e.target.checked)} 
+                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                />
+                <label htmlFor="sync-outlook-checkbox" style={{ margin: 0, fontSize: '12.5px', fontWeight: '600', color: '#1e40af', cursor: 'pointer' }}>
+                  📅 Sync & Open in Microsoft Outlook Calendar
+                </label>
               </div>
 
               <div className="modal-actions">
@@ -9493,6 +9689,18 @@ export default function App() {
           onCommunicationLogged={(comm) => {
             setContactsList(prev => prev.map(c => c.id === showQuickCommContact.id ? { ...c, lastContactedAt: new Date().toISOString() } : c));
           }}
+          triggerToast={triggerToast}
+        />
+      )}
+
+      {/* Microsoft Outlook Calendar Sync Modal */}
+      {showOutlookSyncModal && (
+        <OutlookSyncModal
+          isOpen={showOutlookSyncModal}
+          onClose={() => setShowOutlookSyncModal(false)}
+          tasks={tasks}
+          deals={deals}
+          currentUser={currentUser}
           triggerToast={triggerToast}
         />
       )}
