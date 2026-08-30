@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Tesseract from 'tesseract.js';
 import KanbanBoard from '@/components/crm/KanbanBoard';
-import GSTQuoteBuilder from '@/components/crm/GSTQuoteBuilder';
+import GSTQuoteBuilder, { AnveshakLogo, numberToIndianWords } from '@/components/crm/GSTQuoteBuilder';
 import SystemDiagnostics from '@/components/crm/SystemDiagnostics';
 import AuditDiffModal from '@/components/crm/AuditDiffModal';
 import SupabaseSettings from '@/components/crm/SupabaseSettings';
@@ -1376,6 +1376,8 @@ export default function App() {
   const [showCompanyModal, setShowCompanyModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
+  const [showEditTaskModal, setShowEditTaskModal] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [showCustomFieldModal, setShowCustomFieldModal] = useState(false);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
@@ -1392,6 +1394,23 @@ export default function App() {
   
   // Form Inputs
   const [newLead, setNewLead] = useState({ firstName: '', lastName: '', email: '', phone: '', alternatePhone: '', company: '', designation: '', city: '', state: '', leadSource: 'Website', owner: 'KP Sumanth', tags: 'B2G' });
+  const [showEditLeadModal, setShowEditLeadModal] = useState(false);
+  const [editLeadForm, setEditLeadForm] = useState({
+    id: '',
+    name: '',
+    company: '',
+    email: '',
+    phone: '',
+    alternatePhone: '',
+    designation: '',
+    city: '',
+    state: '',
+    status: 'New',
+    score: 0,
+    owner: 'KP Sumanth',
+    tags: [] as string[],
+    notes: ''
+  });
   const [newCompany, setNewCompany] = useState({ name: '', industry: 'Manufacturing / B2G', website: '', city: '', state: '', address: '' });
   const [newUser, setNewUser] = useState({ fullName: '', email: '', role: 'SALES_REP' as SystemUser['role'] });
   const [newCustomValues, setNewCustomValues] = useState<{ [key: string]: string }>({});
@@ -1776,6 +1795,113 @@ export default function App() {
     setNewCustomValues({});
     setShowLeadModal(false);
     setShowDuplicateModal(false);
+  };
+
+  const openAddLeadModal = (initialData: Partial<typeof newLead> = {}) => {
+    setNewLead({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      alternatePhone: '',
+      company: '',
+      designation: '',
+      city: '',
+      state: '',
+      leadSource: 'Website',
+      tags: 'B2G',
+      owner: currentUser?.fullName || 'KP Sumanth',
+      ...initialData
+    });
+    setShowLeadModal(true);
+  };
+
+  const openEditLeadModal = (lead: Lead) => {
+    setEditLeadForm({
+      id: lead.id,
+      name: lead.name,
+      company: lead.company || '',
+      email: lead.email || '',
+      phone: lead.phone || '',
+      alternatePhone: (lead as any).alternatePhone || '',
+      designation: (lead as any).designation || '',
+      city: (lead as any).city || '',
+      state: (lead as any).state || '',
+      status: lead.status || 'New',
+      score: Number(lead.score) || 0,
+      owner: lead.owner || currentUser?.fullName || 'KP Sumanth',
+      tags: Array.isArray(lead.tags) ? lead.tags : (lead.tags ? [lead.tags] : []),
+      notes: (lead as any).notes || ''
+    });
+    setShowEditLeadModal(true);
+  };
+
+  const handleSaveEditLead = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editLeadForm.name) return;
+
+    const leadId = editLeadForm.id;
+    const updatedData: Partial<Lead> = {
+      name: editLeadForm.name,
+      company: editLeadForm.company,
+      email: editLeadForm.email,
+      phone: editLeadForm.phone,
+      status: editLeadForm.status as any,
+      score: Number(editLeadForm.score) || 0,
+      owner: editLeadForm.owner || currentUser?.fullName || 'KP Sumanth',
+      tags: Array.isArray(editLeadForm.tags) ? editLeadForm.tags : [editLeadForm.tags].filter(Boolean)
+    };
+
+    // 1. Instant optimistic state update across CRM
+    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, ...updatedData } : l));
+
+    // Update contacts directory if matching
+    setContactsList(prev => prev.map(c => {
+      if (c.id === leadId || (c.name && c.name.toLowerCase() === editLeadForm.name.toLowerCase())) {
+        return {
+          ...c,
+          name: editLeadForm.name,
+          company: editLeadForm.company,
+          email: editLeadForm.email,
+          phone: editLeadForm.phone,
+          preferredPhone: editLeadForm.phone,
+          owner: editLeadForm.owner
+        };
+      }
+      return c;
+    }));
+
+    // Update 360 view if currently inspected
+    if (selectedLeadDetail && selectedLeadDetail.id === leadId) {
+      setSelectedLeadDetail(prev => prev ? { ...prev, ...updatedData } : null);
+    }
+
+    setShowEditLeadModal(false);
+    triggerToast(`Lead "${editLeadForm.name}" updated successfully!`, 'success');
+
+    // 2. Persist to DB in background
+    try {
+      const { updateLeadAction } = await import('@/app/actions/crm');
+      await updateLeadAction(leadId, updatedData);
+    } catch (err) {
+      console.error('Database update error:', err);
+    }
+  };
+
+  const handleQuickChangeOwner = async (leadId: string, newOwner: string) => {
+    if (!newOwner.trim()) return;
+    const trimmedOwner = newOwner.trim();
+    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, owner: trimmedOwner } : l));
+    if (selectedLeadDetail && selectedLeadDetail.id === leadId) {
+      setSelectedLeadDetail(prev => prev ? { ...prev, owner: trimmedOwner } : null);
+    }
+    triggerToast(`Lead reassigned to ${trimmedOwner}!`, 'success');
+    try {
+      const { updateLeadAction } = await import('@/app/actions/crm');
+      await updateLeadAction(leadId, { owner: trimmedOwner });
+    } catch (err) {
+      console.error('Failed to persist owner update:', err);
+    }
   };
 
   const calculateTextScore = (text: string) => {
@@ -2245,6 +2371,47 @@ export default function App() {
         console.error('Failed to save/sync task:', err);
       }
     })();
+  };
+
+  const openEditTaskModal = (task: Task) => {
+    setEditingTask({ ...task });
+    setShowEditTaskModal(true);
+  };
+
+  const handleEditTaskSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTask) return;
+
+    setTasks(prev => prev.map(t => t.id === editingTask.id ? { ...editingTask } : t));
+    setShowEditTaskModal(false);
+    triggerToast(`Task "${editingTask.title}" updated instantly!`, 'success');
+
+    const newLog: AuditLog = {
+      id: `LOG-TSK-${Date.now().toString().slice(-4)}`,
+      user: currentUser?.fullName || currentAgentName,
+      action: 'Task Updated',
+      entity: `Task: ${editingTask.title}`,
+      timestamp: new Date().toISOString(),
+      beforeState: 'Edited',
+      afterState: 'Saved'
+    };
+    setAuditLogs(prev => [newLog, ...prev]);
+
+    try {
+      const { updateTaskAction } = await import('@/app/actions/crm');
+      await updateTaskAction(editingTask.id, {
+        title: editingTask.title,
+        description: editingTask.description,
+        dueDate: editingTask.dueDate,
+        priority: editingTask.priority,
+        linkedTo: editingTask.linkedTo,
+        assignee: editingTask.assignee
+      });
+      const { createAuditLogAction } = await import('@/app/actions/crm');
+      createAuditLogAction(newLog).catch(console.error);
+    } catch (err) {
+      console.error('Failed to update task in DB:', err);
+    }
   };
 
   const toggleTaskStatus = (taskId: string) => {
@@ -3184,7 +3351,7 @@ export default function App() {
 
         {/* Primary Sidebar CTA Button */}
         <div className="sidebar-action-box">
-          <button className="btn-sidebar-cta" onClick={() => { setShowLeadModal(true); setIsMobileMenuOpen(false); }}>
+          <button className="btn-sidebar-cta" onClick={() => { openAddLeadModal(); setIsMobileMenuOpen(false); }}>
             + New Deal
           </button>
         </div>
@@ -3427,7 +3594,7 @@ export default function App() {
                     <button className="btn btn-primary" onClick={() => navigateTab('contacts')}>
                       Go to My Contacts
                     </button>
-                    <button className="btn btn-secondary" style={{ color: '#fff', borderColor: '#475569', backgroundColor: '#1e293b' }} onClick={() => setShowLeadModal(true)}>
+                    <button className="btn btn-secondary" style={{ color: '#fff', borderColor: '#475569', backgroundColor: '#1e293b' }} onClick={() => openAddLeadModal()}>
                       + Create New Deal
                     </button>
                   </div>
@@ -4342,7 +4509,7 @@ export default function App() {
                 </div>
                 <div className="page-header-actions">
                   <button className="btn btn-secondary" onClick={() => handleCSVExport('Leads')}>Export CSV</button>
-                  <button className="btn btn-primary" onClick={() => setShowLeadModal(true)}>+ Add Direct Lead</button>
+                  <button className="btn btn-primary" onClick={() => openAddLeadModal()}>+ Add Direct Lead</button>
                 </div>
               </div>
 
@@ -4396,26 +4563,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Bulk Actions Panel (Triggered by selection) */}
-              {selectedContactIds.length > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', padding: '10px 16px', borderRadius: '8px', marginBottom: '16px' }} className="animate-fade">
-                  <div style={{ fontSize: '13px', color: '#1e40af', fontWeight: 'bold' }}>
-                    {selectedContactIds.length} Contact(s) Selected
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setShowBulkReassignModal(true)}>
-                      Reassign Owner
-                    </button>
-                    <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setShowBulkTagModal(true)}>
-                      Bulk Tag
-                    </button>
-                    <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', color: '#dc2626' }} onClick={() => setSelectedContactIds([])}>
-                      Clear Selection
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {/* Content Area: Grid / Table / Empty State */}
               {filteredLeads.length === 0 ? (
                 <div className="panel-card animate-fade" style={{
@@ -4451,7 +4598,10 @@ export default function App() {
                     <button 
                       className="btn btn-primary" 
                       style={{ padding: '10px 18px', fontSize: '13px' }}
-                      onClick={() => setShowLeadModal(true)}
+                      onClick={() => {
+                        setNewLead(prev => ({ ...prev, owner: currentUser?.fullName || 'KP Sumanth' }));
+                        setShowLeadModal(true);
+                      }}
                     >
                       + Add Direct Lead
                     </button>
@@ -4485,20 +4635,8 @@ export default function App() {
                           transition: 'all 0.2s ease'
                         }}
                       >
-                        {/* Header Row: Checkbox + Score Pill */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: '12px' }}>
-                          <input 
-                            type="checkbox" 
-                            checked={selectedContactIds.includes(contact.id)} 
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedContactIds([...selectedContactIds, contact.id]);
-                              } else {
-                                setSelectedContactIds(selectedContactIds.filter(id => id !== contact.id));
-                              }
-                            }}
-                            style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#4f46e5' }}
-                          />
+                        {/* Header Row: Score Pill (Align Right) */}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', width: '100%', marginBottom: '12px' }}>
                           <span style={{
                             display: 'inline-flex',
                             alignItems: 'center',
@@ -4516,26 +4654,35 @@ export default function App() {
                         </div>
 
                         {/* Avatar Ring */}
-                        <div style={{
-                          width: '60px',
-                          height: '60px',
-                          borderRadius: '50%',
-                          background: 'linear-gradient(135deg, #1e293b, #0f172a)',
-                          color: '#f5d396',
-                          border: '2.5px solid #d49b38',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '18px',
-                          fontWeight: '800',
-                          boxShadow: '0 4px 12px rgba(15, 23, 42, 0.15)',
-                          marginBottom: '10px'
-                        }}>
+                        <div 
+                          style={{
+                            width: '60px',
+                            height: '60px',
+                            borderRadius: '50%',
+                            background: 'linear-gradient(135deg, #1e293b, #0f172a)',
+                            color: '#f5d396',
+                            border: '2.5px solid #d49b38',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '18px',
+                            fontWeight: '800',
+                            boxShadow: '0 4px 12px rgba(15, 23, 42, 0.15)',
+                            marginBottom: '10px',
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => setSelectedLeadDetail(contact)}
+                          title="Click to Inspect 360° Profile"
+                        >
                           {contact.name.split(' ').map(n=>n[0]).join('').slice(0, 2).toUpperCase()}
                         </div>
 
                         {/* Contact Details */}
-                        <div style={{ fontSize: '15.5px', fontWeight: '800', color: '#0f172a', textAlign: 'center', letterSpacing: '-0.01em' }}>
+                        <div 
+                          style={{ fontSize: '15.5px', fontWeight: '800', color: '#0f172a', textAlign: 'center', letterSpacing: '-0.01em', cursor: 'pointer' }}
+                          onClick={() => setSelectedLeadDetail(contact)}
+                          title="Click to Inspect 360° Profile"
+                        >
                           {contact.name}
                         </div>
 
@@ -4556,14 +4703,14 @@ export default function App() {
                           color: '#64748b',
                           marginTop: '8px',
                           background: '#f8fafc',
-                          padding: '4px 10px',
+                          padding: '4px 12px',
                           borderRadius: '8px',
                           border: '1px solid #f1f5f9',
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '4px'
+                          gap: '6px'
                         }}>
-                           Owner: <strong style={{ color: '#1e293b' }}>{contact.owner}</strong>
+                          <span>👤 Rep: <strong style={{ color: '#1e293b' }}>{contact.owner || 'Unassigned'}</strong></span>
                         </div>
 
                         {contact.tags && contact.tags.length > 0 && (
@@ -4574,8 +4721,15 @@ export default function App() {
                           </div>
                         )}
 
-                        {/* Quick Outreach & Conversion Actions */}
+                        {/* Quick Outreach & Conversion Actions (Mobile Optimized) */}
                         <div style={{ width: '100%', marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <button 
+                            className="btn btn-secondary" 
+                            style={{ width: '100%', padding: '8px', fontSize: '12px', fontWeight: '600', minHeight: '36px', justifyContent: 'center' }}
+                            onClick={() => setSelectedLeadDetail(contact)}
+                          >
+                            Inspect 360° Profile
+                          </button>
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', width: '100%' }}>
                             <button 
                               className="btn btn-secondary" 
@@ -4723,23 +4877,10 @@ export default function App() {
                       <table className="custom-table">
                         <thead>
                           <tr>
-                            <th style={{ width: '40px' }}>
-                              <input 
-                                type="checkbox"
-                                checked={filteredLeads.length > 0 && selectedContactIds.length === filteredLeads.length}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSelectedContactIds(filteredLeads.map(l => l.id));
-                                  } else {
-                                    setSelectedContactIds([]);
-                                  }
-                                }}
-                              />
-                            </th>
                             <th>Name</th>
                             <th>Company</th>
                             <th>Email & Phone</th>
-                            <th>Owner</th>
+                            <th>Assigned Rep</th>
                             <th>Status</th>
                             <th>Score</th>
                             <th>Actions</th>
@@ -4749,20 +4890,7 @@ export default function App() {
                           {filteredLeads.map(lead => (
                             <tr key={lead.id}>
                               <td>
-                                <input 
-                                  type="checkbox" 
-                                  checked={selectedContactIds.includes(lead.id)}
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      setSelectedContactIds([...selectedContactIds, lead.id]);
-                                    } else {
-                                      setSelectedContactIds(selectedContactIds.filter(id => id !== lead.id));
-                                    }
-                                  }}
-                                />
-                              </td>
-                              <td>
-                                <div style={{ fontWeight: '600' }}>{lead.name}</div>
+                                <div style={{ fontWeight: '600', color: '#1e293b', cursor: 'pointer' }} onClick={() => setSelectedLeadDetail(lead)}>{lead.name}</div>
                                 <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{lead.id}</span>
                               </td>
                               <td>
@@ -4778,7 +4906,9 @@ export default function App() {
                                 <div>{lead.email}</div>
                                 <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{lead.phone}</div>
                               </td>
-                              <td>{lead.owner}</td>
+                              <td>
+                                <span style={{ fontWeight: '600', color: '#0f172a' }}>{lead.owner || 'Unassigned'}</span>
+                              </td>
                               <td>
                                 <span className={`badge ${lead.status === 'Disqualified' ? 'badge-cold' : lead.status === 'Qualified' ? 'badge-hot' : 'badge-warm'}`}>
                                   {lead.status}
@@ -4790,7 +4920,7 @@ export default function App() {
                                 </span>
                               </td>
                               <td>
-                                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
                                   <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={() => setSelectedLeadDetail(lead)}>
                                     Inspect 360°
                                   </button>
@@ -5224,6 +5354,13 @@ export default function App() {
                                 <td style={{ fontSize: '12px', fontWeight: '600' }}>{t.assignee}</td>
                                 <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                                   <div style={{ display: 'inline-flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                    <button 
+                                      className="btn btn-secondary" 
+                                      style={{ padding: '3px 8px', fontSize: '11px', color: '#1e40af', background: '#eff6ff', borderColor: '#bfdbfe', fontWeight: '700' }}
+                                      onClick={() => openEditTaskModal(t)}
+                                    >
+                                      ✏️ Edit
+                                    </button>
                                     <button
                                       className="btn btn-secondary"
                                       style={{ padding: '3px 8px', fontSize: '11px', color: '#0078d4', borderColor: '#bfdbfe', background: '#eff6ff' }}
@@ -5233,7 +5370,7 @@ export default function App() {
                                           title: `[Task] ${t.title}`,
                                           description: `Priority: ${t.priority}\nStatus: ${t.status}\nLinked: ${t.linkedTo || 'None'}\n\n${t.description || ''}`,
                                           startDate: t.dueDate,
-                                          startTime: t.dueTime || '09:00',
+                                          startTime: (t as any).dueTime || '09:00',
                                           location: t.linkedTo || 'Anveshak CRM'
                                         });
                                         window.open(url, '_blank', 'noopener,noreferrer');
@@ -5315,6 +5452,13 @@ export default function App() {
                           </div>
 
                           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                            <button 
+                              className="btn btn-secondary" 
+                              style={{ padding: '4px 10px', fontSize: '11px', color: '#1e40af', background: '#eff6ff', borderColor: '#bfdbfe', minHeight: '30px', fontWeight: '700' }}
+                              onClick={() => openEditTaskModal(t)}
+                            >
+                              ✏️ Edit Task
+                            </button>
                             <button 
                               className="btn btn-secondary" 
                               style={{ padding: '4px 10px', fontSize: '11px', color: 'var(--danger)', borderColor: '#fee2e2', minHeight: '30px' }}
@@ -5751,7 +5895,19 @@ export default function App() {
 
           {/* TAB 8: USER PROVISIONING & ROLES (ENTERPRISE TEAM HUB) */}
           {activeTab === 'users' && (() => {
-            const filteredUsers = dbUsersList.filter(u => {
+            // Deduplicate users strictly by email to prevent duplicate entries
+            const seenEmails = new Set<string>();
+            const uniqueUsers: any[] = [];
+            dbUsersList.forEach((u: any) => {
+              if (!u) return;
+              const key = (u.email || u.fullName || u.id || '').trim().toLowerCase();
+              if (key && !seenEmails.has(key)) {
+                seenEmails.add(key);
+                uniqueUsers.push(u);
+              }
+            });
+
+            const filteredUsers = uniqueUsers.filter(u => {
               const q = userSearchFilter.toLowerCase().trim();
               const matchesSearch = !q || 
                 (u.fullName && u.fullName.toLowerCase().includes(q)) || 
@@ -5765,10 +5921,10 @@ export default function App() {
               return matchesSearch && matchesRole && matchesStatus;
             });
 
-            const totalAdmins = dbUsersList.filter(u => u.role === 'ADMIN').length;
-            const totalManagers = dbUsersList.filter(u => u.role === 'MANAGER').length;
-            const totalReps = dbUsersList.filter(u => u.role === 'SALES_REP' || !u.role).length;
-            const totalActive = dbUsersList.filter(u => u.isActive !== false).length;
+            const totalAdmins = uniqueUsers.filter(u => u.role === 'ADMIN').length;
+            const totalManagers = uniqueUsers.filter(u => u.role === 'MANAGER').length;
+            const totalReps = uniqueUsers.filter(u => u.role === 'SALES_REP' || !u.role).length;
+            const totalActive = uniqueUsers.filter(u => u.isActive !== false).length;
 
             return (
               <div className="animate-fade">
@@ -5794,7 +5950,7 @@ export default function App() {
                       <span>TOTAL REGISTERED ACCOUNTS</span>
                       <span className="trend-badge neutral">Active</span>
                     </div>
-                    <div className="metric-val">{dbUsersList.length} Users</div>
+                    <div className="metric-val">{uniqueUsers.length} Users</div>
                   </div>
 
                   <div className="metric-card">
@@ -7018,11 +7174,23 @@ export default function App() {
                 </div>
                 <div className="form-group">
                   <label>Assigned Rep (Owner) *</label>
-                  <select value={newLead.owner} onChange={(e) => setNewLead({ ...newLead, owner: e.target.value })}>
-                    <option value="KP Sumanth">KP Sumanth</option>
-                    <option value="Balasaraswathi">Balasaraswathi</option>
-                    <option value="Riya Sharma">Riya Sharma</option>
-                  </select>
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="e.g. KP Sumanth or Pranav" 
+                    list="team-owners-datalist"
+                    value={newLead.owner} 
+                    onChange={(e) => setNewLead({ ...newLead, owner: e.target.value })} 
+                  />
+                  <datalist id="team-owners-datalist">
+                    {dbUsersList.map((u: any) => (
+                      <option key={u.id} value={u.fullName}>{u.fullName} ({u.role})</option>
+                    ))}
+                    <option value="KP Sumanth">KP Sumanth (ADMIN)</option>
+                    <option value="Pranav">Pranav (SALES_REP)</option>
+                    <option value="Balasaraswathi">Balasaraswathi (SALES_REP)</option>
+                    <option value="Riya Sharma">Riya Sharma (MANAGER)</option>
+                  </datalist>
                 </div>
               </div>
 
@@ -7051,6 +7219,151 @@ export default function App() {
               <div className="modal-actions" style={{ position: 'sticky', bottom: 0, backgroundColor: '#ffffff', padding: '14px 0 0 0', borderTop: '1px solid var(--border-color)', zIndex: 10, marginTop: '16px' }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setShowLeadModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary">Create Record</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EDIT LEAD DETAILS */}
+      {showEditLeadModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxHeight: '85vh', overflowY: 'auto', width: '100%', maxWidth: '620px' }}>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '18px' }}>✏️</span>
+                <h3>Edit Lead Details</h3>
+              </div>
+              <button className="modal-close-btn" onClick={() => setShowEditLeadModal(false)}>×</button>
+            </div>
+            
+            <form onSubmit={handleSaveEditLead} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div className="modal-grid-2col">
+                <div className="form-group">
+                  <label>Full Name *</label>
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="e.g. Ramesh Gowda" 
+                    value={editLeadForm.name} 
+                    onChange={(e) => setEditLeadForm({ ...editLeadForm, name: e.target.value })} 
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Company / Organization *</label>
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="e.g. Mysore Agro Products" 
+                    value={editLeadForm.company} 
+                    onChange={(e) => setEditLeadForm({ ...editLeadForm, company: e.target.value })} 
+                  />
+                </div>
+              </div>
+
+              <div className="modal-grid-2col">
+                <div className="form-group">
+                  <label>Work Email Address</label>
+                  <input 
+                    type="email" 
+                    placeholder="name@company.com" 
+                    value={editLeadForm.email} 
+                    onChange={(e) => setEditLeadForm({ ...editLeadForm, email: e.target.value })} 
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Primary Phone Number</label>
+                  <input 
+                    type="text" 
+                    placeholder="+91 98450 12345" 
+                    value={editLeadForm.phone} 
+                    onChange={(e) => setEditLeadForm({ ...editLeadForm, phone: e.target.value })} 
+                  />
+                </div>
+              </div>
+
+              <div className="modal-grid-2col">
+                <div className="form-group">
+                  <label>Designation / Role</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. Purchase Director" 
+                    value={editLeadForm.designation} 
+                    onChange={(e) => setEditLeadForm({ ...editLeadForm, designation: e.target.value })} 
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Assigned Representative (Owner) *</label>
+                  <input 
+                    type="text" 
+                    required
+                    placeholder="Type or select representative..." 
+                    list="team-owners-datalist"
+                    value={editLeadForm.owner} 
+                    onChange={(e) => setEditLeadForm({ ...editLeadForm, owner: e.target.value })} 
+                  />
+                </div>
+              </div>
+
+              <div className="modal-grid-2col">
+                <div className="form-group">
+                  <label>City</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. Bangalore" 
+                    value={editLeadForm.city} 
+                    onChange={(e) => setEditLeadForm({ ...editLeadForm, city: e.target.value })} 
+                  />
+                </div>
+                <div className="form-group">
+                  <label>State</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. Karnataka" 
+                    value={editLeadForm.state} 
+                    onChange={(e) => setEditLeadForm({ ...editLeadForm, state: e.target.value })} 
+                  />
+                </div>
+              </div>
+
+              <div className="modal-grid-2col">
+                <div className="form-group">
+                  <label>Lead Pipeline Status</label>
+                  <select 
+                    value={editLeadForm.status} 
+                    onChange={(e) => setEditLeadForm({ ...editLeadForm, status: e.target.value })}
+                  >
+                    <option value="New">New</option>
+                    <option value="Contacted">Contacted</option>
+                    <option value="Qualified">Qualified</option>
+                    <option value="Disqualified">Disqualified</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Lead Score Weight (0 - 100)</label>
+                  <input 
+                    type="number" 
+                    min="0" 
+                    max="100" 
+                    value={editLeadForm.score} 
+                    onChange={(e) => setEditLeadForm({ ...editLeadForm, score: Number(e.target.value) || 0 })} 
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Tags (Comma-separated)</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. B2G, Manufacturing, Hot Lead" 
+                  value={Array.isArray(editLeadForm.tags) ? editLeadForm.tags.join(', ') : (editLeadForm.tags || '')} 
+                  onChange={(e) => setEditLeadForm({ ...editLeadForm, tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} 
+                />
+              </div>
+
+              <div className="modal-actions" style={{ position: 'sticky', bottom: 0, backgroundColor: '#ffffff', padding: '14px 0 0 0', borderTop: '1px solid var(--border-color)', zIndex: 10, marginTop: '8px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowEditLeadModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ padding: '8px 20px', fontWeight: '700' }}>Save Changes</button>
               </div>
             </form>
           </div>
@@ -7134,6 +7447,77 @@ export default function App() {
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowTaskModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary">Create Task</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3B: EDIT TASK */}
+      {showEditTaskModal && editingTask && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>Edit Task Checklist Item</h3>
+              <button className="modal-close-btn" onClick={() => setShowEditTaskModal(false)}>×</button>
+            </div>
+            <form onSubmit={handleEditTaskSubmit}>
+              <div className="form-group">
+                <label>Task Title</label>
+                <input 
+                  type="text" 
+                  required 
+                  value={editingTask.title} 
+                  onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })} 
+                />
+              </div>
+              <div className="form-group">
+                <label>Description</label>
+                <textarea 
+                  rows={3} 
+                  value={editingTask.description} 
+                  onChange={(e) => setEditingTask({ ...editingTask, description: e.target.value })} 
+                />
+              </div>
+              <div className="form-group">
+                <label>Due Date</label>
+                <input 
+                  type="date" 
+                  value={editingTask.dueDate} 
+                  onChange={(e) => setEditingTask({ ...editingTask, dueDate: e.target.value })} 
+                />
+              </div>
+              <div className="form-group">
+                <label>Priority</label>
+                <select 
+                  value={editingTask.priority} 
+                  onChange={(e) => setEditingTask({ ...editingTask, priority: e.target.value as any })}
+                >
+                  <option value="Low">Low Priority</option>
+                  <option value="Medium">Medium Priority</option>
+                  <option value="High">High Priority</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Assigned Representative</label>
+                <input 
+                  type="text" 
+                  value={editingTask.assignee} 
+                  onChange={(e) => setEditingTask({ ...editingTask, assignee: e.target.value })} 
+                />
+              </div>
+              <div className="form-group">
+                <label>Linked Lead / Company</label>
+                <input 
+                  type="text" 
+                  value={editingTask.linkedTo || ''} 
+                  onChange={(e) => setEditingTask({ ...editingTask, linkedTo: e.target.value })} 
+                />
+              </div>
+
+              <div className="modal-actions">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowEditTaskModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">Save Changes Instantly</button>
               </div>
             </form>
           </div>
@@ -7381,93 +7765,244 @@ export default function App() {
                 </div>
               )}
 
-              <div className="invoice-preview-container" style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '24px', background: '#ffffff' }}>
-                <div className="invoice-preview-header" style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px', marginBottom: '16px' }}>
-                  <div>
-                    <div className="invoice-preview-logo" style={{ fontWeight: '800', fontSize: '16px', color: '#1e3a8a' }}>ANVESHAK HUB PRIVATE LIMITED</div>
-                    <p style={{ marginTop: '4px', fontSize: '11px', color: 'var(--text-muted)' }}>Malleshwaram, Bangalore, Karnataka</p>
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>GSTIN: 29AAAAA1111A1Z1</p>
+              <div className="invoice-preview-container" style={{ border: '2px solid #0f172a', borderRadius: '4px', padding: '24px', background: '#ffffff', color: '#000000', fontFamily: 'Arial, sans-serif' }}>
+                {/* Header: Logo, Company Name, Address, Tax Identifiers */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #0f172a', paddingBottom: '16px', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
+                    <AnveshakLogo />
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <h2 style={{ fontSize: '18px', color: '#475569', fontWeight: '800' }}>PRO-FORMA QUOTATION</h2>
-                    <p style={{ marginTop: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>Quote ID: <strong>{qteId}</strong></p>
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Date: {qteCreated}</p>
+                  <div style={{ textAlign: 'center', flex: 1, padding: '0 16px' }}>
+                    <h2 style={{ fontSize: '18px', fontWeight: '900', margin: '0 0 4px 0', letterSpacing: '0.04em', color: '#0f172a' }}>
+                      ANVESHAK HUB PRIVATE LIMITED
+                    </h2>
+                    <p style={{ margin: '0 0 2px 0', fontSize: '10.5px', color: '#334155', fontWeight: '600' }}>
+                      #106, SHRAVATHI PROSPER APT, NYANAPPANAHALLI, BEGUR, BANGALURU-560068
+                    </p>
+                    <p style={{ margin: '0 0 2px 0', fontSize: '10.5px', color: '#334155', fontWeight: '600' }}>
+                      Contact : 9597966766 &nbsp;&nbsp; info@anveshakhub.com
+                    </p>
+                    <p style={{ margin: '0', fontSize: '10.5px', color: '#0f172a', fontWeight: '700' }}>
+                      PAN : ABECA4145J &nbsp;&nbsp;|&nbsp;&nbsp; GST : 29ABECA4145J1ZJ &nbsp;&nbsp;|&nbsp;&nbsp; UDYAM Regn UDYAM-KR-03-0657177
+                    </p>
+                  </div>
+                  <div style={{ textAlign: 'right', minWidth: '120px' }}>
+                    <span style={{ display: 'inline-block', border: '1px solid #0f172a', padding: '3px 8px', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase' }}>
+                      Original for Recipient
+                    </span>
                   </div>
                 </div>
 
-                <div className="invoice-details-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
-                  <div>
-                    <h4 style={{ color: '#475569', marginBottom: '4px', textTransform: 'uppercase', fontSize: '10px', fontWeight: 'bold' }}>BILLED TO:</h4>
-                    <p style={{ fontWeight: 'bold', fontSize: '13px', color: '#0f172a' }}>{qteCompany}</p>
-                    <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Attn: {qteContact}</p>
+                {/* Document Banner */}
+                <div style={{ background: '#cbd5e1', border: '1.5px solid #0f172a', padding: '6px 0', textAlign: 'center', fontWeight: '900', fontSize: '16px', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>
+                  {(selectedQuoteForPortal as any)?.docType || 'Tax Invoice'}
+                </div>
+
+                {/* Bill to Party & Document Info Table Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', border: '1.5px solid #0f172a', marginBottom: '12px' }}>
+                  <div style={{ padding: '10px', borderRight: '1.5px solid #0f172a', fontSize: '11.5px', lineHeight: '1.4' }}>
+                    <div style={{ fontWeight: '800', textTransform: 'uppercase', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px', marginBottom: '6px', fontSize: '11px' }}>
+                      Bill to Party
+                    </div>
+                    <div style={{ fontWeight: '800', fontSize: '13px', color: '#0f172a' }}>{qteCompany}</div>
+                    <div>{(selectedQuoteForPortal as any)?.clientAddress || '98/1, VELACHERRY MAIN ROAD, GUINDY, Chennai, Tamil Nadu, 600032'}</div>
+                    <div style={{ marginTop: '4px' }}><strong>GST :</strong> {(selectedQuoteForPortal as any)?.clientGstin || '33AABAT1588L1Z7'}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
+                      <span><strong>State :</strong> {(selectedQuoteForPortal as any)?.clientState || 'Tamilnadu'}</span>
+                      <span><strong>Code :</strong> {(selectedQuoteForPortal as any)?.clientStateCode || (qteGstType === 'intra' ? '29' : '33')}</span>
+                    </div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <h4 style={{ color: '#475569', marginBottom: '4px', textTransform: 'uppercase', fontSize: '10px', fontWeight: 'bold' }}>PAYMENT METHOD:</h4>
-                    <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Bank Transfer / NEFT</p>
-                    <p style={{ fontSize: '11px', fontFamily: 'monospace', color: 'var(--text-muted)' }}>Account No: 9876543210 (IFSC: SBIN0001234)</p>
+
+                  <div style={{ padding: '10px', fontSize: '11.5px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontWeight: '700' }}>Invoice / Quote No :</span>
+                      <strong style={{ color: '#0f172a' }}>{(selectedQuoteForPortal as any)?.invoiceNo || qteId}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontWeight: '700' }}>Invoice Date :</span>
+                      <span>{qteCreated}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontWeight: '700' }}>Reverse Charge (Y/N) :</span>
+                      <span>{(selectedQuoteForPortal as any)?.reverseCharge || 'N'}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontWeight: '700' }}>State Code :</span>
+                      <span>29 (Karnataka)</span>
+                    </div>
                   </div>
                 </div>
 
-                <table className="invoice-preview-table" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
+                {/* Particulars & HSN Table */}
+                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #0f172a', marginBottom: '12px', fontSize: '11.5px' }}>
                   <thead>
-                    <tr style={{ borderBottom: '2px solid var(--border-color)', textAlign: 'left', fontSize: '12px', color: '#475569' }}>
-                      <th style={{ padding: '8px 0' }}>Description</th>
-                      <th style={{ textAlign: 'center', padding: '8px 0' }}>Qty</th>
-                      <th style={{ textAlign: 'right', padding: '8px 0' }}>Rate</th>
-                      <th style={{ textAlign: 'center', padding: '8px 0' }}>GST</th>
-                      <th style={{ textAlign: 'right', padding: '8px 0' }}>Total</th>
+                    <tr style={{ background: '#e2e8f0', borderBottom: '1.5px solid #0f172a', textAlign: 'center', fontWeight: '800' }}>
+                      <th style={{ padding: '8px 4px', borderRight: '1px solid #0f172a', width: '40px' }}>S. No.</th>
+                      <th style={{ padding: '8px 8px', borderRight: '1px solid #0f172a', textAlign: 'left' }}>Particulars</th>
+                      <th style={{ padding: '8px 4px', borderRight: '1px solid #0f172a', width: '70px' }}>SAC</th>
+                      <th style={{ padding: '8px 6px', borderRight: '1px solid #0f172a', textAlign: 'right', width: '90px' }}>Taxable Value</th>
+                      {qteGstType === 'intra' ? (
+                        <>
+                          <th style={{ padding: '4px 4px', borderRight: '1px solid #0f172a', width: '110px' }}>
+                            <div>CGST</div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9.5px', borderTop: '1px solid #0f172a', paddingTop: '2px' }}>
+                              <span>Rate</span><span>Amount</span>
+                            </div>
+                          </th>
+                          <th style={{ padding: '4px 4px', borderRight: '1px solid #0f172a', width: '110px' }}>
+                            <div>SGST</div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9.5px', borderTop: '1px solid #0f172a', paddingTop: '2px' }}>
+                              <span>Rate</span><span>Amount</span>
+                            </div>
+                          </th>
+                        </>
+                      ) : (
+                        <th style={{ padding: '4px 4px', borderRight: '1px solid #0f172a', width: '120px' }}>
+                          <div>IGST</div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9.5px', borderTop: '1px solid #0f172a', paddingTop: '2px' }}>
+                            <span>Rate (18%)</span><span>Amount</span>
+                          </div>
+                        </th>
+                      )}
+                      <th style={{ padding: '8px 6px', textAlign: 'right', width: '100px' }}>Total</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {qteItems.map(item => {
+                    {qteItems.map((item, idx) => {
                       const rowSub = item.qty * item.price;
-                      const rowGst = rowSub * 0.18;
+                      const rowCgst = qteGstType === 'intra' ? rowSub * 0.09 : 0;
+                      const rowSgst = qteGstType === 'intra' ? rowSub * 0.09 : 0;
+                      const rowIgst = qteGstType === 'inter' ? rowSub * 0.18 : 0;
+                      const rowTotal = rowSub + rowCgst + rowSgst + rowIgst;
+
                       return (
-                        <tr key={item.id} style={{ borderBottom: '1px solid var(--border-color)', fontSize: '12.5px' }}>
-                          <td style={{ padding: '10px 0' }}>{item.description}</td>
-                          <td style={{ textAlign: 'center', padding: '10px 0' }}>{item.qty}</td>
-                          <td style={{ textAlign: 'right', padding: '10px 0' }}>{formatCurrency(item.price)}</td>
-                          <td style={{ textAlign: 'center', padding: '10px 0' }}>18%</td>
-                          <td style={{ textAlign: 'right', padding: '10px 0' }}>{formatCurrency(rowSub + rowGst)}</td>
+                        <tr key={item.id} style={{ borderBottom: '1px solid #cbd5e1' }}>
+                          <td style={{ textAlign: 'center', padding: '8px 4px', borderRight: '1px solid #0f172a' }}>{idx + 1}</td>
+                          <td style={{ padding: '8px', borderRight: '1px solid #0f172a' }}>
+                            <div style={{ fontWeight: '700' }}>{item.description}</div>
+                          </td>
+                          <td style={{ textAlign: 'center', padding: '8px 4px', borderRight: '1px solid #0f172a' }}>{(item as any).sac || '999293'}</td>
+                          <td style={{ textAlign: 'right', padding: '8px 6px', borderRight: '1px solid #0f172a' }}>{formatCurrency(rowSub)}</td>
+                          {qteGstType === 'intra' ? (
+                            <>
+                              <td style={{ padding: '8px 6px', borderRight: '1px solid #0f172a' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                  <span>9%</span><span>{formatCurrency(rowCgst)}</span>
+                                </div>
+                              </td>
+                              <td style={{ padding: '8px 6px', borderRight: '1px solid #0f172a' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                  <span>9%</span><span>{formatCurrency(rowSgst)}</span>
+                                </div>
+                              </td>
+                            </>
+                          ) : (
+                            <td style={{ padding: '8px 6px', borderRight: '1px solid #0f172a' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span>18%</span><span>{formatCurrency(rowIgst)}</span>
+                              </div>
+                            </td>
+                          )}
+                          <td style={{ textAlign: 'right', padding: '8px 6px', fontWeight: '800' }}>{formatCurrency(rowTotal)}</td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
 
-                <div className="invoice-preview-summary" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px', marginBottom: '16px' }}>
-                  <div style={{ fontSize: '12.5px' }}>
-                    <span style={{ color: '#64748b' }}>Subtotal: </span>
-                    <strong style={{ color: '#0f172a' }}>{formatCurrency(qteTotal)}</strong>
-                  </div>
-                  {qteGstType === 'intra' ? (
-                    <>
-                      <div style={{ fontSize: '12.5px' }}>
-                        <span style={{ color: '#64748b' }}>CGST (9%): </span>
-                        <strong style={{ color: '#0f172a' }}>{formatCurrency(qteTotal * 0.09)}</strong>
-                      </div>
-                      <div style={{ fontSize: '12.5px' }}>
-                        <span style={{ color: '#64748b' }}>SGST (9%): </span>
-                        <strong style={{ color: '#0f172a' }}>{formatCurrency(qteTotal * 0.09)}</strong>
-                      </div>
-                    </>
-                  ) : (
-                    <div style={{ fontSize: '12.5px' }}>
-                      <span style={{ color: '#64748b' }}>IGST (18%): </span>
-                      <strong style={{ color: '#0f172a' }}>{formatCurrency(qteTotal * 0.18)}</strong>
-                    </div>
-                  )}
-                  <div style={{ fontSize: '16px', borderTop: '2px solid #cbd5e1', paddingTop: '8px', marginTop: '6px' }}>
-                    <span style={{ color: '#0f172a', fontWeight: 'bold' }}>Grand Total (INR): </span>
-                    <span style={{ fontWeight: '800', color: '#0d9488' }}>{formatCurrency(qteTotal * 1.18)}</span>
-                  </div>
-                </div>
+                {/* Calculation Breakdown & Words Table Grid */}
+                {(() => {
+                  const subtotal = qteItems.reduce((acc, curr) => acc + (curr.qty * curr.price), 0);
+                  const cgst = qteGstType === 'intra' ? subtotal * 0.09 : 0;
+                  const sgst = qteGstType === 'intra' ? subtotal * 0.09 : 0;
+                  const igst = qteGstType === 'inter' ? subtotal * 0.18 : 0;
+                  const grandTotal = subtotal + cgst + sgst + igst;
 
-                <div style={{ marginTop: '16px' }}>
-                  <h4 style={{ fontSize: '11px', color: '#475569', textTransform: 'uppercase', marginBottom: '6px', fontWeight: 'bold' }}>Terms & Conditions Clauses:</h4>
-                  <pre style={{ fontSize: '11px', color: 'var(--text-muted)', background: '#f8fafc', padding: '10px', borderRadius: '6px', whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0, border: '1px solid var(--border-color)' }}>
-                    {qteTerms}
-                  </pre>
+                  return (
+                    <div style={{ border: '1.5px solid #0f172a', marginBottom: '12px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr' }}>
+                        <div style={{ padding: '10px', borderRight: '1.5px solid #0f172a', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                          <div style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', color: '#475569', marginBottom: '4px' }}>
+                            Total Invoice amount in words
+                          </div>
+                          <div style={{ fontSize: '13px', fontWeight: '800', fontStyle: 'italic', color: '#0f172a' }}>
+                            {numberToIndianWords(grandTotal)}
+                          </div>
+                        </div>
+
+                        <div style={{ padding: '8px 12px', fontSize: '11.5px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>Total Amount before Tax :</span>
+                            <strong>{formatCurrency(subtotal)}</strong>
+                          </div>
+                          {qteGstType === 'intra' ? (
+                            <>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span>Add: CGST (9%) :</span>
+                                <span>{formatCurrency(cgst)}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span>Add: SGST (9%) :</span>
+                                <span>{formatCurrency(sgst)}</span>
+                              </div>
+                            </>
+                          ) : (
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span>Add: IGST (18%) :</span>
+                              <span>{formatCurrency(igst)}</span>
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #cbd5e1', paddingTop: '4px' }}>
+                            <span>Total Tax Amount :</span>
+                            <strong>{formatCurrency(cgst + sgst + igst)}</strong>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13.5px', fontWeight: '900', borderTop: '1.5px solid #0f172a', paddingTop: '4px', marginTop: '2px', color: '#047857' }}>
+                            <span>Total Amount after Tax :</span>
+                            <span>{formatCurrency(grandTotal)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Bank Details & Official Sign-off Footer */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr 1.2fr', border: '1.5px solid #0f172a', fontSize: '11px', marginBottom: '8px' }}>
+                  <div style={{ padding: '10px', borderRight: '1.5px solid #0f172a' }}>
+                    <div style={{ fontWeight: '800', borderBottom: '1px solid #cbd5e1', paddingBottom: '3px', marginBottom: '4px' }}>
+                      Bank Details
+                    </div>
+                    <div>Please remit to <strong>HDFC BANK</strong> as given Below</div>
+                    <div style={{ marginTop: '2px' }}><strong>Branch :</strong> Bilekahalli, JP Nagar 4th Phase</div>
+                    <div><strong>Bank A/C :</strong> 50200116291855</div>
+                    <div><strong>Bank IFSC :</strong> HDFC0001752</div>
+                    <div><strong>Account Name :</strong> Anveshak Hub Private Limited</div>
+                  </div>
+
+                  <div style={{ padding: '10px', borderRight: '1.5px solid #0f172a', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center' }}>
+                    <div style={{ border: '1px dashed #94a3b8', width: '70px', height: '70px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', color: '#64748b', marginBottom: '4px' }}>
+                      Common Seal
+                    </div>
+                  </div>
+
+                  <div style={{ padding: '10px', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                    <div style={{ fontSize: '9.5px', color: '#64748b' }}>
+                      Certified that the particulars given above are true and correct
+                    </div>
+                    <div style={{ fontWeight: '800', fontSize: '11.5px', color: '#0f172a' }}>
+                      For ANVESHAK HUB PRIVATE LIMITED
+                    </div>
+                    <div style={{ margin: '6px 0' }}>
+                      <span style={{ fontFamily: 'cursive', fontSize: '16px', fontWeight: 'bold', color: '#1e40af' }}>
+                        Rathika Rani
+                      </span>
+                      <div style={{ fontSize: '8.5px', color: '#64748b' }}>
+                        Digitally signed by Rathika Rani | Date: {new Date().toLocaleDateString('en-IN')}
+                      </div>
+                    </div>
+                    <div style={{ fontWeight: '800', fontSize: '11px', textTransform: 'uppercase' }}>
+                      DIRECTOR
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -7477,22 +8012,9 @@ export default function App() {
                   setSelectedQuoteForPortal(null);
                 }}>Close Preview</button>
                 <button className="btn btn-primary" onClick={() => {
-                  alert('PDF generated successfully. Downloading locally. Action logged in Audit Trail.');
-                  setShowQuotePreview(false);
-                  setSelectedQuoteForPortal(null);
-                  
-                  const newLog: AuditLog = {
-                    id: `LOG-EXP-${Date.now().toString().slice(-3)}`,
-                    user: currentRole === 'Admin' || currentRole === 'Manager' ? currentAgentName : 'Client Portal',
-                    action: 'Quote Printed',
-                    entity: `Quote: ${qteId}`,
-                    timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-                    beforeState: 'Ready',
-                    afterState: 'Printed'
-                  };
-                  setAuditLogs([newLog, ...auditLogs]);
+                  window.print();
                 }}>
-                  Print / Export PDF
+                  🖨️ Print / Export PDF
                 </button>
               </div>
             </div>
@@ -7728,9 +8250,20 @@ export default function App() {
                           <div style={{ textDecoration: task.status === 'Completed' ? 'line-through' : 'none', flex: 1, fontSize: '12.5px' }}>
                             {task.title}
                           </div>
-                          <span className={`badge ${task.priority === 'High' ? 'badge-hot' : task.priority === 'Medium' ? 'badge-warm' : 'badge-cold'}`} style={{ fontSize: '9px' }}>
-                            {task.priority}
-                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span className={`badge ${task.priority === 'High' ? 'badge-hot' : task.priority === 'Medium' ? 'badge-warm' : 'badge-cold'}`} style={{ fontSize: '9px' }}>
+                              {task.priority}
+                            </span>
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              style={{ padding: '2px 6px', fontSize: '10px', color: '#1e40af' }}
+                              onClick={() => openEditTaskModal(task)}
+                              title="Edit task"
+                            >
+                              ✏️
+                            </button>
+                          </div>
                         </li>
                       ))}
                       {tasks.filter(t => t.linkedTo === selectedDealDetail.company).length === 0 && (
@@ -7786,13 +8319,50 @@ export default function App() {
                 </div>
 
                 <div style={{ fontSize: '12.5px', display: 'flex', flexDirection: 'column', gap: '10px', color: 'var(--text-main)' }}>
-                  <div><strong>Email:</strong><br/><span style={{ color: 'var(--text-muted)' }}>{selectedLeadDetail.email}</span></div>
-                  <div><strong>Phone:</strong><br/><span style={{ color: 'var(--text-muted)' }}>{selectedLeadDetail.phone}</span></div>
+                  <div><strong>Email:</strong><br/><span style={{ color: 'var(--text-muted)' }}>{selectedLeadDetail.email || '—'}</span></div>
+                  <div><strong>Phone:</strong><br/><span style={{ color: 'var(--text-muted)' }}>{selectedLeadDetail.phone || '—'}</span></div>
                   <div><strong>Address:</strong><br/><span style={{ color: 'var(--text-muted)' }}>Karnataka B2G Territory</span></div>
-                  <div><strong>Assigned Rep:</strong><br/><span style={{ color: 'var(--text-muted)' }}>{selectedLeadDetail.owner}</span></div>
+                  <div style={{ background: '#eff6ff', padding: '10px', borderRadius: '8px', border: '1px solid #bfdbfe' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <strong style={{ color: '#1e40af', fontSize: '12px' }}>Assigned Rep (Owner):</strong>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      <input 
+                        type="text" 
+                        list="team-owners-datalist" 
+                        defaultValue={selectedLeadDetail.owner || ''} 
+                        id={`owner-edit-input-${selectedLeadDetail.id}`}
+                        style={{ flex: 1, padding: '5px 8px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#ffffff' }}
+                        placeholder="Enter rep name..."
+                      />
+                      <button 
+                        type="button" 
+                        className="btn btn-primary" 
+                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700' }}
+                        onClick={() => {
+                          const el = document.getElementById(`owner-edit-input-${selectedLeadDetail.id}`) as HTMLInputElement;
+                          if (el && el.value) {
+                            handleQuickChangeOwner(selectedLeadDetail.id, el.value);
+                          }
+                        }}
+                      >
+                        Reassign
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
-                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', borderTop: '1px solid var(--border-color)', paddingTop: '14px', marginTop: '10px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
+                  <button 
+                    className="btn btn-primary" 
+                    style={{ fontSize: '12px', justifyContent: 'center', gap: '6px', fontWeight: '700', backgroundColor: '#1e40af', borderColor: '#1e40af' }}
+                    onClick={() => openEditLeadModal(selectedLeadDetail)}
+                  >
+                    ✏️ Edit Lead Details
+                  </button>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', borderTop: '1px solid var(--border-color)', paddingTop: '14px', marginTop: '4px' }}>
                   <button className="btn btn-secondary" style={{ padding: '6px 0', fontSize: '11px', justifyContent: 'center' }} onClick={() => openEmailComposer(selectedLeadDetail.name, selectedLeadDetail.email)}>Email</button>
                   <button className="btn btn-secondary" style={{ padding: '6px 0', fontSize: '11px', color: '#25D366', borderColor: '#25D366', justifyContent: 'center' }} onClick={() => openWhatsAppModalForContact(selectedLeadDetail.name, selectedLeadDetail.phone)}>WhatsApp</button>
                   <button className="btn btn-secondary" style={{ padding: '6px 0', fontSize: '11px', justifyContent: 'center' }} onClick={() => startVoIPCall(selectedLeadDetail.name, selectedLeadDetail.phone)}>Call</button>
@@ -7959,9 +8529,20 @@ export default function App() {
                             {task.title}
                           </span>
                         </div>
-                        <span className={`badge ${task.priority === 'High' ? 'badge-hot' : 'badge-warm'}`} style={{ fontSize: '9px' }}>
-                          {task.priority}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span className={`badge ${task.priority === 'High' ? 'badge-hot' : 'badge-warm'}`} style={{ fontSize: '9px' }}>
+                            {task.priority}
+                          </span>
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            style={{ padding: '2px 6px', fontSize: '10px', color: '#1e40af' }}
+                            onClick={() => openEditTaskModal(task)}
+                            title="Edit task"
+                          >
+                            ✏️
+                          </button>
+                        </div>
                       </div>
                     ))}
                     {tasks.filter(t => t.linkedTo === selectedLeadDetail.company).length === 0 && (
@@ -8063,8 +8644,11 @@ export default function App() {
                         className="btn btn-secondary" 
                         style={{ padding: '4px 10px', fontSize: '11px' }}
                         onClick={() => {
-                          setNewLead({ ...newLead, company: selectedCompanyDetail.name, city: selectedCompanyDetail.city || 'Bangalore', state: selectedCompanyDetail.state || 'Karnataka' });
-                          setShowLeadModal(true);
+                          openAddLeadModal({
+                            company: selectedCompanyDetail.name,
+                            city: selectedCompanyDetail.city || 'Bangalore',
+                            state: selectedCompanyDetail.state || 'Karnataka'
+                          });
                         }}
                       >
                         + Add Person to this Company
