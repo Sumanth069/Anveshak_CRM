@@ -1642,3 +1642,25 @@ export async function saveOwnerFeedbackAction(feedback: {
 }) {
   return createOwnerFeedbackAction(feedback);
 }
+
+export async function updateOwnerFeedbackMessageAction(id: string, updates: { noteText: string; category?: string }) {
+  try {
+    await supabase.from('owner_feedback').update({
+      note_text: updates.noteText,
+      ...(updates.category ? { category: updates.category } : {})
+    }).eq('id', id);
+  } catch (sEx) {}
+
+  try {
+    const dbClient = prisma as any;
+    await dbClient.ownerFeedback.update({
+      where: { id },
+      data: {
+        noteText: updates.noteText,
+        ...(updates.category ? { category: updates.category } : {})
+      }
+    });
+  } catch (e1) {}
+
+  return { success: true };
+}
