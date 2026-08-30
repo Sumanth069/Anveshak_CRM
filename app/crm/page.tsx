@@ -1340,6 +1340,23 @@ export default function App() {
   
   // Form Inputs
   const [newLead, setNewLead] = useState({ firstName: '', lastName: '', email: '', phone: '', alternatePhone: '', company: '', designation: '', city: '', state: '', leadSource: 'Website', owner: 'KP Sumanth', tags: 'B2G' });
+  const [showEditLeadModal, setShowEditLeadModal] = useState(false);
+  const [editLeadForm, setEditLeadForm] = useState({
+    id: '',
+    name: '',
+    company: '',
+    email: '',
+    phone: '',
+    alternatePhone: '',
+    designation: '',
+    city: '',
+    state: '',
+    status: 'New',
+    score: 0,
+    owner: 'KP Sumanth',
+    tags: [] as string[],
+    notes: ''
+  });
   const [newCompany, setNewCompany] = useState({ name: '', industry: 'Manufacturing / B2G', website: '', city: '', state: '', address: '' });
   const [newUser, setNewUser] = useState({ fullName: '', email: '', role: 'SALES_REP' as SystemUser['role'] });
   const [newCustomValues, setNewCustomValues] = useState<{ [key: string]: string }>({});
@@ -1741,6 +1758,113 @@ export default function App() {
     setNewCustomValues({});
     setShowLeadModal(false);
     setShowDuplicateModal(false);
+  };
+
+  const openAddLeadModal = (initialData: Partial<typeof newLead> = {}) => {
+    setNewLead({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      alternatePhone: '',
+      company: '',
+      designation: '',
+      city: '',
+      state: '',
+      leadSource: 'Website',
+      tags: 'B2G',
+      owner: currentUser?.fullName || 'KP Sumanth',
+      ...initialData
+    });
+    setShowLeadModal(true);
+  };
+
+  const openEditLeadModal = (lead: Lead) => {
+    setEditLeadForm({
+      id: lead.id,
+      name: lead.name,
+      company: lead.company || '',
+      email: lead.email || '',
+      phone: lead.phone || '',
+      alternatePhone: (lead as any).alternatePhone || '',
+      designation: (lead as any).designation || '',
+      city: (lead as any).city || '',
+      state: (lead as any).state || '',
+      status: lead.status || 'New',
+      score: Number(lead.score) || 0,
+      owner: lead.owner || currentUser?.fullName || 'KP Sumanth',
+      tags: Array.isArray(lead.tags) ? lead.tags : (lead.tags ? [lead.tags] : []),
+      notes: (lead as any).notes || ''
+    });
+    setShowEditLeadModal(true);
+  };
+
+  const handleSaveEditLead = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editLeadForm.name) return;
+
+    const leadId = editLeadForm.id;
+    const updatedData: Partial<Lead> = {
+      name: editLeadForm.name,
+      company: editLeadForm.company,
+      email: editLeadForm.email,
+      phone: editLeadForm.phone,
+      status: editLeadForm.status as any,
+      score: Number(editLeadForm.score) || 0,
+      owner: editLeadForm.owner || currentUser?.fullName || 'KP Sumanth',
+      tags: Array.isArray(editLeadForm.tags) ? editLeadForm.tags : [editLeadForm.tags].filter(Boolean)
+    };
+
+    // 1. Instant optimistic state update across CRM
+    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, ...updatedData } : l));
+
+    // Update contacts directory if matching
+    setContactsList(prev => prev.map(c => {
+      if (c.id === leadId || (c.name && c.name.toLowerCase() === editLeadForm.name.toLowerCase())) {
+        return {
+          ...c,
+          name: editLeadForm.name,
+          company: editLeadForm.company,
+          email: editLeadForm.email,
+          phone: editLeadForm.phone,
+          preferredPhone: editLeadForm.phone,
+          owner: editLeadForm.owner
+        };
+      }
+      return c;
+    }));
+
+    // Update 360 view if currently inspected
+    if (selectedLeadDetail && selectedLeadDetail.id === leadId) {
+      setSelectedLeadDetail(prev => prev ? { ...prev, ...updatedData } : null);
+    }
+
+    setShowEditLeadModal(false);
+    triggerToast(`Lead "${editLeadForm.name}" updated successfully!`, 'success');
+
+    // 2. Persist to DB in background
+    try {
+      const { updateLeadAction } = await import('@/app/actions/crm');
+      await updateLeadAction(leadId, updatedData);
+    } catch (err) {
+      console.error('Database update error:', err);
+    }
+  };
+
+  const handleQuickChangeOwner = async (leadId: string, newOwner: string) => {
+    if (!newOwner.trim()) return;
+    const trimmedOwner = newOwner.trim();
+    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, owner: trimmedOwner } : l));
+    if (selectedLeadDetail && selectedLeadDetail.id === leadId) {
+      setSelectedLeadDetail(prev => prev ? { ...prev, owner: trimmedOwner } : null);
+    }
+    triggerToast(`Lead reassigned to ${trimmedOwner}!`, 'success');
+    try {
+      const { updateLeadAction } = await import('@/app/actions/crm');
+      await updateLeadAction(leadId, { owner: trimmedOwner });
+    } catch (err) {
+      console.error('Failed to persist owner update:', err);
+    }
   };
 
   const calculateTextScore = (text: string) => {
@@ -3117,7 +3241,7 @@ export default function App() {
 
         {/* Primary Sidebar CTA Button */}
         <div className="sidebar-action-box">
-          <button className="btn-sidebar-cta" onClick={() => { setShowLeadModal(true); setIsMobileMenuOpen(false); }}>
+          <button className="btn-sidebar-cta" onClick={() => { openAddLeadModal(); setIsMobileMenuOpen(false); }}>
             + New Deal
           </button>
         </div>
@@ -3349,7 +3473,7 @@ export default function App() {
                     <button className="btn btn-primary" onClick={() => navigateTab('contacts')}>
                       Go to My Contacts
                     </button>
-                    <button className="btn btn-secondary" style={{ color: '#fff', borderColor: '#475569', backgroundColor: '#1e293b' }} onClick={() => setShowLeadModal(true)}>
+                    <button className="btn btn-secondary" style={{ color: '#fff', borderColor: '#475569', backgroundColor: '#1e293b' }} onClick={() => openAddLeadModal()}>
                       + Create New Deal
                     </button>
                   </div>
@@ -4264,7 +4388,7 @@ export default function App() {
                 </div>
                 <div className="page-header-actions">
                   <button className="btn btn-secondary" onClick={() => handleCSVExport('Leads')}>Export CSV</button>
-                  <button className="btn btn-primary" onClick={() => setShowLeadModal(true)}>+ Add Direct Lead</button>
+                  <button className="btn btn-primary" onClick={() => openAddLeadModal()}>+ Add Direct Lead</button>
                 </div>
               </div>
 
@@ -4318,26 +4442,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Bulk Actions Panel (Triggered by selection) */}
-              {selectedContactIds.length > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', padding: '10px 16px', borderRadius: '8px', marginBottom: '16px' }} className="animate-fade">
-                  <div style={{ fontSize: '13px', color: '#1e40af', fontWeight: 'bold' }}>
-                    {selectedContactIds.length} Contact(s) Selected
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setShowBulkReassignModal(true)}>
-                      Reassign Owner
-                    </button>
-                    <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setShowBulkTagModal(true)}>
-                      Bulk Tag
-                    </button>
-                    <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', color: '#dc2626' }} onClick={() => setSelectedContactIds([])}>
-                      Clear Selection
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {/* Content Area: Grid / Table / Empty State */}
               {filteredLeads.length === 0 ? (
                 <div className="panel-card animate-fade" style={{
@@ -4373,7 +4477,10 @@ export default function App() {
                     <button 
                       className="btn btn-primary" 
                       style={{ padding: '10px 18px', fontSize: '13px' }}
-                      onClick={() => setShowLeadModal(true)}
+                      onClick={() => {
+                        setNewLead(prev => ({ ...prev, owner: currentUser?.fullName || 'KP Sumanth' }));
+                        setShowLeadModal(true);
+                      }}
                     >
                       + Add Direct Lead
                     </button>
@@ -4407,20 +4514,17 @@ export default function App() {
                           transition: 'all 0.2s ease'
                         }}
                       >
-                        {/* Header Row: Checkbox + Score Pill */}
+                        {/* Header Row: Edit Lead Button + Score Pill */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: '12px' }}>
-                          <input 
-                            type="checkbox" 
-                            checked={selectedContactIds.includes(contact.id)} 
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedContactIds([...selectedContactIds, contact.id]);
-                              } else {
-                                setSelectedContactIds(selectedContactIds.filter(id => id !== contact.id));
-                              }
-                            }}
-                            style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#4f46e5' }}
-                          />
+                          <button 
+                            type="button" 
+                            className="btn btn-secondary" 
+                            style={{ padding: '3px 10px', fontSize: '11px', height: '26px', display: 'flex', alignItems: 'center', gap: '4px', color: '#1e40af', background: '#eff6ff', borderColor: '#bfdbfe', fontWeight: '700' }}
+                            onClick={() => openEditLeadModal(contact)}
+                            title="Edit Lead content, owner & details"
+                          >
+                            ✏️ Edit Lead
+                          </button>
                           <span style={{
                             display: 'inline-flex',
                             alignItems: 'center',
@@ -4483,9 +4587,17 @@ export default function App() {
                           border: '1px solid #f1f5f9',
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '4px'
+                          gap: '6px'
                         }}>
-                           Owner: <strong style={{ color: '#1e293b' }}>{contact.owner}</strong>
+                          <span>👤 Rep: <strong style={{ color: '#1e293b' }}>{contact.owner || 'Unassigned'}</strong></span>
+                          <button 
+                            type="button" 
+                            style={{ border: 'none', background: 'none', color: '#2563eb', cursor: 'pointer', fontSize: '11px', padding: '0 2px', fontWeight: '700', textDecoration: 'underline' }}
+                            onClick={() => openEditLeadModal(contact)}
+                            title="Change assigned owner"
+                          >
+                            Change
+                          </button>
                         </div>
 
                         {contact.tags && contact.tags.length > 0 && (
@@ -4645,23 +4757,10 @@ export default function App() {
                       <table className="custom-table">
                         <thead>
                           <tr>
-                            <th style={{ width: '40px' }}>
-                              <input 
-                                type="checkbox"
-                                checked={filteredLeads.length > 0 && selectedContactIds.length === filteredLeads.length}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSelectedContactIds(filteredLeads.map(l => l.id));
-                                  } else {
-                                    setSelectedContactIds([]);
-                                  }
-                                }}
-                              />
-                            </th>
                             <th>Name</th>
                             <th>Company</th>
                             <th>Email & Phone</th>
-                            <th>Owner</th>
+                            <th>Assigned Rep</th>
                             <th>Status</th>
                             <th>Score</th>
                             <th>Actions</th>
@@ -4671,20 +4770,7 @@ export default function App() {
                           {filteredLeads.map(lead => (
                             <tr key={lead.id}>
                               <td>
-                                <input 
-                                  type="checkbox" 
-                                  checked={selectedContactIds.includes(lead.id)}
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      setSelectedContactIds([...selectedContactIds, lead.id]);
-                                    } else {
-                                      setSelectedContactIds(selectedContactIds.filter(id => id !== lead.id));
-                                    }
-                                  }}
-                                />
-                              </td>
-                              <td>
-                                <div style={{ fontWeight: '600' }}>{lead.name}</div>
+                                <div style={{ fontWeight: '600', color: '#1e293b' }}>{lead.name}</div>
                                 <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{lead.id}</span>
                               </td>
                               <td>
@@ -4700,7 +4786,9 @@ export default function App() {
                                 <div>{lead.email}</div>
                                 <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{lead.phone}</div>
                               </td>
-                              <td>{lead.owner}</td>
+                              <td>
+                                <span style={{ fontWeight: '600', color: '#0f172a' }}>{lead.owner || 'Unassigned'}</span>
+                              </td>
                               <td>
                                 <span className={`badge ${lead.status === 'Disqualified' ? 'badge-cold' : lead.status === 'Qualified' ? 'badge-hot' : 'badge-warm'}`}>
                                   {lead.status}
@@ -4713,6 +4801,14 @@ export default function App() {
                               </td>
                               <td>
                                 <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                  <button 
+                                    className="btn btn-secondary" 
+                                    style={{ padding: '4px 8px', fontSize: '11px', color: '#1e40af', borderColor: '#bfdbfe', background: '#eff6ff', fontWeight: '700' }} 
+                                    onClick={() => openEditLeadModal(lead)}
+                                    title="Edit Lead Details"
+                                  >
+                                    ✏️ Edit
+                                  </button>
                                   <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={() => setSelectedLeadDetail(lead)}>
                                     Inspect 360°
                                   </button>
@@ -6835,11 +6931,23 @@ export default function App() {
                 </div>
                 <div className="form-group">
                   <label>Assigned Rep (Owner) *</label>
-                  <select value={newLead.owner} onChange={(e) => setNewLead({ ...newLead, owner: e.target.value })}>
-                    <option value="KP Sumanth">KP Sumanth</option>
-                    <option value="Balasaraswathi">Balasaraswathi</option>
-                    <option value="Riya Sharma">Riya Sharma</option>
-                  </select>
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="e.g. KP Sumanth or Pranav" 
+                    list="team-owners-datalist"
+                    value={newLead.owner} 
+                    onChange={(e) => setNewLead({ ...newLead, owner: e.target.value })} 
+                  />
+                  <datalist id="team-owners-datalist">
+                    {dbUsersList.map((u: any) => (
+                      <option key={u.id} value={u.fullName}>{u.fullName} ({u.role})</option>
+                    ))}
+                    <option value="KP Sumanth">KP Sumanth (ADMIN)</option>
+                    <option value="Pranav">Pranav (SALES_REP)</option>
+                    <option value="Balasaraswathi">Balasaraswathi (SALES_REP)</option>
+                    <option value="Riya Sharma">Riya Sharma (MANAGER)</option>
+                  </datalist>
                 </div>
               </div>
 
@@ -6868,6 +6976,151 @@ export default function App() {
               <div className="modal-actions" style={{ position: 'sticky', bottom: 0, backgroundColor: '#ffffff', padding: '14px 0 0 0', borderTop: '1px solid var(--border-color)', zIndex: 10, marginTop: '16px' }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setShowLeadModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary">Create Record</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EDIT LEAD DETAILS */}
+      {showEditLeadModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxHeight: '85vh', overflowY: 'auto', width: '100%', maxWidth: '620px' }}>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '18px' }}>✏️</span>
+                <h3>Edit Lead Details</h3>
+              </div>
+              <button className="modal-close-btn" onClick={() => setShowEditLeadModal(false)}>×</button>
+            </div>
+            
+            <form onSubmit={handleSaveEditLead} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div className="modal-grid-2col">
+                <div className="form-group">
+                  <label>Full Name *</label>
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="e.g. Ramesh Gowda" 
+                    value={editLeadForm.name} 
+                    onChange={(e) => setEditLeadForm({ ...editLeadForm, name: e.target.value })} 
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Company / Organization *</label>
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="e.g. Mysore Agro Products" 
+                    value={editLeadForm.company} 
+                    onChange={(e) => setEditLeadForm({ ...editLeadForm, company: e.target.value })} 
+                  />
+                </div>
+              </div>
+
+              <div className="modal-grid-2col">
+                <div className="form-group">
+                  <label>Work Email Address</label>
+                  <input 
+                    type="email" 
+                    placeholder="name@company.com" 
+                    value={editLeadForm.email} 
+                    onChange={(e) => setEditLeadForm({ ...editLeadForm, email: e.target.value })} 
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Primary Phone Number</label>
+                  <input 
+                    type="text" 
+                    placeholder="+91 98450 12345" 
+                    value={editLeadForm.phone} 
+                    onChange={(e) => setEditLeadForm({ ...editLeadForm, phone: e.target.value })} 
+                  />
+                </div>
+              </div>
+
+              <div className="modal-grid-2col">
+                <div className="form-group">
+                  <label>Designation / Role</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. Purchase Director" 
+                    value={editLeadForm.designation} 
+                    onChange={(e) => setEditLeadForm({ ...editLeadForm, designation: e.target.value })} 
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Assigned Representative (Owner) *</label>
+                  <input 
+                    type="text" 
+                    required
+                    placeholder="Type or select representative..." 
+                    list="team-owners-datalist"
+                    value={editLeadForm.owner} 
+                    onChange={(e) => setEditLeadForm({ ...editLeadForm, owner: e.target.value })} 
+                  />
+                </div>
+              </div>
+
+              <div className="modal-grid-2col">
+                <div className="form-group">
+                  <label>City</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. Bangalore" 
+                    value={editLeadForm.city} 
+                    onChange={(e) => setEditLeadForm({ ...editLeadForm, city: e.target.value })} 
+                  />
+                </div>
+                <div className="form-group">
+                  <label>State</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. Karnataka" 
+                    value={editLeadForm.state} 
+                    onChange={(e) => setEditLeadForm({ ...editLeadForm, state: e.target.value })} 
+                  />
+                </div>
+              </div>
+
+              <div className="modal-grid-2col">
+                <div className="form-group">
+                  <label>Lead Pipeline Status</label>
+                  <select 
+                    value={editLeadForm.status} 
+                    onChange={(e) => setEditLeadForm({ ...editLeadForm, status: e.target.value })}
+                  >
+                    <option value="New">New</option>
+                    <option value="Contacted">Contacted</option>
+                    <option value="Qualified">Qualified</option>
+                    <option value="Disqualified">Disqualified</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Lead Score Weight (0 - 100)</label>
+                  <input 
+                    type="number" 
+                    min="0" 
+                    max="100" 
+                    value={editLeadForm.score} 
+                    onChange={(e) => setEditLeadForm({ ...editLeadForm, score: Number(e.target.value) || 0 })} 
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Tags (Comma-separated)</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. B2G, Manufacturing, Hot Lead" 
+                  value={Array.isArray(editLeadForm.tags) ? editLeadForm.tags.join(', ') : (editLeadForm.tags || '')} 
+                  onChange={(e) => setEditLeadForm({ ...editLeadForm, tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} 
+                />
+              </div>
+
+              <div className="modal-actions" style={{ position: 'sticky', bottom: 0, backgroundColor: '#ffffff', padding: '14px 0 0 0', borderTop: '1px solid var(--border-color)', zIndex: 10, marginTop: '8px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowEditLeadModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ padding: '8px 20px', fontWeight: '700' }}>Save Changes</button>
               </div>
             </form>
           </div>
@@ -7590,13 +7843,50 @@ export default function App() {
                 </div>
 
                 <div style={{ fontSize: '12.5px', display: 'flex', flexDirection: 'column', gap: '10px', color: 'var(--text-main)' }}>
-                  <div><strong>Email:</strong><br/><span style={{ color: 'var(--text-muted)' }}>{selectedLeadDetail.email}</span></div>
-                  <div><strong>Phone:</strong><br/><span style={{ color: 'var(--text-muted)' }}>{selectedLeadDetail.phone}</span></div>
+                  <div><strong>Email:</strong><br/><span style={{ color: 'var(--text-muted)' }}>{selectedLeadDetail.email || '—'}</span></div>
+                  <div><strong>Phone:</strong><br/><span style={{ color: 'var(--text-muted)' }}>{selectedLeadDetail.phone || '—'}</span></div>
                   <div><strong>Address:</strong><br/><span style={{ color: 'var(--text-muted)' }}>Karnataka B2G Territory</span></div>
-                  <div><strong>Assigned Rep:</strong><br/><span style={{ color: 'var(--text-muted)' }}>{selectedLeadDetail.owner}</span></div>
+                  <div style={{ background: '#eff6ff', padding: '10px', borderRadius: '8px', border: '1px solid #bfdbfe' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <strong style={{ color: '#1e40af', fontSize: '12px' }}>Assigned Rep (Owner):</strong>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      <input 
+                        type="text" 
+                        list="team-owners-datalist" 
+                        defaultValue={selectedLeadDetail.owner || ''} 
+                        id={`owner-edit-input-${selectedLeadDetail.id}`}
+                        style={{ flex: 1, padding: '5px 8px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#ffffff' }}
+                        placeholder="Enter rep name..."
+                      />
+                      <button 
+                        type="button" 
+                        className="btn btn-primary" 
+                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700' }}
+                        onClick={() => {
+                          const el = document.getElementById(`owner-edit-input-${selectedLeadDetail.id}`) as HTMLInputElement;
+                          if (el && el.value) {
+                            handleQuickChangeOwner(selectedLeadDetail.id, el.value);
+                          }
+                        }}
+                      >
+                        Reassign
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
-                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', borderTop: '1px solid var(--border-color)', paddingTop: '14px', marginTop: '10px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
+                  <button 
+                    className="btn btn-primary" 
+                    style={{ fontSize: '12px', justifyContent: 'center', gap: '6px', fontWeight: '700', backgroundColor: '#1e40af', borderColor: '#1e40af' }}
+                    onClick={() => openEditLeadModal(selectedLeadDetail)}
+                  >
+                    ✏️ Edit Lead Details
+                  </button>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', borderTop: '1px solid var(--border-color)', paddingTop: '14px', marginTop: '4px' }}>
                   <button className="btn btn-secondary" style={{ padding: '6px 0', fontSize: '11px', justifyContent: 'center' }} onClick={() => openEmailComposer(selectedLeadDetail.name, selectedLeadDetail.email)}>Email</button>
                   <button className="btn btn-secondary" style={{ padding: '6px 0', fontSize: '11px', color: '#25D366', borderColor: '#25D366', justifyContent: 'center' }} onClick={() => openWhatsAppModalForContact(selectedLeadDetail.name, selectedLeadDetail.phone)}>WhatsApp</button>
                   <button className="btn btn-secondary" style={{ padding: '6px 0', fontSize: '11px', justifyContent: 'center' }} onClick={() => startVoIPCall(selectedLeadDetail.name, selectedLeadDetail.phone)}>Call</button>
@@ -7867,8 +8157,11 @@ export default function App() {
                         className="btn btn-secondary" 
                         style={{ padding: '4px 10px', fontSize: '11px' }}
                         onClick={() => {
-                          setNewLead({ ...newLead, company: selectedCompanyDetail.name, city: selectedCompanyDetail.city || 'Bangalore', state: selectedCompanyDetail.state || 'Karnataka' });
-                          setShowLeadModal(true);
+                          openAddLeadModal({
+                            company: selectedCompanyDetail.name,
+                            city: selectedCompanyDetail.city || 'Bangalore',
+                            state: selectedCompanyDetail.state || 'Karnataka'
+                          });
                         }}
                       >
                         + Add Person to this Company
