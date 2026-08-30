@@ -1,13 +1,13 @@
 import React from 'react';
 
-interface AuditLog {
+export interface AuditLog {
   id: string;
   user: string;
   action: string;
   entity: string;
   timestamp: string;
-  beforeState: string;
-  afterState: string;
+  beforeState?: string;
+  afterState?: string;
 }
 
 interface AuditDiffModalProps {
@@ -24,14 +24,14 @@ export default function AuditDiffModal({
   let beforeObj: Record<string, any> = {};
   let afterObj: Record<string, any> = {};
   try {
-    beforeObj = JSON.parse(selectedAuditLogForDiff.beforeState);
+    beforeObj = JSON.parse(selectedAuditLogForDiff.beforeState || '{}');
   } catch {
-    beforeObj = { value: selectedAuditLogForDiff.beforeState };
+    beforeObj = { value: selectedAuditLogForDiff.beforeState || 'None' };
   }
   try {
-    afterObj = JSON.parse(selectedAuditLogForDiff.afterState);
+    afterObj = JSON.parse(selectedAuditLogForDiff.afterState || '{}');
   } catch {
-    afterObj = { value: selectedAuditLogForDiff.afterState };
+    afterObj = { value: selectedAuditLogForDiff.afterState || 'Saved' };
   }
 
   const allKeys = Array.from(new Set([...Object.keys(beforeObj), ...Object.keys(afterObj)]));

@@ -78,8 +78,8 @@ interface AuditLog {
   action: string;
   entity: string;
   timestamp: string;
-  beforeState: string;
-  afterState: string;
+  beforeState?: string;
+  afterState?: string;
 }
 
 interface CustomField {
@@ -1188,16 +1188,7 @@ export default function App() {
       return l;
     }));
 
-    const newLog: AuditLog = {
-      id: `LOG-CALL-${Date.now().toString().slice(-3)}`,
-      user: currentAgentName,
-      action: 'Outgoing Call Registered',
-      entity: `Call Log: ${voipName} (${voipPhone})`,
-      timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-      beforeState: 'Active VoIP Call',
-      afterState: `Disconnected. Duration: ${durationStr}. Points Awarded: +15`
-    };
-    setAuditLogs(prev => [newLog, ...prev]);
+    recordAuditLog('Outgoing Call Registered', `Call Log: ${voipName} (${voipPhone})`, 'Active VoIP Call', `Disconnected. Duration: ${durationStr}. Points Awarded: +15`);
 
     window.open(`tel:${voipPhone.replace(/\s+/g, '')}`, '_self');
 
@@ -1241,16 +1232,7 @@ export default function App() {
       return l;
     }));
 
-    const newLog: AuditLog = {
-      id: `LOG-MAIL-${Date.now().toString().slice(-3)}`,
-      user: currentAgentName,
-      action: 'Client Email Dispatched',
-      entity: `Email: ${emailToName} (${emailToAddress})`,
-      timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-      beforeState: 'Draft',
-      afterState: `Sent via local mail client. Subject: "${emailSubject}"`
-    };
-    setAuditLogs(prev => [newLog, ...prev]);
+    recordAuditLog('Client Email Dispatched', `Email: ${emailToName} (${emailToAddress})`, 'Draft', `Sent via local mail client. Subject: "${emailSubject}"`);
 
     triggerToast(`Email template prepared for ${emailToName}`, 'success');
     setShowEmailComposer(false);
@@ -1292,16 +1274,7 @@ export default function App() {
       return l;
     }));
 
-    const newLog: AuditLog = {
-      id: `LOG-WA-${Date.now().toString().slice(-3)}`,
-      user: currentAgentName,
-      action: 'WhatsApp Dispatch Generated',
-      entity: `WhatsApp: ${waToName} (${waToPhone})`,
-      timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-      beforeState: 'Custom Text Prepared',
-      afterState: `Launched API redirect to WhatsApp web/app.`
-    };
-    setAuditLogs(prev => [newLog, ...prev]);
+    recordAuditLog('WhatsApp Dispatch Generated', `WhatsApp: ${waToName} (${waToPhone})`, 'Custom Text Prepared', `Launched API redirect to WhatsApp web/app.`);
 
     triggerToast(`WhatsApp template prepared for ${waToName}`, 'success');
     setShowWhatsAppModal(false);
@@ -1659,6 +1632,39 @@ export default function App() {
   };
 
   // ----------------------------------------------------
+  // REAL-TIME AUDIT REGISTRY DISPATCHER (DIRECT SUPABASE DB)
+  // ----------------------------------------------------
+  const recordAuditLog = useCallback((action: string, entity: string, beforeState?: string, afterState?: string) => {
+    const author = currentUser?.fullName || currentAgentName || 'System';
+    const timestampStr = new Date().toISOString();
+    const newLog: AuditLog = {
+      id: `LOG-${Date.now().toString().slice(-4)}`,
+      user: author,
+      action,
+      entity,
+      timestamp: timestampStr,
+      beforeState: beforeState || undefined,
+      afterState: afterState || undefined
+    };
+    setAuditLogs(prev => [newLog, ...prev]);
+
+    import('@/app/actions/crm').then(({ createAuditLogAction }) => {
+      createAuditLogAction({
+        user: author,
+        action,
+        entity,
+        timestamp: timestampStr,
+        beforeState,
+        afterState
+      }).then(res => {
+        if (!res.success) {
+          console.warn('Audit log database error:', res.error);
+        }
+      }).catch(err => console.warn('Supabase audit log insert error:', err));
+    }).catch(console.error);
+  }, [currentUser?.fullName, currentAgentName]);
+
+  // ----------------------------------------------------
   // LEAD SCORING DYNAMIC LOGIC
   // ----------------------------------------------------
   const triggerRecalculateScores = (overrideLeads?: Lead[]) => {
@@ -1778,17 +1784,8 @@ export default function App() {
       });
     }).catch(err => console.error('Error creating lead in DB:', err));
 
-    // Audit Log
-    const newLog: AuditLog = {
-      id: `LOG-ADD-${Date.now().toString().slice(-3)}`,
-      user: currentAgentName,
-      action: 'Lead Created',
-      entity: `Lead: ${fullName}`,
-      timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-      beforeState: 'None',
-      afterState: JSON.stringify(freshLead)
-    };
-    setAuditLogs([newLog, ...auditLogs]);
+    // Audit Log to Supabase DB & UI
+    recordAuditLog('Lead Created', `Lead: ${fullName} (${newLead.company || 'Individual'})`, 'None', JSON.stringify(freshLead));
 
     // Reset Form
     setNewLead({ firstName: '', lastName: '', email: '', phone: '', alternatePhone: '', company: '', designation: '', city: '', state: '', leadSource: 'Website', owner: currentUser?.fullName || 'KP Sumanth', tags: 'B2G' });
@@ -1878,6 +1875,7 @@ export default function App() {
 
     setShowEditLeadModal(false);
     triggerToast(`Lead "${editLeadForm.name}" updated successfully!`, 'success');
+    recordAuditLog('Lead Updated', `Lead: ${editLeadForm.name}`, undefined, JSON.stringify(updatedData));
 
     // 2. Persist to DB in background
     try {
@@ -1896,6 +1894,7 @@ export default function App() {
       setSelectedLeadDetail(prev => prev ? { ...prev, owner: trimmedOwner } : null);
     }
     triggerToast(`Lead reassigned to ${trimmedOwner}!`, 'success');
+    recordAuditLog('Lead Reassigned', `Lead ID: ${leadId} reassigned to ${trimmedOwner}`, undefined, `New Owner: ${trimmedOwner}`);
     try {
       const { updateLeadAction } = await import('@/app/actions/crm');
       await updateLeadAction(leadId, { owner: trimmedOwner });
@@ -1959,16 +1958,7 @@ export default function App() {
       });
       
       // Audit Log
-      const newLog: AuditLog = {
-        id: `LOG-SCAN-${Date.now().toString().slice(-3)}`,
-        user: currentAgentName,
-        action: 'Visiting Card Scanned (AI Enhanced)',
-        entity: 'Lead Card: Sathyanarayana B V',
-        timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-        beforeState: 'Image Snap Uploaded',
-        afterState: 'OCR + AI Semantic Match: Sathyanarayana B V, DERBI Foundation, +91 99800 03627'
-      };
-      setAuditLogs(prev => [newLog, ...prev]);
+      recordAuditLog('Visiting Card Scanned (AI Enhanced)', 'Lead Card: Sathyanarayana B V', 'Image Snap Uploaded', 'OCR + AI Semantic Match: Sathyanarayana B V, DERBI Foundation, +91 99800 03627');
       return;
     }
 
@@ -2043,17 +2033,8 @@ export default function App() {
       tags: 'B2G'
     });
 
-    // Audit Log
-    const newLog: AuditLog = {
-      id: `LOG-SCAN-${Date.now().toString().slice(-3)}`,
-      user: currentAgentName,
-      action: 'Visiting Card Auto-Scanned',
-      entity: `Lead Card: ${name || 'Extracted Lead'}`,
-      timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-      beforeState: 'Image Snap Uploaded',
-      afterState: `OCR Extracted Text:\n${text}`
-    };
-    setAuditLogs(prev => [newLog, ...prev]);
+    // Audit Log to Supabase DB & UI
+    recordAuditLog('Visiting Card Auto-Scanned', `Lead Card: ${name || 'Extracted Lead'}`, 'Image Snap Uploaded', `OCR Extracted Text:\n${text}`);
   };
 
   const autoScanAndCorrectOrientation = async (base64Image: string) => {
@@ -2239,22 +2220,14 @@ export default function App() {
       }
     })();
 
-    // Add Audit Log
-    const newLog: AuditLog = {
-      id: `LOG-STAGE-${Date.now().toString().slice(-3)}`,
-      user: currentAgentName,
-      action: 'Stage Transitioned',
-      entity: `Deal: ${prevDeal.name}`,
-      timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-      beforeState: JSON.stringify({ stage: prevDeal.stage, probability: prevDeal.probability }),
-      afterState: JSON.stringify({ stage: targetStage, probability, lostReason: reasonOfLoss || 'None' })
-    };
-    setAuditLogs(prev => [newLog, ...prev]);
+    // Add Audit Log to Supabase DB & UI
+    recordAuditLog('Stage Transitioned', `Deal: ${prevDeal.name}`, JSON.stringify({ stage: prevDeal.stage, probability: prevDeal.probability }), JSON.stringify({ stage: targetStage, probability, lostReason: reasonOfLoss || 'None' }));
   };
 
   const handleUpdateDeal = async (dealId: string, updates: Partial<Deal>) => {
     setDeals(prev => prev.map(d => d.id === dealId ? { ...d, ...updates } : d));
     triggerToast('Deal details updated and saved to database!', 'success');
+    recordAuditLog('Deal Updated', `Deal ID: ${dealId}`, undefined, JSON.stringify(updates));
     try {
       const { updateDealAction } = await import('@/app/actions/crm');
       await updateDealAction(dealId, updates);
@@ -2268,6 +2241,7 @@ export default function App() {
     setDeals(prev => prev.filter(d => d.id !== dealId));
     if (selectedDealDetail?.id === dealId) setSelectedDealDetail(null);
     triggerToast('Deal deleted from pipeline!', 'info');
+    recordAuditLog('Deal Deleted', `Deal ID: ${dealId}`);
     try {
       const { deleteDealAction } = await import('@/app/actions/crm');
       await deleteDealAction(dealId);
@@ -2281,6 +2255,7 @@ export default function App() {
     setLeads(prev => prev.filter(l => l.id !== leadId));
     if (selectedLeadDetail?.id === leadId) setSelectedLeadDetail(null);
     triggerToast('Lead deleted successfully!', 'info');
+    recordAuditLog('Lead Deleted', `Lead ID: ${leadId}`);
     try {
       const { deleteLeadAction } = await import('@/app/actions/crm');
       await deleteLeadAction(leadId);
@@ -2294,6 +2269,7 @@ export default function App() {
     setCompanies(prev => prev.filter(c => c.id !== companyId));
     if (selectedCompanyDetail?.id === companyId) setSelectedCompanyDetail(null);
     triggerToast('Company account deleted!', 'info');
+    recordAuditLog('Company Deleted', `Company ID: ${companyId}`);
     try {
       const { deleteCompanyAction } = await import('@/app/actions/crm');
       await deleteCompanyAction(companyId);
@@ -2338,6 +2314,7 @@ export default function App() {
 
     setNewTask({ title: '', description: '', dueDate: '2026-08-30', priority: 'Medium', linkedTo: '' });
     triggerToast(`Task "${freshTask.title}" created & saved!`, 'success');
+    recordAuditLog('Task Created', `Task: ${freshTask.title} (Assigned: ${freshTask.assignee})`, 'None', 'Open');
 
     (async () => {
       try {
@@ -2385,17 +2362,7 @@ export default function App() {
     setTasks(prev => prev.map(t => t.id === editingTask.id ? { ...editingTask } : t));
     setShowEditTaskModal(false);
     triggerToast(`Task "${editingTask.title}" updated instantly!`, 'success');
-
-    const newLog: AuditLog = {
-      id: `LOG-TSK-${Date.now().toString().slice(-4)}`,
-      user: currentUser?.fullName || currentAgentName,
-      action: 'Task Updated',
-      entity: `Task: ${editingTask.title}`,
-      timestamp: new Date().toISOString(),
-      beforeState: 'Edited',
-      afterState: 'Saved'
-    };
-    setAuditLogs(prev => [newLog, ...prev]);
+    recordAuditLog('Task Updated', `Task: ${editingTask.title}`, 'Edited', 'Saved');
 
     try {
       const { updateTaskAction } = await import('@/app/actions/crm');
@@ -2407,8 +2374,6 @@ export default function App() {
         linkedTo: editingTask.linkedTo,
         assignee: editingTask.assignee
       });
-      const { createAuditLogAction } = await import('@/app/actions/crm');
-      createAuditLogAction(newLog).catch(console.error);
     } catch (err) {
       console.error('Failed to update task in DB:', err);
     }
@@ -2427,6 +2392,7 @@ export default function App() {
     }));
 
     triggerToast(`Task marked as ${nextStatus}!`, 'info');
+    recordAuditLog(nextStatus === 'Completed' ? 'Task Completed' : 'Task Reopened', `Task: ${task.title}`, task.status, nextStatus);
 
     (async () => {
       try {
@@ -2585,16 +2551,7 @@ export default function App() {
     link.click();
     document.body.removeChild(link);
 
-    const newLog: AuditLog = {
-      id: `LOG-EXP-${Date.now().toString().slice(-3)}`,
-      user: currentAgentName,
-      action: 'Data Exported',
-      entity: `CSV Bundle: ${type}`,
-      timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-      beforeState: 'Protected',
-      afterState: 'Exported'
-    };
-    setAuditLogs([newLog, ...auditLogs]);
+    recordAuditLog('Data Exported', `CSV Bundle: ${type}`, 'Protected', 'Exported');
   };
 
   // Lead Conversion (1-click qualification)
@@ -2673,17 +2630,8 @@ export default function App() {
       }
     })();
 
-    // Add Audit Log
-    const newLog: AuditLog = {
-      id: `LOG-CONV-${Date.now().toString().slice(-3)}`,
-      user: currentAgentName,
-      action: 'Lead Converted',
-      entity: `Lead converted to Contact & Deal: ${lead.name}`,
-      timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-      beforeState: JSON.stringify(lead),
-      afterState: JSON.stringify(freshDeal)
-    };
-    setAuditLogs([newLog, ...auditLogs]);
+    // Add Audit Log to Supabase DB & UI
+    recordAuditLog('Lead Converted', `Lead converted to Contact & Deal: ${lead.name}`, JSON.stringify(lead), JSON.stringify(freshDeal));
   };
 
   // Disqualify Lead Action (LED-01)
@@ -2710,17 +2658,8 @@ export default function App() {
     });
     setLeads(updated);
 
-    // Audit Log
-    const newLog: AuditLog = {
-      id: `LOG-DISQ-${Date.now().toString().slice(-3)}`,
-      user: currentAgentName,
-      action: 'Lead Disqualified',
-      entity: `Lead: ${lead.name}`,
-      timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-      beforeState: JSON.stringify({ score: prevScore, status: lead.status }),
-      afterState: JSON.stringify({ score: nextScore, status: 'Disqualified', reason })
-    };
-    setAuditLogs([newLog, ...auditLogs]);
+    // Audit Log to Supabase DB & UI
+    recordAuditLog('Lead Disqualified', `Lead: ${lead.name}`, JSON.stringify({ score: prevScore, status: lead.status }), JSON.stringify({ score: nextScore, status: 'Disqualified', reason }));
   };
 
   const handlePortalAcceptQuote = (qte: Quote) => {
@@ -2732,16 +2671,7 @@ export default function App() {
       setDeals(deals.map(d => d.id === qte.dealId ? { ...d, stage: 'Won', probability: 100, daysInStage: 1 } : d));
     }
 
-    const newLog: AuditLog = {
-      id: `LOG-QTEACC-${Date.now().toString().slice(-3)}`,
-      user: 'Client (Portal Simulation)',
-      action: 'Quote Accepted via Portal',
-      entity: `Quote: ${qte.id} (Company: ${qte.company})`,
-      timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-      beforeState: JSON.stringify({ status: qte.status }),
-      afterState: JSON.stringify({ status: 'Accepted' })
-    };
-    setAuditLogs([newLog, ...auditLogs]);
+    recordAuditLog('Quote Accepted via Portal', `Quote: ${qte.id} (Company: ${qte.company})`, JSON.stringify({ status: qte.status }), JSON.stringify({ status: 'Accepted' }));
   };
 
   const handlePortalRejectQuote = (qte: Quote) => {
@@ -2754,16 +2684,7 @@ export default function App() {
       setDeals(deals.map(d => d.id === qte.dealId ? { ...d, stage: 'Lost', probability: 0, daysInStage: 1, lostReason: reason } : d));
     }
 
-    const newLog: AuditLog = {
-      id: `LOG-QTEREJ-${Date.now().toString().slice(-3)}`,
-      user: 'Client (Portal Simulation)',
-      action: 'Quote Rejected via Portal',
-      entity: `Quote: ${qte.id} (Reason: ${reason})`,
-      timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-      beforeState: JSON.stringify({ status: qte.status }),
-      afterState: JSON.stringify({ status: 'Rejected', reason })
-    };
-    setAuditLogs([newLog, ...auditLogs]);
+    recordAuditLog('Quote Rejected via Portal', `Quote: ${qte.id} (Reason: ${reason})`, JSON.stringify({ status: qte.status }), JSON.stringify({ status: 'Rejected', reason }));
   };
 
 
@@ -3843,9 +3764,7 @@ export default function App() {
                             type="checkbox" 
                             className="task-checkbox"
                             checked={t.status === 'Completed'}
-                            onChange={() => {
-                              setTasks(tasks.map(tk => tk.id === t.id ? { ...tk, status: tk.status === 'Completed' ? 'Open' : 'Completed' } : tk));
-                            }}
+                            onChange={() => toggleTaskStatus(t.id)}
                           />
                           <div className="task-item-details">
                             <h4 style={{ textDecoration: t.status === 'Completed' ? 'line-through' : 'none', opacity: t.status === 'Completed' ? 0.6 : 1 }}>
@@ -5858,31 +5777,13 @@ export default function App() {
               termsTemplates={termsTemplates}
               onSaveQuote={(newQuote) => {
                 setQuotes([newQuote, ...quotes]);
-                const newLog = {
-                  id: `LOG-QTE-${Date.now().toString().slice(-3)}`,
-                  user: currentAgentName,
-                  action: 'Quote Created',
-                  entity: `Quote: ${newQuote.id}`,
-                  timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-                  beforeState: 'None',
-                  afterState: JSON.stringify(newQuote)
-                };
-                setAuditLogs([newLog, ...auditLogs]);
+                recordAuditLog('Quote Created', `Quote: ${newQuote.id} for ${newQuote.company}`, 'None', JSON.stringify(newQuote));
               }}
               onDeleteQuote={(quoteId) => {
                 const qte = quotes.find(q => q.id === quoteId);
                 setQuotes(quotes.filter(q => q.id !== quoteId));
                 if (qte) {
-                  const newLog = {
-                    id: `LOG-QTE-DEL-${Date.now().toString().slice(-3)}`,
-                    user: currentAgentName,
-                    action: 'Quote Deleted',
-                    entity: `Quote: ${quoteId}`,
-                    timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-                    beforeState: JSON.stringify(qte),
-                    afterState: 'Deleted'
-                  };
-                  setAuditLogs([newLog, ...auditLogs]);
+                  recordAuditLog('Quote Deleted', `Quote: ${quoteId}`, JSON.stringify(qte), 'Deleted');
                 }
               }}
               onOpenPortalSandbox={(quote) => {
@@ -6094,6 +5995,7 @@ export default function App() {
                                           await changeUserRoleAction(usr.id, newRole);
                                           setDbUsersList(prev => prev.map(u => u.id === usr.id ? { ...u, role: newRole } : u));
                                           triggerToast(`Role for ${usr.fullName} updated to ${newRole}!`, 'success');
+                                          recordAuditLog('User Role Changed', `Role for ${usr.fullName} (${usr.email}) set to ${newRole}`, usr.role, newRole);
                                         } catch (err) {
                                           console.error('Role update error:', err);
                                         }
@@ -6136,6 +6038,7 @@ export default function App() {
                                           await toggleUserActiveStatusAction(usr.id, !isActive);
                                           setDbUsersList(prev => prev.map(u => u.id === usr.id ? { ...u, isActive: !isActive } : u));
                                           triggerToast(`User status updated to ${!isActive ? 'Active' : 'Deactivated'}!`, 'info');
+                                          recordAuditLog('User Status Toggled', `User ${usr.fullName} (${usr.email}) status set to ${!isActive ? 'Active' : 'Deactivated'}`, isActive ? 'Active' : 'Deactivated', !isActive ? 'Active' : 'Deactivated');
                                         } catch (err) {
                                           console.error('Status toggle error:', err);
                                         }
@@ -8242,9 +8145,7 @@ export default function App() {
                           <input 
                             type="checkbox" 
                             checked={task.status === 'Completed'} 
-                            onChange={() => {
-                              setTasks(tasks.map(t => t.id === task.id ? { ...t, status: t.status === 'Completed' ? 'Open' : 'Completed' } : t));
-                            }} 
+                            onChange={() => toggleTaskStatus(task.id)} 
                             style={{ cursor: 'pointer' }}
                           />
                           <div style={{ textDecoration: task.status === 'Completed' ? 'line-through' : 'none', flex: 1, fontSize: '12.5px' }}>
@@ -8854,16 +8755,7 @@ export default function App() {
               setLeads(updatedLeads);
 
               // Add Audit Log
-              const newLog: AuditLog = {
-                id: `LOG-REASSIGN-${Date.now().toString().slice(-3)}`,
-                user: currentAgentName,
-                action: 'Bulk Reassign',
-                entity: `Reassigned ${selectedContactIds.length} records to ${bulkTargetRep}`,
-                timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-                beforeState: `Reason: ${bulkReassignReason}`,
-                afterState: `New Owner: ${bulkTargetRep}`
-              };
-              setAuditLogs([newLog, ...auditLogs]);
+              recordAuditLog('Bulk Reassign', `Reassigned ${selectedContactIds.length} records to ${bulkTargetRep}`, `Reason: ${bulkReassignReason}`, `New Owner: ${bulkTargetRep}`);
 
               alert(`Successfully reassigned ${selectedContactIds.length} contact(s) to ${bulkTargetRep}`);
               setSelectedContactIds([]);
@@ -9504,6 +9396,7 @@ export default function App() {
                   setShowAddUserModal(false);
                   setNewUserForm({ fullName: '', email: '', password: '12345678', role: 'SALES_REP', title: 'Sales Representative', phone: '' });
                   triggerToast(`User ${res.user.fullName} provisioned successfully as ${res.user.role}!`, 'success');
+                  recordAuditLog('User Provisioned', `User: ${res.user.fullName} (${res.user.email} - Role: ${res.user.role})`, 'None', 'Provisioned');
                 } else {
                   alert(res.error || 'Failed to create user account.');
                 }
@@ -9619,6 +9512,7 @@ export default function App() {
                 const res = await adminResetPasswordAction(adminResetPasswordUser.id, adminNewPasswordInput);
                 if (res.success) {
                   triggerToast(`Password reset successfully for ${adminResetPasswordUser.fullName}!`, 'success');
+                  recordAuditLog('User Password Reset', `Password reset for user: ${adminResetPasswordUser.fullName} (${adminResetPasswordUser.email})`);
                   setAdminResetPasswordUser(null);
                   setAdminNewPasswordInput('');
                 } else {
