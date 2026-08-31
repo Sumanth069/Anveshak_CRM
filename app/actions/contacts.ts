@@ -30,7 +30,7 @@ function mapContactFromSupabase(row: any) {
     notes: row.notes || null,
     tags: Array.isArray(row.tags) ? row.tags : [],
     customFields: row.custom_fields || {},
-    owner: row.owner || 'KP Sumanth',
+    owner: row.owner || null,
     lastContactedAt: row.last_contacted_at || null,
     isConverted: !!row.is_converted,
     convertedLeadId: row.converted_lead_id || null,
