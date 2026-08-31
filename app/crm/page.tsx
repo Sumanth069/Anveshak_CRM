@@ -21,15 +21,51 @@ import { scoreDuplicate } from '@/lib/dedup';
 import { updateSupabaseConfig, isSupabaseConnected } from '@/lib/supabase';
 
 // Type Definitions
+export type CompanyScale = 
+  | 'Micro (< ₹5 Cr / < 10 Emp)'
+  | 'Small Scale / MSME (₹5-50 Cr / 10-50 Emp)'
+  | 'Medium (₹50-250 Cr / 50-250 Emp)'
+  | 'Large Enterprise (> ₹250 Cr / > 250 Emp)'
+  | 'Government / PSU / Defence / B2G'
+  | 'Startup / Research Institute';
+
+export const COMPANY_SCALE_OPTIONS: CompanyScale[] = [
+  'Micro (< ₹5 Cr / < 10 Emp)',
+  'Small Scale / MSME (₹5-50 Cr / 10-50 Emp)',
+  'Medium (₹50-250 Cr / 50-250 Emp)',
+  'Large Enterprise (> ₹250 Cr / > 250 Emp)',
+  'Government / PSU / Defence / B2G',
+  'Startup / Research Institute'
+];
+
+export const PRESET_TAG_OPTIONS = [
+  'B2G',
+  'MSME',
+  'Defence',
+  'Tier-1',
+  'Enterprise',
+  'PSU',
+  'Direct',
+  'Partner',
+  'Priority',
+  'OEM'
+];
+
 interface Lead {
   id: string;
   name: string;
   company: string;
+  companyScale?: string;
   email: string;
   phone: string;
+  alternatePhone?: string;
+  designation?: string;
+  city?: string;
+  state?: string;
   status: 'New' | 'Contacted' | 'Qualified' | 'Disqualified';
   score: number;
   owner: string;
+  assignedRep?: string;
   tags?: string[];
   activities: { action: string; points: number; date: string }[];
   customFields?: { [key: string]: string };
@@ -39,13 +75,16 @@ interface Deal {
   id: string;
   name: string;
   company: string;
+  companyScale?: string;
   value: number;
   stage: string;
   probability: number;
   expectedClose: string;
   owner: string;
+  assignedRep?: string;
   lostReason?: string;
   daysInStage: number;
+  leadId?: string;
 }
 
 interface Task {
@@ -93,10 +132,13 @@ interface Company {
   id: string;
   name: string;
   industry: string;
+  companyScale?: string;
   website: string;
   city: string;
   state: string;
   address: string;
+  owner?: string;
+  assignedRep?: string;
   contactsCount: number;
   totalDealValue: number;
 }
@@ -626,12 +668,18 @@ export default function App() {
   const [newContactForm, setNewContactForm] = useState({
     name: '',
     company: '',
+    companyScale: 'Small Scale / MSME (₹5-50 Cr / 10-50 Emp)' as CompanyScale,
     email: '',
     phone: '',
     designation: '',
     city: '',
+    state: '',
     category: 'Prospect',
     sourceType: 'Direct',
+    owner: 'KP Sumanth',
+    assignedRep: 'KP Sumanth',
+    tags: ['B2G'] as string[],
+    tagInput: '',
     notes: ''
   });
 
@@ -1387,25 +1435,55 @@ export default function App() {
   const [rotationDegrees, setRotationDegrees] = useState(0);
   
   // Form Inputs
-  const [newLead, setNewLead] = useState({ firstName: '', lastName: '', email: '', phone: '', alternatePhone: '', company: '', designation: '', city: '', state: '', leadSource: 'Website', owner: 'peketi balasaraswathi', tags: 'B2G' });
+  const [newLead, setNewLead] = useState({ 
+    firstName: '', 
+    lastName: '', 
+    email: '', 
+    phone: '', 
+    alternatePhone: '', 
+    company: '', 
+    companyScale: 'Small Scale / MSME (₹5-50 Cr / 10-50 Emp)' as CompanyScale,
+    designation: '', 
+    city: '', 
+    state: '', 
+    leadSource: 'Website', 
+    owner: 'KP Sumanth', 
+    assignedRep: 'KP Sumanth', 
+    tags: ['B2G'] as string[],
+    tagInput: ''
+  });
   const [showEditLeadModal, setShowEditLeadModal] = useState(false);
   const [editLeadForm, setEditLeadForm] = useState({
     id: '',
     name: '',
     company: '',
+    companyScale: 'Small Scale / MSME (₹5-50 Cr / 10-50 Emp)' as CompanyScale,
     email: '',
     phone: '',
     alternatePhone: '',
     designation: '',
     city: '',
     state: '',
-    status: 'New',
+    status: 'New' as Lead['status'],
     score: 0,
-    owner: 'peketi balasaraswathi',
+    owner: 'KP Sumanth',
+    assignedRep: 'KP Sumanth',
     tags: [] as string[],
+    tagInput: '',
     notes: ''
   });
-  const [newCompany, setNewCompany] = useState({ name: '', industry: 'Manufacturing / B2G', website: '', city: '', state: '', address: '' });
+  const [newCompany, setNewCompany] = useState({ 
+    name: '', 
+    industry: 'Manufacturing / B2G', 
+    companyScale: 'Small Scale / MSME (₹5-50 Cr / 10-50 Emp)' as CompanyScale,
+    website: '', 
+    city: 'Bangalore', 
+    state: 'Karnataka', 
+    address: '',
+    owner: 'KP Sumanth',
+    assignedRep: 'KP Sumanth'
+  });
+  const [showInlineTagInput, setShowInlineTagInput] = useState(false);
   const [newUser, setNewUser] = useState({ fullName: '', email: '', role: 'SALES_REP' as SystemUser['role'] });
   const [newCustomValues, setNewCustomValues] = useState<{ [key: string]: string }>({});
   const [duplicateConflictedLead, setDuplicateConflictedLead] = useState<Lead | null>(null);
@@ -1818,13 +1896,19 @@ export default function App() {
       id: freshId,
       name: fullName,
       company: newLead.company,
+      companyScale: newLead.companyScale,
       email: newLead.email,
       phone: newLead.phone,
+      alternatePhone: newLead.alternatePhone,
+      designation: newLead.designation,
+      city: newLead.city || 'Bangalore',
+      state: newLead.state || 'Karnataka',
       status: 'New',
       score: 10, // Base scoring for creation
-      owner: newLead.owner,
-      tags: [newLead.tags],
-      activities: [{ action: 'Email opened', points: 10, date: '2026-07-16' }],
+      owner: newLead.owner || currentUser?.fullName || 'KP Sumanth',
+      assignedRep: newLead.assignedRep || newLead.owner || currentUser?.fullName || 'KP Sumanth',
+      tags: newLead.tags && newLead.tags.length > 0 ? newLead.tags : ['B2G'],
+      activities: [{ action: 'Lead created', points: 10, date: new Date().toLocaleDateString('en-IN') }],
       customFields: newCustomValues
     };
 
@@ -1846,7 +1930,23 @@ export default function App() {
     recordAuditLog('Lead Created', `Lead: ${fullName} (${newLead.company || 'Individual'})`, 'None', JSON.stringify(freshLead));
 
     // Reset Form
-    setNewLead({ firstName: '', lastName: '', email: '', phone: '', alternatePhone: '', company: '', designation: '', city: '', state: '', leadSource: 'Website', owner: currentUser?.fullName || 'peketi balasaraswathi', tags: 'B2G' });
+    setNewLead({ 
+      firstName: '', 
+      lastName: '', 
+      email: '', 
+      phone: '', 
+      alternatePhone: '', 
+      company: '', 
+      companyScale: 'Small Scale / MSME (₹5-50 Cr / 10-50 Emp)' as CompanyScale,
+      designation: '', 
+      city: 'Bangalore', 
+      state: 'Karnataka', 
+      leadSource: 'Website', 
+      owner: currentUser?.fullName || 'KP Sumanth', 
+      assignedRep: currentUser?.fullName || 'KP Sumanth',
+      tags: ['B2G'],
+      tagInput: ''
+    });
     setNewCustomValues({});
     setShowLeadModal(false);
     setShowDuplicateModal(false);
@@ -1860,12 +1960,15 @@ export default function App() {
       phone: '',
       alternatePhone: '',
       company: '',
+      companyScale: 'Small Scale / MSME (₹5-50 Cr / 10-50 Emp)' as CompanyScale,
       designation: '',
-      city: '',
-      state: '',
+      city: 'Bangalore',
+      state: 'Karnataka',
       leadSource: 'Website',
-      tags: 'B2G',
-      owner: currentUser?.fullName || 'peketi balasaraswathi',
+      tags: ['B2G'],
+      tagInput: '',
+      owner: currentUser?.fullName || 'KP Sumanth',
+      assignedRep: currentUser?.fullName || 'KP Sumanth',
       ...initialData
     });
     setShowLeadModal(true);
@@ -1876,6 +1979,7 @@ export default function App() {
       id: lead.id,
       name: lead.name,
       company: lead.company || '',
+      companyScale: (lead.companyScale as any) || 'Small Scale / MSME (₹5-50 Cr / 10-50 Emp)',
       email: lead.email || '',
       phone: lead.phone || '',
       alternatePhone: (lead as any).alternatePhone || '',
@@ -1884,8 +1988,10 @@ export default function App() {
       state: (lead as any).state || '',
       status: lead.status || 'New',
       score: Number(lead.score) || 0,
-      owner: lead.owner || currentUser?.fullName || 'peketi balasaraswathi',
-      tags: Array.isArray(lead.tags) ? lead.tags : (lead.tags ? [lead.tags] : []),
+      owner: lead.owner || currentUser?.fullName || 'KP Sumanth',
+      assignedRep: lead.assignedRep || lead.owner || currentUser?.fullName || 'KP Sumanth',
+      tags: Array.isArray(lead.tags) ? lead.tags : (lead.tags ? [lead.tags] : ['B2G']),
+      tagInput: '',
       notes: (lead as any).notes || ''
     });
     setShowEditLeadModal(true);
@@ -1899,11 +2005,17 @@ export default function App() {
     const updatedData: Partial<Lead> = {
       name: editLeadForm.name,
       company: editLeadForm.company,
+      companyScale: editLeadForm.companyScale,
       email: editLeadForm.email,
       phone: editLeadForm.phone,
+      alternatePhone: editLeadForm.alternatePhone,
+      designation: editLeadForm.designation,
+      city: editLeadForm.city,
+      state: editLeadForm.state,
       status: editLeadForm.status as any,
       score: Number(editLeadForm.score) || 0,
-      owner: editLeadForm.owner || currentUser?.fullName || 'peketi balasaraswathi',
+      owner: editLeadForm.owner || currentUser?.fullName || 'KP Sumanth',
+      assignedRep: editLeadForm.assignedRep || editLeadForm.owner || currentUser?.fullName || 'KP Sumanth',
       tags: Array.isArray(editLeadForm.tags) ? editLeadForm.tags : [editLeadForm.tags].filter(Boolean)
     };
 
@@ -1961,6 +2073,71 @@ export default function App() {
     }
   };
 
+  const handleQuickChangeAssignedRep = async (leadId: string, newRep: string) => {
+    if (!newRep.trim()) return;
+    const trimmedRep = newRep.trim();
+    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, assignedRep: trimmedRep } : l));
+    if (selectedLeadDetail && selectedLeadDetail.id === leadId) {
+      setSelectedLeadDetail(prev => prev ? { ...prev, assignedRep: trimmedRep } : null);
+    }
+    triggerToast(`Assigned representative updated to ${trimmedRep}!`, 'success');
+    recordAuditLog('Lead Reassigned Rep', `Lead ID: ${leadId} assigned rep set to ${trimmedRep}`, undefined, `New Rep: ${trimmedRep}`);
+    try {
+      const { updateLeadAction } = await import('@/app/actions/crm');
+      await updateLeadAction(leadId, { assignedRep: trimmedRep });
+    } catch (err) {
+      console.error('Failed to persist rep update:', err);
+    }
+  };
+
+  const handleAddTagToLead = async (leadId: string, tagToAdd: string) => {
+    if (!tagToAdd.trim()) return;
+    const cleanTag = tagToAdd.trim().replace(/^#/, '');
+    setLeads(prev => prev.map(l => {
+      if (l.id === leadId) {
+        const curTags = l.tags || [];
+        if (!curTags.includes(cleanTag)) {
+          const nextTags = [...curTags, cleanTag];
+          return { ...l, tags: nextTags };
+        }
+      }
+      return l;
+    }));
+    if (selectedLeadDetail && selectedLeadDetail.id === leadId) {
+      const curTags = selectedLeadDetail.tags || [];
+      if (!curTags.includes(cleanTag)) {
+        setSelectedLeadDetail({ ...selectedLeadDetail, tags: [...curTags, cleanTag] });
+      }
+    }
+    triggerToast(`Added tag #${cleanTag}`, 'success');
+    try {
+      const { updateLeadAction } = await import('@/app/actions/crm');
+      const cur = leads.find(l => l.id === leadId);
+      const nextTags = cur ? Array.from(new Set([...(cur.tags || []), cleanTag])) : [cleanTag];
+      await updateLeadAction(leadId, { tags: nextTags });
+    } catch (e) {}
+  };
+
+  const handleRemoveTagFromLead = async (leadId: string, tagToRemove: string) => {
+    setLeads(prev => prev.map(l => {
+      if (l.id === leadId) {
+        const nextTags = (l.tags || []).filter(t => t !== tagToRemove);
+        return { ...l, tags: nextTags };
+      }
+      return l;
+    }));
+    if (selectedLeadDetail && selectedLeadDetail.id === leadId) {
+      setSelectedLeadDetail({ ...selectedLeadDetail, tags: (selectedLeadDetail.tags || []).filter(t => t !== tagToRemove) });
+    }
+    triggerToast(`Removed tag #${tagToRemove}`, 'info');
+    try {
+      const { updateLeadAction } = await import('@/app/actions/crm');
+      const cur = leads.find(l => l.id === leadId);
+      const nextTags = cur ? (cur.tags || []).filter(t => t !== tagToRemove) : [];
+      await updateLeadAction(leadId, { tags: nextTags });
+    } catch (e) {}
+  };
+
   const calculateTextScore = (text: string) => {
     let score = 0;
     
@@ -2007,12 +2184,15 @@ export default function App() {
         phone: '+91 99800 03627',
         alternatePhone: '',
         company: 'DERBI Foundation',
+        companyScale: 'Startup / Research Institute (R&D Incubator)' as CompanyScale,
         designation: 'CEO',
         city: 'Bangalore',
         state: 'Karnataka',
         leadSource: 'Event',
-        owner: currentUser?.fullName || 'peketi balasaraswathi',
-        tags: 'B2G'
+        owner: currentUser?.fullName || 'KP Sumanth',
+        assignedRep: currentUser?.fullName || 'KP Sumanth',
+        tags: ['B2G'],
+        tagInput: ''
       });
       
       // Audit Log
@@ -2083,12 +2263,15 @@ export default function App() {
       phone: phone || 'No Phone Detected',
       alternatePhone: '',
       company: company || 'Extracted Company',
+      companyScale: 'Small Scale / MSME (₹5-50 Cr / 10-50 Emp)' as CompanyScale,
       designation: 'Extracted Title',
       city: 'Bangalore',
       state: 'Karnataka',
       leadSource: 'Event',
-      owner: currentUser?.fullName || 'peketi balasaraswathi',
-      tags: 'B2G'
+      owner: currentUser?.fullName || 'KP Sumanth',
+      assignedRep: currentUser?.fullName || 'KP Sumanth',
+      tags: ['B2G'],
+      tagInput: ''
     });
 
     // Audit Log to Supabase DB & UI
@@ -5001,20 +5184,39 @@ export default function App() {
                                 <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{lead.id}</span>
                               </td>
                               <td>
-                                <span className="badge badge-cold" style={{ cursor: 'pointer' }} onClick={() => {
-                                  const found = companies.find(c => c.name === lead.company);
-                                  if (found) setSelectedCompanyDetail(found);
-                                  else alert(`Company ${lead.company} detail view`);
-                                }}>
-                                  {lead.company}
-                                </span>
+                                <div>
+                                  <span className="badge badge-cold" style={{ cursor: 'pointer', fontWeight: 'bold' }} onClick={() => {
+                                    const found = companies.find(c => c.name.toLowerCase() === (lead.company || '').toLowerCase());
+                                    if (found) setSelectedCompanyDetail(found);
+                                    else setSelectedLeadDetail(lead);
+                                  }}>
+                                    {lead.company}
+                                  </span>
+                                  {lead.companyScale && (
+                                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                      🏢 {lead.companyScale.split('(')[0].trim()}
+                                    </div>
+                                  )}
+                                  {lead.tags && lead.tags.length > 0 && (
+                                    <div style={{ display: 'flex', gap: '3px', marginTop: '3px', flexWrap: 'wrap' }}>
+                                      {lead.tags.slice(0, 2).map(t => (
+                                        <span key={t} style={{ fontSize: '9px', background: '#f1f5f9', color: '#475569', padding: '1px 5px', borderRadius: '4px' }}>
+                                          #{t}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                               </td>
                               <td>
                                 <div>{lead.email}</div>
                                 <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{lead.phone}</div>
                               </td>
                               <td>
-                                <span style={{ fontWeight: '600', color: '#0f172a' }}>{lead.owner || 'Unassigned'}</span>
+                                <div style={{ fontWeight: '600', color: '#0f172a', fontSize: '12px' }}>{lead.owner || 'Unassigned'}</div>
+                                {lead.assignedRep && lead.assignedRep !== lead.owner && (
+                                  <div style={{ fontSize: '10.5px', color: '#2563eb' }}>Rep: {lead.assignedRep}</div>
+                                )}
                               </td>
                               <td>
                                 <span className={`badge ${lead.status === 'Disqualified' ? 'badge-cold' : lead.status === 'Qualified' ? 'badge-hot' : 'badge-warm'}`}>
@@ -7446,18 +7648,25 @@ export default function App() {
 
               <div className="modal-grid-2col">
                 <div className="form-group">
-                  <label>Company / Account Entity *</label>
-                  <select value={newLead.company} onChange={(e) => setNewLead({ ...newLead, company: e.target.value })}>
-                    <option value="">-- Select Company --</option>
-                    {companies.map(c => (
-                      <option key={c.id} value={c.name}>{c.name}</option>
-                    ))}
-                    <option value="New Organization">New / Unlisted Company</option>
-                  </select>
+                  <label>Company Name *</label>
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="e.g. Mysore Agro Products Pvt Ltd" 
+                    value={newLead.company} 
+                    onChange={(e) => setNewLead({ ...newLead, company: e.target.value })} 
+                  />
                 </div>
                 <div className="form-group">
-                  <label>Or type Custom Company name</label>
-                  <input type="text" placeholder="e.g. Mysore Agro Products" value={newLead.company === 'New Organization' ? '' : newLead.company} onChange={(e) => setNewLead({ ...newLead, company: e.target.value })} />
+                  <label>Company Scale / Size *</label>
+                  <select 
+                    value={newLead.companyScale} 
+                    onChange={(e) => setNewLead({ ...newLead, companyScale: e.target.value as any })}
+                  >
+                    {COMPANY_SCALE_OPTIONS.map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -7477,48 +7686,133 @@ export default function App() {
                 </div>
               </div>
 
+              <div className="form-group">
+                <label>Lead Source *</label>
+                <select value={newLead.leadSource} onChange={(e) => setNewLead({ ...newLead, leadSource: e.target.value })}>
+                  <option value="Website">Website</option>
+                  <option value="Referral">Referral</option>
+                  <option value="Hackathon">Hackathon</option>
+                  <option value="Cold Call">Cold Call</option>
+                  <option value="Event">Event</option>
+                  <option value="Govt Tender">Govt Tender</option>
+                </select>
+              </div>
+
               <div className="modal-grid-2col">
                 <div className="form-group">
-                  <label>Lead Source *</label>
-                  <select value={newLead.leadSource} onChange={(e) => setNewLead({ ...newLead, leadSource: e.target.value })}>
-                    <option value="Website">Website</option>
-                    <option value="Referral">Referral</option>
-                    <option value="Hackathon">Hackathon</option>
-                    <option value="Cold Call">Cold Call</option>
-                    <option value="Event">Event</option>
-                    <option value="Govt Tender">Govt Tender</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Assigned Rep (Owner) *</label>
+                  <label>Record Owner (Account Manager) *</label>
                   <input 
                     type="text" 
                     required 
-                    placeholder={`e.g. ${currentUser?.fullName || 'peketi balasaraswathi'}`} 
+                    placeholder={`e.g. ${currentUser?.fullName || 'KP Sumanth'}`} 
                     list="team-owners-datalist"
                     value={newLead.owner} 
                     onChange={(e) => setNewLead({ ...newLead, owner: e.target.value })} 
                   />
-                  <datalist id="team-owners-datalist">
-                    <option value={currentUser?.fullName || 'peketi balasaraswathi'}>{currentUser?.fullName || 'peketi balasaraswathi'} (Current User)</option>
-                    {dbUsersList.map((u: any) => (
-                      <option key={u.id} value={u.fullName}>{u.fullName} ({u.role})</option>
-                    ))}
-                    <option value="Balasaraswathi">Balasaraswathi (ADMIN)</option>
-                    <option value="Pranav">Pranav (SALES_REP)</option>
-                    <option value="Riya Sharma">Riya Sharma (MANAGER)</option>
-                  </datalist>
+                </div>
+                <div className="form-group">
+                  <label>Assigned Sales Rep (Employee) *</label>
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder={`e.g. ${currentUser?.fullName || 'KP Sumanth'}`} 
+                    list="team-reps-datalist"
+                    value={newLead.assignedRep} 
+                    onChange={(e) => setNewLead({ ...newLead, assignedRep: e.target.value })} 
+                  />
                 </div>
               </div>
 
+              <datalist id="team-owners-datalist">
+                <option value={currentUser?.fullName || 'KP Sumanth'}>{currentUser?.fullName || 'KP Sumanth'} (Current User)</option>
+                {dbUsersList.map((u: any) => (
+                  <option key={u.id} value={u.fullName}>{u.fullName} ({u.role})</option>
+                ))}
+                <option value="KP Sumanth">KP Sumanth (ADMIN)</option>
+                <option value="Balasaraswathi">Balasaraswathi (ADMIN)</option>
+                <option value="Pranav">Pranav (SALES_REP)</option>
+                <option value="Riya Sharma">Riya Sharma (MANAGER)</option>
+              </datalist>
+
+              <datalist id="team-reps-datalist">
+                <option value={currentUser?.fullName || 'KP Sumanth'}>{currentUser?.fullName || 'KP Sumanth'} (Current User)</option>
+                {dbUsersList.map((u: any) => (
+                  <option key={u.id} value={u.fullName}>{u.fullName} ({u.role})</option>
+                ))}
+                <option value="KP Sumanth">KP Sumanth (ADMIN)</option>
+                <option value="Balasaraswathi">Balasaraswathi (ADMIN)</option>
+                <option value="Pranav">Pranav (SALES_REP)</option>
+                <option value="Riya Sharma">Riya Sharma (MANAGER)</option>
+              </datalist>
+
               <div className="form-group">
-                <label>Tags</label>
-                <select value={newLead.tags} onChange={(e) => setNewLead({ ...newLead, tags: e.target.value })}>
-                  <option value="B2G">B2G</option>
-                  <option value="Manufacturing">Manufacturing</option>
-                  <option value="Hot Lead">Hot Lead</option>
-                  <option value="Corporate">Corporate</option>
-                </select>
+                <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Tags</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Click to toggle or type custom tag</span>
+                </label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                  {PRESET_TAG_OPTIONS.map(t => {
+                    const isSel = newLead.tags.includes(t);
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        className={`badge ${isSel ? 'badge-hot' : 'badge-cold'}`}
+                        style={{ cursor: 'pointer', padding: '3px 8px', fontSize: '11px' }}
+                        onClick={() => {
+                          if (isSel) {
+                            setNewLead({ ...newLead, tags: newLead.tags.filter(tag => tag !== t) });
+                          } else {
+                            setNewLead({ ...newLead, tags: [...newLead.tags, t] });
+                          }
+                        }}
+                      >
+                        {isSel ? '✓ ' : '+ '}{t}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <input 
+                    type="text" 
+                    placeholder="Type custom tag & press Enter..."
+                    value={newLead.tagInput || ''}
+                    onChange={(e) => setNewLead({ ...newLead, tagInput: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const trimmed = (newLead.tagInput || '').trim();
+                        if (trimmed && !newLead.tags.includes(trimmed)) {
+                          setNewLead({ ...newLead, tags: [...newLead.tags, trimmed], tagInput: '' });
+                        }
+                      }
+                    }}
+                    style={{ flex: 1, padding: '6px 10px', fontSize: '12px' }}
+                  />
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    style={{ padding: '6px 12px', fontSize: '11px' }}
+                    onClick={() => {
+                      const trimmed = (newLead.tagInput || '').trim();
+                      if (trimmed && !newLead.tags.includes(trimmed)) {
+                        setNewLead({ ...newLead, tags: [...newLead.tags, trimmed], tagInput: '' });
+                      }
+                    }}
+                  >
+                    + Add
+                  </button>
+                </div>
+                {newLead.tags.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+                    {newLead.tags.map(tag => (
+                      <span key={tag} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '600' }}>
+                        #{tag}
+                        <span style={{ cursor: 'pointer', fontWeight: 'bold', marginLeft: '2px' }} onClick={() => setNewLead({ ...newLead, tags: newLead.tags.filter(t => t !== tag) })}>×</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Render Admin-configured Custom Fields dynamically */}
@@ -7544,8 +7838,8 @@ export default function App() {
 
       {/* MODAL: EDIT LEAD DETAILS */}
       {showEditLeadModal && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxHeight: '85vh', overflowY: 'auto', width: '100%', maxWidth: '620px' }}>
+        <div className="modal-overlay" style={{ zIndex: 1400 }}>
+          <div className="modal-content" style={{ maxHeight: '85vh', overflowY: 'auto', width: '100%', maxWidth: '620px', zIndex: 1401 }}>
             <div className="modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '18px' }}>✏️</span>
@@ -7567,7 +7861,7 @@ export default function App() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Company / Organization *</label>
+                  <label>Company Name *</label>
                   <input 
                     type="text" 
                     required 
@@ -7576,6 +7870,18 @@ export default function App() {
                     onChange={(e) => setEditLeadForm({ ...editLeadForm, company: e.target.value })} 
                   />
                 </div>
+              </div>
+
+              <div className="form-group">
+                <label>Company Scale / Size</label>
+                <select 
+                  value={editLeadForm.companyScale} 
+                  onChange={(e) => setEditLeadForm({ ...editLeadForm, companyScale: e.target.value as any })}
+                >
+                  {COMPANY_SCALE_OPTIONS.map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="modal-grid-2col">
@@ -7610,7 +7916,7 @@ export default function App() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Assigned Representative (Owner) *</label>
+                  <label>Record Owner (Account Manager) *</label>
                   <input 
                     type="text" 
                     required
@@ -7620,6 +7926,18 @@ export default function App() {
                     onChange={(e) => setEditLeadForm({ ...editLeadForm, owner: e.target.value })} 
                   />
                 </div>
+              </div>
+
+              <div className="form-group">
+                <label>Assigned Sales Rep (Employee) *</label>
+                <input 
+                  type="text" 
+                  required
+                  placeholder="Type or select assigned employee..." 
+                  list="team-reps-datalist"
+                  value={editLeadForm.assignedRep} 
+                  onChange={(e) => setEditLeadForm({ ...editLeadForm, assignedRep: e.target.value })} 
+                />
               </div>
 
               <div className="modal-grid-2col">
@@ -7648,7 +7966,7 @@ export default function App() {
                   <label>Lead Pipeline Status</label>
                   <select 
                     value={editLeadForm.status} 
-                    onChange={(e) => setEditLeadForm({ ...editLeadForm, status: e.target.value })}
+                    onChange={(e) => setEditLeadForm({ ...editLeadForm, status: e.target.value as any })}
                   >
                     <option value="New">New</option>
                     <option value="Contacted">Contacted</option>
@@ -7669,13 +7987,73 @@ export default function App() {
               </div>
 
               <div className="form-group">
-                <label>Tags (Comma-separated)</label>
-                <input 
-                  type="text" 
-                  placeholder="e.g. B2G, Manufacturing, Hot Lead" 
-                  value={Array.isArray(editLeadForm.tags) ? editLeadForm.tags.join(', ') : (editLeadForm.tags || '')} 
-                  onChange={(e) => setEditLeadForm({ ...editLeadForm, tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} 
-                />
+                <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Tags</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Click to toggle or type custom tag</span>
+                </label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                  {PRESET_TAG_OPTIONS.map(t => {
+                    const isSel = (editLeadForm.tags || []).includes(t);
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        className={`badge ${isSel ? 'badge-hot' : 'badge-cold'}`}
+                        style={{ cursor: 'pointer', padding: '3px 8px', fontSize: '11px' }}
+                        onClick={() => {
+                          if (isSel) {
+                            setEditLeadForm({ ...editLeadForm, tags: (editLeadForm.tags || []).filter(tag => tag !== t) });
+                          } else {
+                            setEditLeadForm({ ...editLeadForm, tags: [...(editLeadForm.tags || []), t] });
+                          }
+                        }}
+                      >
+                        {isSel ? '✓ ' : '+ '}{t}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <input 
+                    type="text" 
+                    placeholder="Type tag & press Enter..." 
+                    value={editLeadForm.tagInput || ''} 
+                    onChange={(e) => setEditLeadForm({ ...editLeadForm, tagInput: e.target.value })} 
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const trimmed = (editLeadForm.tagInput || '').trim();
+                        if (trimmed && !(editLeadForm.tags || []).includes(trimmed)) {
+                          setEditLeadForm({ ...editLeadForm, tags: [...(editLeadForm.tags || []), trimmed], tagInput: '' });
+                        }
+                      }
+                    }}
+                    style={{ flex: 1, padding: '6px 10px', fontSize: '12px' }}
+                  />
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    style={{ padding: '6px 12px', fontSize: '11px' }}
+                    onClick={() => {
+                      const trimmed = (editLeadForm.tagInput || '').trim();
+                      if (trimmed && !(editLeadForm.tags || []).includes(trimmed)) {
+                        setEditLeadForm({ ...editLeadForm, tags: [...(editLeadForm.tags || []), trimmed], tagInput: '' });
+                      }
+                    }}
+                  >
+                    + Add
+                  </button>
+                </div>
+                {(editLeadForm.tags || []).length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+                    {(editLeadForm.tags || []).map(tag => (
+                      <span key={tag} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '600' }}>
+                        #{tag}
+                        <span style={{ cursor: 'pointer', fontWeight: 'bold', marginLeft: '2px' }} onClick={() => setEditLeadForm({ ...editLeadForm, tags: (editLeadForm.tags || []).filter(t => t !== tag) })}>×</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="modal-actions" style={{ position: 'sticky', bottom: 0, backgroundColor: '#ffffff', padding: '14px 0 0 0', borderTop: '1px solid var(--border-color)', zIndex: 10, marginTop: '8px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
@@ -8453,6 +8831,43 @@ export default function App() {
                   <strong style={{ fontSize: '13px', color: '#1e3a8a' }}>{selectedDealDetail.company}</strong>
                 </div>
 
+                {(() => {
+                  const compNameLower = (selectedDealDetail.company || '').trim().toLowerCase();
+                  const matchingLead = leads.find(l => (l.company || '').trim().toLowerCase() === compNameLower || (selectedDealDetail.leadId && l.id === selectedDealDetail.leadId));
+                  return (
+                    <>
+                      {selectedDealDetail.companyScale && (
+                        <div>
+                          <label style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>Company Scale</label>
+                          <span className="badge badge-warm" style={{ fontSize: '10.5px', fontWeight: 'bold' }}>
+                            🏢 {selectedDealDetail.companyScale}
+                          </span>
+                        </div>
+                      )}
+
+                      {matchingLead && (
+                        <div style={{ background: '#f1f5f9', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                          <label style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>Affiliated Contact</label>
+                          <strong style={{ fontSize: '12.5px', color: '#0f172a', display: 'block' }}>{matchingLead.name}</strong>
+                          {matchingLead.phone && <div style={{ fontSize: '11px', color: '#059669', fontWeight: '600' }}>📞 {matchingLead.phone}</div>}
+                          {matchingLead.email && <div style={{ fontSize: '11px', color: '#1e40af' }}>✉️ {matchingLead.email}</div>}
+                          <button 
+                            type="button"
+                            className="btn btn-secondary"
+                            style={{ padding: '3px 8px', fontSize: '10.5px', marginTop: '6px', width: '100%', justifyContent: 'center' }}
+                            onClick={() => {
+                              setSelectedDealDetail(null);
+                              setSelectedLeadDetail(matchingLead);
+                            }}
+                          >
+                            View Prospect 360° ➔
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+
                 <div>
                   <label style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>Estimated Contract Value</label>
                   <strong style={{ fontSize: '16px', color: '#0f766e', fontWeight: '800' }}>{formatCurrency(selectedDealDetail.value)}</strong>
@@ -8468,13 +8883,14 @@ export default function App() {
                   <span style={{ fontSize: '12.5px', fontWeight: '600' }}>{selectedDealDetail.expectedClose}</span>
                 </div>
 
-                <div>
-                  <label style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>Assigned Owner</label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                    <div className="user-avatar" style={{ width: '24px', height: '24px', fontSize: '10px', backgroundColor: '#3b82f6', color: '#ffffff' }}>
-                      {selectedDealDetail.owner ? selectedDealDetail.owner.split(' ').map(n=>n[0]).join('') : 'R'}
-                    </div>
-                    <span style={{ fontSize: '12.5px', fontWeight: '600' }}>{selectedDealDetail.owner}</span>
+                <div style={{ background: '#eff6ff', padding: '10px', borderRadius: '8px', border: '1px solid #bfdbfe', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div>
+                    <label style={{ fontSize: '10px', textTransform: 'uppercase', color: '#1e40af', fontWeight: 'bold', display: 'block' }}>Deal Owner</label>
+                    <span style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>{selectedDealDetail.owner || 'KP Sumanth'}</span>
+                  </div>
+                  <div style={{ borderTop: '1px solid #dbeafe', paddingTop: '4px' }}>
+                    <label style={{ fontSize: '10px', textTransform: 'uppercase', color: '#1e40af', fontWeight: 'bold', display: 'block' }}>Assigned Employee (Rep)</label>
+                    <span style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>{selectedDealDetail.assignedRep || selectedDealDetail.owner || 'KP Sumanth'}</span>
                   </div>
                 </div>
 
@@ -8706,59 +9122,147 @@ export default function App() {
               <button className="modal-close-btn" onClick={() => setSelectedLeadDetail(null)}>×</button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '330px 1fr', gap: '24px' }}>
               {/* Left Column Summary Card & Metadata */}
-              <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div style={{ textAlign: 'center' }}>
-                  <div className="contact-avatar" style={{ width: '60px', height: '60px', fontSize: '20px', margin: '0 auto 12px auto' }}>
+                  <div className="contact-avatar" style={{ width: '56px', height: '56px', fontSize: '18px', margin: '0 auto 10px auto' }}>
                     {selectedLeadDetail.name.split(' ').map(n=>n[0]).join('')}
                   </div>
-                  <h4 style={{ fontSize: '16px', fontWeight: '800', margin: '0 0 4px 0' }}>{selectedLeadDetail.name}</h4>
-                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>{selectedLeadDetail.company}</p>
+                  <h4 style={{ fontSize: '16px', fontWeight: '800', margin: '0 0 2px 0' }}>{selectedLeadDetail.name}</h4>
+                  <p style={{ fontSize: '13px', color: '#1e3a8a', fontWeight: '600', margin: '0 0 6px 0' }}>{selectedLeadDetail.company}</p>
+                  
+                  {selectedLeadDetail.companyScale && (
+                    <span className="badge badge-warm" style={{ fontSize: '10.5px', fontWeight: '700', padding: '3px 8px' }}>
+                      🏢 {selectedLeadDetail.companyScale}
+                    </span>
+                  )}
                 </div>
 
-                <div style={{ borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)', padding: '14px 0', textAlign: 'center' }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 'bold' }}>Lead Scoring Point Weight</div>
-                  <span className={`badge ${selectedLeadDetail.score >= 61 ? 'badge-hot' : selectedLeadDetail.score >= 31 ? 'badge-warm' : 'badge-cold'}`} style={{ fontSize: '16px', marginTop: '6px', fontWeight: 'bold', padding: '6px 12px' }}>
+                <div style={{ borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)', padding: '10px 0', textAlign: 'center' }}>
+                  <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 'bold' }}>Lead Scoring Point Weight</div>
+                  <span className={`badge ${selectedLeadDetail.score >= 61 ? 'badge-hot' : selectedLeadDetail.score >= 31 ? 'badge-warm' : 'badge-cold'}`} style={{ fontSize: '15px', marginTop: '4px', fontWeight: 'bold', padding: '4px 12px' }}>
                     {selectedLeadDetail.score} Points
                   </span>
                 </div>
 
-                <div style={{ fontSize: '12.5px', display: 'flex', flexDirection: 'column', gap: '10px', color: 'var(--text-main)' }}>
+                <div style={{ fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '8px', color: 'var(--text-main)' }}>
                   <div><strong>Email:</strong><br/><span style={{ color: 'var(--text-muted)' }}>{selectedLeadDetail.email || '—'}</span></div>
                   <div><strong>Phone:</strong><br/><span style={{ color: 'var(--text-muted)' }}>{selectedLeadDetail.phone || '—'}</span></div>
-                  <div><strong>Address:</strong><br/><span style={{ color: 'var(--text-muted)' }}>Karnataka B2G Territory</span></div>
-                  <div style={{ background: '#eff6ff', padding: '10px', borderRadius: '8px', border: '1px solid #bfdbfe' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                      <strong style={{ color: '#1e40af', fontSize: '12px' }}>Assigned Rep (Owner):</strong>
+                  <div><strong>Location:</strong><br/><span style={{ color: 'var(--text-muted)' }}>{selectedLeadDetail.city || 'Bangalore'}, {selectedLeadDetail.state || 'Karnataka'}</span></div>
+                  
+                  {/* Distinct Account Owner & Assigned Sales Rep */}
+                  <div style={{ background: '#eff6ff', padding: '10px', borderRadius: '8px', border: '1px solid #bfdbfe', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#1e40af', fontWeight: 'bold', marginBottom: '4px' }}>Record Owner:</div>
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <input 
+                          type="text" 
+                          list="team-owners-datalist" 
+                          defaultValue={selectedLeadDetail.owner || ''} 
+                          id={`owner-edit-input-${selectedLeadDetail.id}`}
+                          style={{ flex: 1, padding: '4px 8px', fontSize: '11.5px', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#ffffff' }}
+                          placeholder="Account Owner..."
+                        />
+                        <button 
+                          type="button" 
+                          className="btn btn-primary" 
+                          style={{ padding: '4px 8px', fontSize: '10.5px', fontWeight: '700' }}
+                          onClick={() => {
+                            const el = document.getElementById(`owner-edit-input-${selectedLeadDetail.id}`) as HTMLInputElement;
+                            if (el && el.value) handleQuickChangeOwner(selectedLeadDetail.id, el.value);
+                          }}
+                        >
+                          Save
+                        </button>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                      <input 
-                        type="text" 
-                        list="team-owners-datalist" 
-                        defaultValue={selectedLeadDetail.owner || ''} 
-                        id={`owner-edit-input-${selectedLeadDetail.id}`}
-                        style={{ flex: 1, padding: '5px 8px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#ffffff' }}
-                        placeholder="Enter rep name..."
-                      />
-                      <button 
-                        type="button" 
-                        className="btn btn-primary" 
-                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700' }}
-                        onClick={() => {
-                          const el = document.getElementById(`owner-edit-input-${selectedLeadDetail.id}`) as HTMLInputElement;
-                          if (el && el.value) {
-                            handleQuickChangeOwner(selectedLeadDetail.id, el.value);
-                          }
-                        }}
-                      >
-                        Reassign
-                      </button>
+
+                    <div style={{ borderTop: '1px solid #dbeafe', paddingTop: '6px' }}>
+                      <div style={{ fontSize: '11px', color: '#1e40af', fontWeight: 'bold', marginBottom: '4px' }}>Assigned Rep (Employee):</div>
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <input 
+                          type="text" 
+                          list="team-reps-datalist" 
+                          defaultValue={selectedLeadDetail.assignedRep || selectedLeadDetail.owner || ''} 
+                          id={`rep-edit-input-${selectedLeadDetail.id}`}
+                          style={{ flex: 1, padding: '4px 8px', fontSize: '11.5px', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#ffffff' }}
+                          placeholder="Assigned employee..."
+                        />
+                        <button 
+                          type="button" 
+                          className="btn btn-primary" 
+                          style={{ padding: '4px 8px', fontSize: '10.5px', fontWeight: '700' }}
+                          onClick={() => {
+                            const el = document.getElementById(`rep-edit-input-${selectedLeadDetail.id}`) as HTMLInputElement;
+                            if (el && el.value) handleQuickChangeAssignedRep(selectedLeadDetail.id, el.value);
+                          }}
+                        >
+                          Assign
+                        </button>
+                      </div>
                     </div>
+                  </div>
+
+                  {/* Interactive Tags */}
+                  <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '8px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>TAGS:</span>
+                      <span style={{ fontSize: '10.5px', color: '#2563eb', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => setShowInlineTagInput(prev => !prev)}>
+                        {showInlineTagInput ? 'Done' : '+ Add Tag'}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                      {(selectedLeadDetail.tags || ['B2G']).map(tag => (
+                        <span key={tag} className="badge badge-cold" style={{ fontSize: '10px', padding: '2px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          #{tag}
+                          <span 
+                            style={{ cursor: 'pointer', fontWeight: 'bold', marginLeft: '2px', color: '#ef4444' }} 
+                            title="Remove tag"
+                            onClick={() => handleRemoveTagFromLead(selectedLeadDetail.id, tag)}
+                          >
+                            ×
+                          </span>
+                        </span>
+                      ))}
+                    </div>
+                    {showInlineTagInput && (
+                      <div style={{ display: 'flex', gap: '4px', marginTop: '6px' }}>
+                        <input 
+                          type="text" 
+                          placeholder="New tag..." 
+                          id={`inline-new-tag-${selectedLeadDetail.id}`}
+                          style={{ flex: 1, padding: '4px 6px', fontSize: '11px', border: '1px solid #cbd5e1', borderRadius: '4px' }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              const el = document.getElementById(`inline-new-tag-${selectedLeadDetail.id}`) as HTMLInputElement;
+                              if (el && el.value.trim()) {
+                                handleAddTagToLead(selectedLeadDetail.id, el.value.trim());
+                                el.value = '';
+                              }
+                            }
+                          }}
+                        />
+                        <button 
+                          type="button" 
+                          className="btn btn-secondary" 
+                          style={{ padding: '3px 8px', fontSize: '10.5px' }}
+                          onClick={() => {
+                            const el = document.getElementById(`inline-new-tag-${selectedLeadDetail.id}`) as HTMLInputElement;
+                            if (el && el.value.trim()) {
+                              handleAddTagToLead(selectedLeadDetail.id, el.value.trim());
+                              el.value = '';
+                            }
+                          }}
+                        >
+                          Add
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid var(--border-color)', paddingTop: '10px' }}>
                   <button 
                     className="btn btn-primary" 
                     style={{ fontSize: '12px', justifyContent: 'center', gap: '6px', fontWeight: '700', backgroundColor: '#1e40af', borderColor: '#1e40af' }}
@@ -8768,13 +9272,13 @@ export default function App() {
                   </button>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', borderTop: '1px solid var(--border-color)', paddingTop: '14px', marginTop: '4px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', borderTop: '1px solid var(--border-color)', paddingTop: '10px' }}>
                   <button className="btn btn-secondary" style={{ padding: '6px 0', fontSize: '11px', justifyContent: 'center' }} onClick={() => openEmailComposer(selectedLeadDetail.name, selectedLeadDetail.email)}>Email</button>
                   <button className="btn btn-secondary" style={{ padding: '6px 0', fontSize: '11px', color: '#25D366', borderColor: '#25D366', justifyContent: 'center' }} onClick={() => openWhatsAppModalForContact(selectedLeadDetail.name, selectedLeadDetail.phone)}>WhatsApp</button>
                   <button className="btn btn-secondary" style={{ padding: '6px 0', fontSize: '11px', justifyContent: 'center' }} onClick={() => startVoIPCall(selectedLeadDetail.name, selectedLeadDetail.phone)}>Call</button>
                 </div>
 
-                <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <button className="btn btn-secondary" style={{ fontSize: '11.5px', justifyContent: 'center' }} onClick={() => {
                     setNewActivity({ ...newActivity, entityName: selectedLeadDetail.company });
                     setShowActivityModal(true);
@@ -8814,14 +9318,14 @@ export default function App() {
                     style={{ padding: '6px 12px', fontSize: '12px' }}
                     onClick={() => setContactDetailSubTab('deals')}
                   >
-                    Tab: Deals
+                    Tab: Deals ({deals.filter(d => (d.company && d.company.toLowerCase() === (selectedLeadDetail.company || '').toLowerCase()) || d.leadId === selectedLeadDetail.id || (d.name && d.name.toLowerCase().includes(selectedLeadDetail.name.toLowerCase()))).length})
                   </button>
                   <button 
                     className={`btn ${contactDetailSubTab === 'tasks' ? 'btn-primary' : 'btn-secondary'}`} 
                     style={{ padding: '6px 12px', fontSize: '12px' }}
                     onClick={() => setContactDetailSubTab('tasks')}
                   >
-                    Tab: Tasks
+                    Tab: Tasks ({tasks.filter(t => t.linkedTo === selectedLeadDetail.company || t.linkedTo === selectedLeadDetail.name).length})
                   </button>
                   <button 
                     className={`btn ${contactDetailSubTab === 'custom' ? 'btn-primary' : 'btn-secondary'}`} 
@@ -8900,30 +9404,83 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Tab 3: Deals */}
+                {/* Tab 3: Deals Connected to Prospect */}
                 {contactDetailSubTab === 'deals' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', flex: 1 }}>
-                    {deals.filter(d => d.company === selectedLeadDetail.company).map(deal => (
-                      <div key={deal.id} style={{ background: '#ffffff', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                          <span style={{ fontWeight: 'bold', fontSize: '13px' }}>{deal.name}</span>
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>Stage: {deal.stage} • Close: {deal.expectedClose}</div>
+                    {(() => {
+                      const linkedDeals = deals.filter(d => 
+                        (d.company && d.company.trim().toLowerCase() === (selectedLeadDetail.company || '').trim().toLowerCase()) ||
+                        (d.leadId && d.leadId === selectedLeadDetail.id) ||
+                        (d.name && d.name.toLowerCase().includes(selectedLeadDetail.name.toLowerCase()))
+                      );
+
+                      if (linkedDeals.length === 0) {
+                        return (
+                          <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px', background: '#f8fafc', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                            <p style={{ margin: '0 0 10px 0', fontSize: '13px' }}>No active pipeline deals associated with this contact yet.</p>
+                            <button
+                              type="button"
+                              className="btn btn-primary"
+                              style={{ fontSize: '12px' }}
+                              onClick={() => {
+                                handleConvertLead(selectedLeadDetail.id);
+                              }}
+                            >
+                              + Convert Lead to Deal & Pipeline
+                            </button>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                            <span style={{ fontSize: '12px', fontWeight: '700', color: '#0f172a' }}>Linked Pipeline Deals ({linkedDeals.length})</span>
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              style={{ fontSize: '11px', padding: '3px 8px' }}
+                              onClick={() => handleConvertLead(selectedLeadDetail.id)}
+                            >
+                              + Add Another Deal
+                            </button>
+                          </div>
+                          {linkedDeals.map(deal => (
+                            <div key={deal.id} style={{ background: '#ffffff', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div>
+                                <span style={{ fontWeight: 'bold', fontSize: '13px', color: '#1e3a8a' }}>{deal.name}</span>
+                                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                  <span className="badge badge-hot" style={{ fontSize: '9.5px' }}>{deal.stage}</span>
+                                  <span>Owner: {deal.owner}</span>
+                                  <span>Close: {deal.expectedClose}</span>
+                                </div>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <span style={{ fontWeight: 'bold', color: '#10b981', fontSize: '13.5px' }}>{formatCurrency(deal.value)}</span>
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary"
+                                  style={{ padding: '4px 8px', fontSize: '11px' }}
+                                  onClick={() => {
+                                    setSelectedLeadDetail(null);
+                                    setSelectedDealDetail(deal);
+                                  }}
+                                >
+                                  Inspect Deal ➔
+                                </button>
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                        <span style={{ fontWeight: 'bold', color: '#10b981' }}>{formatCurrency(deal.value)}</span>
-                      </div>
-                    ))}
-                    {deals.filter(d => d.company === selectedLeadDetail.company).length === 0 && (
-                      <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px' }}>
-                        No active pipeline deals associated with this contact.
-                      </div>
-                    )}
+                      );
+                    })()}
                   </div>
                 )}
 
-                {/* Tab 4: Tasks */}
+                {/* Tab 4: Tasks Linked to Prospect */}
                 {contactDetailSubTab === 'tasks' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', flex: 1 }}>
-                    {tasks.filter(t => t.linkedTo === selectedLeadDetail.company).map(task => (
+                    {tasks.filter(t => t.linkedTo === selectedLeadDetail.company || t.linkedTo === selectedLeadDetail.name).map(task => (
                       <div key={task.id} style={{ background: '#ffffff', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                           <input 
@@ -8951,9 +9508,20 @@ export default function App() {
                         </div>
                       </div>
                     ))}
-                    {tasks.filter(t => t.linkedTo === selectedLeadDetail.company).length === 0 && (
-                      <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px' }}>
-                        No follow-up checklist tasks scheduled.
+                    {tasks.filter(t => t.linkedTo === selectedLeadDetail.company || t.linkedTo === selectedLeadDetail.name).length === 0 && (
+                      <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px', background: '#f8fafc', borderRadius: '8px' }}>
+                        <p style={{ margin: '0 0 8px 0', fontSize: '12px' }}>No follow-up checklist tasks scheduled.</p>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{ fontSize: '11px', padding: '4px 10px' }}
+                          onClick={() => {
+                            setNewTask({ ...newTask, linkedTo: selectedLeadDetail.company });
+                            setShowTaskModal(true);
+                          }}
+                        >
+                          + Schedule New Task
+                        </button>
                       </div>
                     )}
                   </div>
@@ -9137,7 +9705,7 @@ export default function App() {
 
       {/* MODAL: ADD COMPANY SLIDE-OVER DRAWER */}
       {showCompanyModal && (
-        <div className="modal-overlay">
+        <div className="modal-overlay" style={{ zIndex: 1300 }}>
           <div className="modal-content">
             <div className="modal-header">
               <h3>Create Company Account</h3>
@@ -9154,7 +9722,17 @@ export default function App() {
               };
               setCompanies([freshComp, ...companies]);
               setShowCompanyModal(false);
-              setNewCompany({ name: '', industry: 'Manufacturing / B2G', website: '', city: 'Bangalore', state: 'Karnataka', address: '' });
+              setNewCompany({ 
+                name: '', 
+                industry: 'Manufacturing / B2G', 
+                companyScale: 'Small Scale / MSME (₹5-50 Cr / 10-50 Emp)' as CompanyScale,
+                website: '', 
+                city: 'Bangalore', 
+                state: 'Karnataka', 
+                address: '',
+                owner: currentUser?.fullName || 'KP Sumanth',
+                assignedRep: currentUser?.fullName || 'KP Sumanth'
+              });
               try {
                 const { createCompanyAction } = await import('@/app/actions/crm');
                 await createCompanyAction(freshComp);
@@ -9167,9 +9745,22 @@ export default function App() {
                 <label>Company Name *</label>
                 <input type="text" required placeholder="e.g. Acme Industries Ltd" value={newCompany.name} onChange={(e) => setNewCompany({ ...newCompany, name: e.target.value })} />
               </div>
-              <div className="form-group">
-                <label>Industry Sector</label>
-                <input type="text" placeholder="e.g. Manufacturing & Enterprise" value={newCompany.industry} onChange={(e) => setNewCompany({ ...newCompany, industry: e.target.value })} />
+              <div className="modal-grid-2col">
+                <div className="form-group">
+                  <label>Industry Sector</label>
+                  <input type="text" placeholder="e.g. Manufacturing & Enterprise" value={newCompany.industry} onChange={(e) => setNewCompany({ ...newCompany, industry: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Company Scale / Size</label>
+                  <select 
+                    value={newCompany.companyScale} 
+                    onChange={(e) => setNewCompany({ ...newCompany, companyScale: e.target.value as any })}
+                  >
+                    {COMPANY_SCALE_OPTIONS.map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div className="modal-grid-2col">
                 <div className="form-group">
@@ -9179,6 +9770,28 @@ export default function App() {
                 <div className="form-group">
                   <label>State</label>
                   <input type="text" placeholder="e.g. Karnataka" value={newCompany.state} onChange={(e) => setNewCompany({ ...newCompany, state: e.target.value })} />
+                </div>
+              </div>
+              <div className="modal-grid-2col">
+                <div className="form-group">
+                  <label>Record Owner</label>
+                  <input 
+                    type="text" 
+                    list="team-owners-datalist" 
+                    placeholder="e.g. KP Sumanth" 
+                    value={newCompany.owner} 
+                    onChange={(e) => setNewCompany({ ...newCompany, owner: e.target.value })} 
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Assigned Representative</label>
+                  <input 
+                    type="text" 
+                    list="team-reps-datalist" 
+                    placeholder="e.g. KP Sumanth" 
+                    value={newCompany.assignedRep} 
+                    onChange={(e) => setNewCompany({ ...newCompany, assignedRep: e.target.value })} 
+                  />
                 </div>
               </div>
               <div className="modal-actions">
@@ -10060,15 +10673,7 @@ export default function App() {
       {/* ADD DAILY CONTACT / VISITING CARD MODAL */}
       {showAddContactModal && (
         <div className="modal-overlay" style={{ zIndex: 1300 }} onClick={() => setShowAddContactModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px' }}>
-            <div className="modal-header">
-              <h3>Log Daily Visiting Card / Contact</h3>
-              <button className="modal-close-btn" onClick={() => setShowAddContactModal(false)}>×</button>
-            </div>
-      {/* ADD DAILY CONTACT / VISITING CARD MODAL */}
-      {showAddContactModal && (
-        <div className="modal-overlay" style={{ zIndex: 1300 }} onClick={() => setShowAddContactModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '540px' }}>
             <div className="modal-header">
               <h3>Create Centralized Contact Record</h3>
               <button className="modal-close-btn" onClick={() => setShowAddContactModal(false)}>×</button>
@@ -10085,10 +10690,15 @@ export default function App() {
                 preferredPhone: cleanPhone,
                 email: newContactForm.email.trim(),
                 company: newContactForm.company.trim(),
+                companyScale: newContactForm.companyScale,
                 designation: newContactForm.designation.trim(),
                 city: newContactForm.city.trim(),
+                state: newContactForm.state.trim() || 'Karnataka',
                 category: newContactForm.category || 'Prospect',
                 sourceType: newContactForm.sourceType || 'Direct',
+                owner: newContactForm.owner || currentUser?.fullName || 'KP Sumanth',
+                assignedRep: newContactForm.assignedRep || newContactForm.owner || currentUser?.fullName || 'KP Sumanth',
+                tags: newContactForm.tags && newContactForm.tags.length > 0 ? newContactForm.tags : ['B2G'],
                 notes: newContactForm.notes
               };
 
@@ -10121,7 +10731,23 @@ export default function App() {
               }
 
               setShowAddContactModal(false);
-              setNewContactForm({ name: '', company: '', email: '', phone: '', designation: '', city: '', category: 'Prospect', sourceType: 'Direct', notes: '' });
+              setNewContactForm({ 
+                name: '', 
+                company: '', 
+                companyScale: 'Small Scale / MSME (₹5-50 Cr / 10-50 Emp)' as CompanyScale,
+                email: '', 
+                phone: '', 
+                designation: '', 
+                city: '', 
+                state: '', 
+                category: 'Prospect', 
+                sourceType: 'Direct', 
+                owner: currentUser?.fullName || 'KP Sumanth',
+                assignedRep: currentUser?.fullName || 'KP Sumanth',
+                tags: ['B2G'],
+                tagInput: '',
+                notes: '' 
+              });
             }}>
               <div className="form-group">
                 <label>Contact Full Name *</label>
@@ -10133,18 +10759,9 @@ export default function App() {
                   placeholder="e.g. Ramesh Patel"
                 />
               </div>
-              <div className="form-group">
-                <label>Primary Phone Number (Auto-normalized to E.164)</label>
-                <input 
-                  type="text" 
-                  value={newContactForm.phone} 
-                  onChange={(e) => setNewContactForm({ ...newContactForm, phone: e.target.value })} 
-                  placeholder="e.g. +91 98450 11223 or 9845011223"
-                />
-              </div>
               <div className="modal-grid-2col">
                 <div className="form-group">
-                  <label>Company / Firm Name</label>
+                  <label>Company Name</label>
                   <input 
                     type="text" 
                     value={newContactForm.company} 
@@ -10153,23 +10770,45 @@ export default function App() {
                   />
                 </div>
                 <div className="form-group">
+                  <label>Company Scale / Size</label>
+                  <select 
+                    value={newContactForm.companyScale} 
+                    onChange={(e) => setNewContactForm({ ...newContactForm, companyScale: e.target.value as any })}
+                  >
+                    {COMPANY_SCALE_OPTIONS.map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="modal-grid-2col">
+                <div className="form-group">
+                  <label>Primary Phone Number</label>
+                  <input 
+                    type="text" 
+                    value={newContactForm.phone} 
+                    onChange={(e) => setNewContactForm({ ...newContactForm, phone: e.target.value })} 
+                    placeholder="e.g. +91 98450 11223"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Work Email Address</label>
+                  <input 
+                    type="email" 
+                    value={newContactForm.email} 
+                    onChange={(e) => setNewContactForm({ ...newContactForm, email: e.target.value })} 
+                    placeholder="e.g. ramesh@patellogistics.in"
+                  />
+                </div>
+              </div>
+              <div className="modal-grid-2col">
+                <div className="form-group">
                   <label>Designation / Role</label>
                   <input 
                     type="text" 
                     value={newContactForm.designation} 
                     onChange={(e) => setNewContactForm({ ...newContactForm, designation: e.target.value })} 
                     placeholder="e.g. Managing Director"
-                  />
-                </div>
-              </div>
-              <div className="modal-grid-2col">
-                <div className="form-group">
-                  <label>Email Address</label>
-                  <input 
-                    type="email" 
-                    value={newContactForm.email} 
-                    onChange={(e) => setNewContactForm({ ...newContactForm, email: e.target.value })} 
-                    placeholder="e.g. ramesh@patellogistics.in"
                   />
                 </div>
                 <div className="form-group">
@@ -10187,23 +10826,53 @@ export default function App() {
                   </select>
                 </div>
               </div>
-              <div className="form-group">
-                <label>City / Location</label>
-                <input 
-                  type="text" 
-                  value={newContactForm.city} 
-                  onChange={(e) => setNewContactForm({ ...newContactForm, city: e.target.value })} 
-                  placeholder="e.g. Bengaluru"
-                />
+              <div className="modal-grid-2col">
+                <div className="form-group">
+                  <label>Record Owner</label>
+                  <input 
+                    type="text" 
+                    list="team-owners-datalist" 
+                    placeholder="e.g. KP Sumanth" 
+                    value={newContactForm.owner} 
+                    onChange={(e) => setNewContactForm({ ...newContactForm, owner: e.target.value })} 
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Assigned Representative</label>
+                  <input 
+                    type="text" 
+                    list="team-reps-datalist" 
+                    placeholder="e.g. KP Sumanth" 
+                    value={newContactForm.assignedRep} 
+                    onChange={(e) => setNewContactForm({ ...newContactForm, assignedRep: e.target.value })} 
+                  />
+                </div>
+              </div>
+              <div className="modal-grid-2col">
+                <div className="form-group">
+                  <label>City</label>
+                  <input 
+                    type="text" 
+                    value={newContactForm.city} 
+                    onChange={(e) => setNewContactForm({ ...newContactForm, city: e.target.value })} 
+                    placeholder="e.g. Bengaluru"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>State</label>
+                  <input 
+                    type="text" 
+                    value={newContactForm.state} 
+                    onChange={(e) => setNewContactForm({ ...newContactForm, state: e.target.value })} 
+                    placeholder="e.g. Karnataka"
+                  />
+                </div>
               </div>
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '20px' }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setShowAddContactModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary">Save Contact Record →</button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
           </div>
         </div>
       )}
@@ -10595,10 +11264,13 @@ export default function App() {
                 const res = await createDealAction({
                   name: convertDealForm.dealName,
                   company: selectedLeadForConversion.company || selectedLeadForConversion.name,
+                  companyScale: selectedLeadForConversion.companyScale || 'Small Scale / MSME (₹5-50 Cr / 10-50 Emp)',
                   value: Number(convertDealForm.dealValue) || 500000,
                   probability: 40,
                   stage: targetStage,
-                  owner: selectedLeadForConversion.owner || currentUser?.fullName || 'peketi balasaraswathi'
+                  owner: selectedLeadForConversion.owner || currentUser?.fullName || 'KP Sumanth',
+                  assignedRep: selectedLeadForConversion.assignedRep || selectedLeadForConversion.owner || currentUser?.fullName || 'KP Sumanth',
+                  leadId: selectedLeadForConversion.id
                 });
                 if (res.isDuplicate) {
                   triggerToast(res.error || 'Deal already in pipeline!', 'warning');
@@ -10611,10 +11283,13 @@ export default function App() {
                     id: res.data.id,
                     name: res.data.name,
                     company: res.data.company || selectedLeadForConversion.company || selectedLeadForConversion.name,
+                    companyScale: selectedLeadForConversion.companyScale || 'Small Scale / MSME (₹5-50 Cr / 10-50 Emp)',
                     value: Number(res.data.value) || Number(convertDealForm.dealValue) || 500000,
                     probability: res.data.probability || 40,
                     stage: normalizeDealStage(res.data.stage || targetStage),
-                    owner: res.data.owner || selectedLeadForConversion.owner || currentUser?.fullName || 'peketi balasaraswathi',
+                    owner: res.data.owner || selectedLeadForConversion.owner || currentUser?.fullName || 'KP Sumanth',
+                    assignedRep: selectedLeadForConversion.assignedRep || selectedLeadForConversion.owner || currentUser?.fullName || 'KP Sumanth',
+                    leadId: selectedLeadForConversion.id,
                     daysInStage: 0,
                     expectedClose: new Date().toISOString().slice(0, 10)
                   };

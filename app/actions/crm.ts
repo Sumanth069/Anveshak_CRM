@@ -75,11 +75,14 @@ export async function fetchCrmInitialState(userEmail?: string, userFullName?: st
         id: l.id,
         name: l.name,
         company: l.company || '',
+        companyScale: l.company_scale || l.custom_values?.companyScale || 'Small Scale / MSME (₹5-50 Cr / 10-50 Emp)',
         email: l.email || '',
         phone: l.phone || '',
         status: l.status || 'New',
         score: l.score || 0,
         owner: l.owner || 'KP Sumanth',
+        assignedRep: l.assigned_rep || l.custom_values?.assignedRep || l.owner || 'KP Sumanth',
+        tags: Array.isArray(l.tags) ? l.tags : (l.custom_values?.tags || ['B2G']),
         customValues: l.custom_values || {},
         activities: l.activities || [],
         createdAt: l.created_at,
@@ -90,11 +93,14 @@ export async function fetchCrmInitialState(userEmail?: string, userFullName?: st
         id: d.id,
         name: d.name,
         company: d.company,
+        companyScale: d.company_scale || d.custom_values?.companyScale || 'Small Scale / MSME (₹5-50 Cr / 10-50 Emp)',
         value: Number(d.value) || 0,
         stage: normalizeDealStage(d.stage),
         probability: Number(d.probability) || 0,
         expectedClose: d.expected_close,
         owner: d.owner || 'KP Sumanth',
+        assignedRep: d.assigned_rep || d.custom_values?.assignedRep || d.owner || 'KP Sumanth',
+        leadId: d.lead_id || d.custom_values?.leadId,
         lostReason: d.lost_reason,
         customValues: d.custom_values || {},
         createdAt: d.created_at,
@@ -376,6 +382,13 @@ export async function createLeadAction(lead: any) {
 
     // 2. Insert into Supabase (Primary / 100% Reliable on Vercel)
     try {
+      const customVals = {
+        ...(lead.customValues || {}),
+        companyScale: lead.companyScale || undefined,
+        assignedRep: lead.assignedRep || lead.owner || undefined,
+        tags: lead.tags || undefined
+      };
+
       const { data: sCreated, error: sErr } = await supabase.from('leads').insert([{
         name: name,
         company: lead.company || null,
@@ -384,7 +397,7 @@ export async function createLeadAction(lead: any) {
         status: lead.status || 'New',
         score: lead.score || 0,
         owner: lead.owner || null,
-        custom_values: lead.customValues || {},
+        custom_values: customVals,
         activities: lead.activities || []
       }]).select().single();
 
@@ -401,7 +414,7 @@ export async function createLeadAction(lead: any) {
               status: lead.status || 'New',
               score: lead.score || 0,
               owner: lead.owner || null,
-              customValues: lead.customValues || {},
+              customValues: customVals,
               activities: lead.activities || []
             }
           });
