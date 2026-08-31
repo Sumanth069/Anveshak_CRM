@@ -80,8 +80,8 @@ export async function fetchCrmInitialState(userEmail?: string, userFullName?: st
         phone: l.phone || '',
         status: l.status || 'New',
         score: l.score || 0,
-        owner: l.owner || 'KP Sumanth',
-        assignedRep: l.assigned_rep || l.custom_values?.assignedRep || l.owner || 'KP Sumanth',
+        owner: l.owner || userFullName || 'Unassigned',
+        assignedRep: l.assigned_rep || l.custom_values?.assignedRep || l.owner || userFullName || 'Unassigned',
         tags: Array.isArray(l.tags) ? l.tags : (l.custom_values?.tags || ['B2G']),
         customValues: l.custom_values || {},
         activities: l.activities || [],
@@ -98,8 +98,8 @@ export async function fetchCrmInitialState(userEmail?: string, userFullName?: st
         stage: normalizeDealStage(d.stage),
         probability: Number(d.probability) || 0,
         expectedClose: d.expected_close,
-        owner: d.owner || 'KP Sumanth',
-        assignedRep: d.assigned_rep || d.custom_values?.assignedRep || d.owner || 'KP Sumanth',
+        owner: d.owner || userFullName || 'Unassigned',
+        assignedRep: d.assigned_rep || d.custom_values?.assignedRep || d.owner || userFullName || 'Unassigned',
         leadId: d.lead_id || d.custom_values?.leadId,
         lostReason: d.lost_reason,
         customValues: d.custom_values || {},
@@ -116,7 +116,7 @@ export async function fetchCrmInitialState(userEmail?: string, userFullName?: st
         priority: t.priority || 'Medium',
         status: t.status || 'Open',
         category: t.category || 'General',
-        assignee: t.assignee || t.assigned_to || 'KP Sumanth',
+        assignee: t.assignee || t.assigned_to || userFullName || 'Unassigned',
         linkedTo: t.linked_to,
         completed: t.status === 'Completed' || !!t.completed,
         createdAt: t.created_at,
@@ -434,7 +434,7 @@ export async function createLeadAction(lead: any) {
             category: 'Lead',
             source_type: 'Lead Capture',
             tags: ['Lead'],
-            owner: lead.owner || 'KP Sumanth',
+            owner: lead.owner || null,
             notes: `Lead in Pipeline (Status: ${lead.status || 'New'})`
           };
 
@@ -449,7 +449,7 @@ export async function createLeadAction(lead: any) {
               category: 'Lead',
               sourceType: 'Lead Capture',
               tags: ['Lead'],
-              owner: lead.owner || 'KP Sumanth',
+              owner: lead.owner || null,
               notes: `Lead in Pipeline (Status: ${lead.status || 'New'})`
             }
           }).catch(() => {});
@@ -517,7 +517,7 @@ export async function createLeadAction(lead: any) {
             category: 'Lead',
             sourceType: 'Lead Capture',
             tags: ['Lead'],
-            owner: lead.owner || 'KP Sumanth',
+            owner: lead.owner || null,
             notes: `Lead in Pipeline (Status: ${lead.status || 'New'})`
           }
         }).catch(() => {});
@@ -536,7 +536,7 @@ export async function createLeadAction(lead: any) {
           phone: phone || '',
           status: lead.status || 'New',
           score: lead.score || 0,
-          owner: lead.owner || 'KP Sumanth',
+          owner: lead.owner || 'Unassigned',
           customValues: lead.customValues || {},
           activities: lead.activities || []
         }
@@ -804,11 +804,10 @@ export async function createTaskAction(task: any) {
   try {
     const title = (task.title || '').trim();
     if (!title) return { success: false, error: 'Task title is required.' };
-
     const taskPayload = {
       title: title,
       description: task.description || '',
-      assignee: task.assignee || 'KP Sumanth',
+      assignee: task.assignee || null,
       due_date: task.dueDate || null,
       priority: task.priority || 'Medium',
       status: task.status || 'Open',
@@ -863,7 +862,7 @@ export async function createTaskAction(task: any) {
         id: `TSK-${Date.now()}`,
         title: task.title,
         description: task.description || '',
-        assignee: task.assignee || 'KP Sumanth',
+        assignee: task.assignee || 'Unassigned',
         dueDate: task.dueDate || '2026-08-30',
         priority: task.priority || 'Medium',
         status: 'Open',
@@ -873,36 +872,38 @@ export async function createTaskAction(task: any) {
   }
 }
 
-export async function updateTaskAction(id: string, updates: any) {
+export async function updateTaskAction(taskId: string, updates: any) {
   try {
-    const sData: any = {};
-    if (updates.title !== undefined) sData.title = updates.title;
-    if (updates.description !== undefined) sData.description = updates.description;
-    if (updates.assignee !== undefined) sData.assignee = updates.assignee;
-    if (updates.dueDate !== undefined) sData.due_date = updates.dueDate;
-    if (updates.priority !== undefined) sData.priority = updates.priority;
-    if (updates.status !== undefined) sData.status = updates.status;
-    if (updates.linkedTo !== undefined) sData.linked_to = updates.linkedTo;
+    const supaPayload: any = {};
+    if (updates.title !== undefined) supaPayload.title = updates.title;
+    if (updates.description !== undefined) supaPayload.description = updates.description;
+    if (updates.assignee !== undefined) supaPayload.assignee = updates.assignee;
+    if (updates.dueDate !== undefined) supaPayload.due_date = updates.dueDate;
+    if (updates.dueTime !== undefined) supaPayload.due_time = updates.dueTime;
+    if (updates.priority !== undefined) supaPayload.priority = updates.priority;
+    if (updates.status !== undefined) supaPayload.status = updates.status;
+    if (updates.linkedTo !== undefined) supaPayload.linked_to = updates.linkedTo;
+    supaPayload.updated_at = new Date().toISOString();
 
-    try {
-      const { data, error } = await supabase.from('tasks').update(sData).eq('id', id).select().single();
-      if (!error && data) {
-        return { success: true, data };
+    const { error: sErr } = await supabase.from('tasks').update(supaPayload).eq('id', taskId);
+    if (!sErr) return { success: true };
+  } catch (sEx) {
+    console.warn('Supabase updateTaskAction warning:', sEx);
+  }
+
+  try {
+    await prisma.task.update({
+      where: { id: taskId },
+      data: {
+        title: updates.title,
+        description: updates.description,
+        assignee: updates.assignee,
+        dueDate: updates.dueDate,
+        priority: updates.priority,
+        status: updates.status,
+        linkedTo: updates.linkedTo
       }
-    } catch (sEx) {
-      console.warn('Supabase updateTaskAction warning:', sEx);
-    }
-
-    try {
-      const updated = await prisma.task.update({
-        where: { id },
-        data: updates
-      });
-      return { success: true, data: updated };
-    } catch (pEx) {
-      console.warn('Prisma updateTaskAction warning:', pEx);
-    }
-
+    });
     return { success: true };
   } catch (err: any) {
     console.error('updateTaskAction error:', err);
@@ -910,14 +911,10 @@ export async function updateTaskAction(id: string, updates: any) {
   }
 }
 
-export async function deleteTaskAction(id: string) {
+export async function deleteTaskAction(taskId: string) {
   try {
-    try {
-      await supabase.from('tasks').delete().eq('id', id);
-    } catch (sEx) {}
-    try {
-      await prisma.task.delete({ where: { id } });
-    } catch (pEx) {}
+    await supabase.from('tasks').delete().eq('id', taskId);
+    await prisma.task.delete({ where: { id: taskId } }).catch(() => {});
     return { success: true };
   } catch (err: any) {
     console.error('deleteTaskAction error:', err);
@@ -930,21 +927,23 @@ export async function createCompanyAction(company: any) {
     const name = (company.name || '').trim();
     if (!name) return { success: false, error: 'Company name is required.' };
 
-    const cPayload = {
+    const supaPayload = {
+      id: company.id || undefined,
       name: name,
-      industry: company.industry || 'Technology',
+      industry: company.industry || 'Manufacturing / B2G',
       website: company.website || null,
-      city: company.city || 'Bengaluru',
+      city: company.city || 'Bangalore',
       state: company.state || 'Karnataka',
       address: company.address || null,
-      contacts_count: Number(company.contactsCount) || 0,
+      contacts_count: Number(company.contactsCount) || 1,
       total_deal_value: Number(company.totalDealValue) || 0
     };
 
+    // 1. Supabase Direct Insert
     try {
-      const { data: sCreated, error: sErr } = await supabase.from('companies').upsert([cPayload], { onConflict: 'name' }).select().single();
-
-      // Auto-create company representative in contacts directory if contact info provided
+      const { data: sCreated, error: sErr } = await supabase.from('companies').upsert([supaPayload], { onConflict: 'name' }).select().single();
+      
+      // Also register initial company contact person if supplied
       if (company.contactPerson || company.phone || company.email) {
         try {
           const contactName = company.contactPerson || `${name} Representative`;
@@ -958,7 +957,7 @@ export async function createCompanyAction(company: any) {
             phone: phone,
             category: 'Company Contact',
             source_type: 'Account Creation',
-            owner: company.owner || 'KP Sumanth',
+            owner: company.owner || null,
             tags: ['Company Contact'],
             notes: `Official contact for ${name}`
           };
@@ -972,7 +971,7 @@ export async function createCompanyAction(company: any) {
               category: 'Company Contact',
               sourceType: 'Account Creation',
               tags: ['Company Contact'],
-              owner: company.owner || 'KP Sumanth',
+              owner: company.owner || null,
               notes: `Official contact for ${name}`
             }
           }).catch(() => {});
@@ -1514,7 +1513,7 @@ export async function saveScannedContactAction(contact: {
         phone: contact.phone || null,
         status: 'Daily Contact',
         score: 15,
-        owner: contact.owner || 'KP Sumanth',
+        owner: contact.owner || 'Authenticated User',
         customValues: {
           designation: contact.designation || '',
           address: contact.address || '',

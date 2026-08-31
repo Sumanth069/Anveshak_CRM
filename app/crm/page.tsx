@@ -1693,13 +1693,51 @@ export default function App() {
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
   const [scoringNotification, setScoringNotification] = useState(false);
 
-  // Active Authenticated User Details (Universal for all user accounts)
+  // Active Authenticated User Resolution Helper (Always gets exact logged-in account name/email)
+  const getActiveUserIdentity = useCallback((): string => {
+    if (currentUser?.fullName && currentUser.fullName.trim()) return currentUser.fullName.trim();
+    if (currentUser?.email && currentUser.email.trim()) return currentUser.email.trim();
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('ANVESHAK_AUTH_SESSION_V1');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed?.fullName && parsed.fullName.trim()) return parsed.fullName.trim();
+          if (parsed?.email && parsed.email.trim()) return parsed.email.trim();
+        }
+      } catch (e) {}
+    }
+    return 'System User';
+  }, [currentUser]);
+
   const currentRole = currentUser?.role === 'ADMIN' ? 'Admin' : currentUser?.role === 'MANAGER' ? 'Manager' : 'Sales Rep';
-  const currentAgentName = currentUser?.fullName || (currentUser?.email ? currentUser.email.split('@')[0] : 'User');
+  const currentAgentName = getActiveUserIdentity();
   const currentAgentTitle = currentUser?.title || (currentUser?.role === 'ADMIN' ? 'System Administrator' : currentUser?.role === 'MANAGER' ? 'Sales Manager' : 'Sales Representative');
   const currentAgentColor = currentUser?.avatarColor || (currentUser?.role === 'ADMIN' ? '#d97706' : currentUser?.role === 'MANAGER' ? '#b45309' : '#1e40af');
   const userKey = currentUser?.id || currentUser?.email || currentRole;
   const currentAvatarUrl = profileSettings[userKey]?.avatarUrl || profileSettings[currentRole]?.avatarUrl || currentUser?.avatarUrl;
+
+  // Dynamically synchronize entity creation default owners with active logged-in user
+  useEffect(() => {
+    const activeName = getActiveUserIdentity();
+    if (activeName && activeName !== 'System User') {
+      setNewLead(prev => ({
+        ...prev,
+        owner: !prev.owner || prev.owner === 'KP Sumanth' || prev.owner === 'peketi balasaraswathi' ? activeName : prev.owner,
+        assignedRep: !prev.assignedRep || prev.assignedRep === 'KP Sumanth' || prev.assignedRep === 'peketi balasaraswathi' ? activeName : prev.assignedRep
+      }));
+      setNewContactForm(prev => ({
+        ...prev,
+        owner: !prev.owner || prev.owner === 'KP Sumanth' || prev.owner === 'peketi balasaraswathi' ? activeName : prev.owner,
+        assignedRep: !prev.assignedRep || prev.assignedRep === 'KP Sumanth' || prev.assignedRep === 'peketi balasaraswathi' ? activeName : prev.assignedRep
+      }));
+      setNewCompany(prev => ({
+        ...prev,
+        owner: !prev.owner || prev.owner === 'KP Sumanth' || prev.owner === 'peketi balasaraswathi' ? activeName : prev.owner,
+        assignedRep: !prev.assignedRep || prev.assignedRep === 'KP Sumanth' || prev.assignedRep === 'peketi balasaraswathi' ? activeName : prev.assignedRep
+      }));
+    }
+  }, [currentUser, getActiveUserIdentity]);
 
   useEffect(() => {
     if (currentUser && currentUser.email) {
@@ -1771,8 +1809,8 @@ export default function App() {
   // REAL-TIME AUDIT REGISTRY DISPATCHER (DIRECT SUPABASE DB)
   // ----------------------------------------------------
   const recordAuditLog = useCallback((action: string, entity: string, beforeState?: string, afterState?: string) => {
-    const author = currentUser?.fullName || currentAgentName || 'System';
-    const timestampStr = new Date().toISOString();
+    const author = getActiveUserIdentity();
+    const timestampStr = new Date().toISOString().replace('T', ' ').slice(0, 19);
     const newLog: AuditLog = {
       id: `LOG-${Date.now().toString().slice(-4)}`,
       user: author,
@@ -1798,7 +1836,7 @@ export default function App() {
         }
       }).catch(err => console.warn('Supabase audit log insert error:', err));
     }).catch(console.error);
-  }, [currentUser?.fullName, currentAgentName]);
+  }, [getActiveUserIdentity]);
 
   // ----------------------------------------------------
   // LEAD SCORING DYNAMIC LOGIC
@@ -1879,7 +1917,7 @@ export default function App() {
         phone: duplicateContact.phone || duplicateContact.preferredPhone || '',
         status: 'New',
         score: 0,
-        owner: duplicateContact.owner || currentUser?.fullName || 'peketi balasaraswathi',
+        owner: duplicateContact.owner || getActiveUserIdentity(),
         activities: [],
         customFields: {}
       });
@@ -1905,8 +1943,8 @@ export default function App() {
       state: newLead.state || 'Karnataka',
       status: 'New',
       score: 10, // Base scoring for creation
-      owner: newLead.owner || currentUser?.fullName || 'KP Sumanth',
-      assignedRep: newLead.assignedRep || newLead.owner || currentUser?.fullName || 'KP Sumanth',
+      owner: newLead.owner || getActiveUserIdentity(),
+      assignedRep: newLead.assignedRep || newLead.owner || getActiveUserIdentity(),
       tags: newLead.tags && newLead.tags.length > 0 ? newLead.tags : ['B2G'],
       activities: [{ action: 'Lead created', points: 10, date: new Date().toLocaleDateString('en-IN') }],
       customFields: newCustomValues
@@ -1942,8 +1980,8 @@ export default function App() {
       city: 'Bangalore', 
       state: 'Karnataka', 
       leadSource: 'Website', 
-      owner: currentUser?.fullName || 'KP Sumanth', 
-      assignedRep: currentUser?.fullName || 'KP Sumanth',
+      owner: getActiveUserIdentity(), 
+      assignedRep: getActiveUserIdentity(),
       tags: ['B2G'],
       tagInput: ''
     });
@@ -1967,8 +2005,8 @@ export default function App() {
       leadSource: 'Website',
       tags: ['B2G'],
       tagInput: '',
-      owner: currentUser?.fullName || 'KP Sumanth',
-      assignedRep: currentUser?.fullName || 'KP Sumanth',
+      owner: getActiveUserIdentity(),
+      assignedRep: getActiveUserIdentity(),
       ...initialData
     });
     setShowLeadModal(true);
@@ -1988,8 +2026,8 @@ export default function App() {
       state: (lead as any).state || '',
       status: lead.status || 'New',
       score: Number(lead.score) || 0,
-      owner: lead.owner || currentUser?.fullName || 'KP Sumanth',
-      assignedRep: lead.assignedRep || lead.owner || currentUser?.fullName || 'KP Sumanth',
+      owner: lead.owner || getActiveUserIdentity(),
+      assignedRep: lead.assignedRep || lead.owner || getActiveUserIdentity(),
       tags: Array.isArray(lead.tags) ? lead.tags : (lead.tags ? [lead.tags] : ['B2G']),
       tagInput: '',
       notes: (lead as any).notes || ''
@@ -2014,8 +2052,8 @@ export default function App() {
       state: editLeadForm.state,
       status: editLeadForm.status as any,
       score: Number(editLeadForm.score) || 0,
-      owner: editLeadForm.owner || currentUser?.fullName || 'KP Sumanth',
-      assignedRep: editLeadForm.assignedRep || editLeadForm.owner || currentUser?.fullName || 'KP Sumanth',
+      owner: editLeadForm.owner || getActiveUserIdentity(),
+      assignedRep: editLeadForm.assignedRep || editLeadForm.owner || getActiveUserIdentity(),
       tags: Array.isArray(editLeadForm.tags) ? editLeadForm.tags : [editLeadForm.tags].filter(Boolean)
     };
 
@@ -2189,8 +2227,8 @@ export default function App() {
         city: 'Bangalore',
         state: 'Karnataka',
         leadSource: 'Event',
-        owner: currentUser?.fullName || 'KP Sumanth',
-        assignedRep: currentUser?.fullName || 'KP Sumanth',
+        owner: getActiveUserIdentity(),
+        assignedRep: getActiveUserIdentity(),
         tags: ['B2G'],
         tagInput: ''
       });
@@ -2268,8 +2306,8 @@ export default function App() {
       city: 'Bangalore',
       state: 'Karnataka',
       leadSource: 'Event',
-      owner: currentUser?.fullName || 'KP Sumanth',
-      assignedRep: currentUser?.fullName || 'KP Sumanth',
+      owner: getActiveUserIdentity(),
+      assignedRep: getActiveUserIdentity(),
       tags: ['B2G'],
       tagInput: ''
     });
@@ -2987,7 +3025,7 @@ export default function App() {
       stage: 'New',
       probability: 10,
       expectedClose: new Date().toISOString().slice(0, 10),
-      owner: lead.owner || currentUser?.fullName || 'peketi balasaraswathi',
+      owner: lead.owner || getActiveUserIdentity(),
       daysInStage: 0
     };
     setDeals(prev => deduplicateDealsLocal([freshDeal, ...prev]));
@@ -4467,7 +4505,7 @@ export default function App() {
                                     phone: cnt.preferredPhone || cnt.phone,
                                     status: 'New',
                                     score: 25,
-                                    owner: currentUser?.fullName || 'peketi balasaraswathi'
+                                    owner: getActiveUserIdentity()
                                   });
                                   if (res.isDuplicate) {
                                     triggerToast(res.error || 'Lead already in pipeline!', 'warning');
@@ -4482,7 +4520,7 @@ export default function App() {
                                     phone: cnt.preferredPhone || cnt.phone || '',
                                     status: 'New',
                                     score: 25,
-                                    owner: currentUser?.fullName || 'peketi balasaraswathi',
+                                    owner: getActiveUserIdentity(),
                                     activities: []
                                   };
                                   const newLead: Lead = {
@@ -4493,7 +4531,7 @@ export default function App() {
                                     phone: leadData.phone || '',
                                     status: (leadData.status as any) || 'New',
                                     score: leadData.score || 25,
-                                    owner: leadData.owner || currentUser?.fullName || 'peketi balasaraswathi',
+                                    owner: leadData.owner || getActiveUserIdentity(),
                                     activities: []
                                   };
                                   setLeads(prev => [newLead, ...prev]);
@@ -4709,7 +4747,7 @@ export default function App() {
                                           phone: cnt.preferredPhone || cnt.phone,
                                           status: 'New',
                                           score: 25,
-                                          owner: currentUser?.fullName || 'peketi balasaraswathi'
+                                          owner: getActiveUserIdentity()
                                         });
                                         if (res.isDuplicate) {
                                           triggerToast(res.error || 'Lead already in pipeline!', 'warning');
@@ -4724,7 +4762,7 @@ export default function App() {
                                           phone: cnt.preferredPhone || cnt.phone || '',
                                           status: 'New',
                                           score: 25,
-                                          owner: currentUser?.fullName || 'peketi balasaraswathi',
+                                          owner: getActiveUserIdentity(),
                                           activities: []
                                         };
                                         const newLead: Lead = {
@@ -4735,7 +4773,7 @@ export default function App() {
                                           phone: leadData.phone || '',
                                           status: (leadData.status as any) || 'New',
                                           score: leadData.score || 25,
-                                          owner: leadData.owner || currentUser?.fullName || 'peketi balasaraswathi',
+                                          owner: leadData.owner || getActiveUserIdentity(),
                                           activities: []
                                         };
                                         setLeads(prev => [newLead, ...prev]);
@@ -4821,10 +4859,13 @@ export default function App() {
                     style={{ padding: '7px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '12.5px', background: '#f8fafc' }}
                   >
                     <option value="All">All Owners</option>
-                    <option value={currentUser?.fullName || 'peketi balasaraswathi'}>{currentUser?.fullName || 'peketi balasaraswathi'}</option>
-                    <option value="KP Sumanth">KP Sumanth</option>
-                    <option value="Balasaraswathi">Balasaraswathi</option>
-                    <option value="Riya Sharma">Riya Sharma</option>
+                    {Array.from(new Set([
+                      getActiveUserIdentity(),
+                      ...dbUsersList.map((u: any) => u.fullName),
+                      ...leads.map(l => l.owner).filter(Boolean)
+                    ])).filter(Boolean).map(ownerName => (
+                      <option key={ownerName} value={ownerName}>{ownerName}</option>
+                    ))}
                   </select>
 
                   <select 
@@ -4889,7 +4930,7 @@ export default function App() {
                       className="btn btn-primary" 
                       style={{ padding: '10px 18px', fontSize: '13px' }}
                       onClick={() => {
-                        setNewLead(prev => ({ ...prev, owner: currentUser?.fullName || 'KP Sumanth' }));
+                        setNewLead(prev => ({ ...prev, owner: getActiveUserIdentity(), assignedRep: getActiveUserIdentity() }));
                         setShowLeadModal(true);
                       }}
                     >
@@ -7516,7 +7557,7 @@ export default function App() {
                               setCompanies(initialCompanies);
                               setQuotes(initialQuotes);
                               setProfileSettings({
-                                'Admin': { fullName: currentUser?.fullName || 'peketi balasaraswathi', email: currentUser?.email || 'peketi.balasaraswathi@gmail.com', title: 'System Administrator', avatarColor: '#d97706', notify: true },
+                                'Admin': { fullName: getActiveUserIdentity(), email: currentUser?.email || 'admin@anveshakhub.com', title: 'System Administrator', avatarColor: '#d97706', notify: true },
                                 'Manager': { fullName: 'Balasaraswathi', email: 'balu@anveshakhub.com', title: 'Sales Manager', avatarColor: '#b45309', notify: true },
                                 'Sales Rep': { fullName: 'Riya Sharma', email: 'riya@anveshakhub.com', title: 'Enterprise Rep', avatarColor: '#1e40af', notify: true }
                               });
@@ -7556,280 +7597,262 @@ export default function App() {
       {/* MODAL 1: ADD LEAD (WITH DYNAMIC CUSTOM FIELDS) */}
       {showLeadModal && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{ maxHeight: '85vh', overflowY: 'auto' }}>
-            <div className="modal-header">
-              <h3>Create New Contact</h3>
+          <div className="modal-content" style={{ maxHeight: '88vh', display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '620px', padding: 0, overflow: 'hidden', borderRadius: '16px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' }}>
+            <div className="modal-header" style={{ padding: '18px 24px', borderBottom: '1px solid var(--border-color)', margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '18px' }}>👤</span>
+                <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '800' }}>Create New Lead / Contact</h3>
+              </div>
               <button className="modal-close-btn" onClick={() => setShowLeadModal(false)}>×</button>
             </div>
-            <form onSubmit={handleLeadSubmit}>
-              {/* Visiting Card Scanner Widget */}
-              <div className="card-scanner-box" style={{ marginBottom: '16px', padding: '12px', border: '1px dashed var(--border-color)', borderRadius: 'var(--radius-sm)', backgroundColor: 'rgba(0,0,0,0.02)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#0d9488', letterSpacing: '0.05em' }}>AI VISITING CARD SCANNER</span>
-                  <label className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '10px', cursor: 'pointer', margin: 0, borderStyle: 'dashed' }}>
-                    Scan Card
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      capture="environment" 
-                      onChange={handleCardScan} 
-                      style={{ display: 'none' }} 
-                    />
-                  </label>
-                </div>
-                
-                {isScanning ? (
-                  <div className="scanner-progress-container" style={{ position: 'relative', overflow: 'hidden', padding: '4px 0' }}>
-                    <div className="scanner-laser-line"></div>
-                    <div style={{ fontSize: '10px', color: '#0d9488', display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span>Analyzing card with OCR AI...</span>
-                      <span>{scanProgress}%</span>
-                    </div>
-                    <div className="scanner-progress-bar" style={{ height: '4px', backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: '2px' }}>
-                      <div className="scanner-progress-fill" style={{ height: '100%', backgroundColor: '#0d9488', width: `${scanProgress}%`, transition: 'width 0.15s ease' }}></div>
-                    </div>
+            
+            <form onSubmit={handleLeadSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', margin: 0 }}>
+              <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {/* Visiting Card Scanner Widget */}
+                <div className="card-scanner-box" style={{ marginBottom: '4px', padding: '12px', border: '1px dashed var(--border-color)', borderRadius: 'var(--radius-sm)', backgroundColor: 'rgba(0,0,0,0.02)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#0d9488', letterSpacing: '0.05em' }}>AI VISITING CARD SCANNER</span>
+                    <label className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '10px', cursor: 'pointer', margin: 0, borderStyle: 'dashed' }}>
+                      Scan Card
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        capture="environment" 
+                        onChange={handleCardScan} 
+                        style={{ display: 'none' }} 
+                      />
+                    </label>
                   </div>
-                ) : (
-                  <div>
-                    <p style={{ fontSize: '10px', color: 'var(--text-muted)', margin: 0 }}>
-                      Snap a photo of a visiting card from mobile camera to auto-extract details.
-                    </p>
-                    {cardImage && (
-                      <div style={{ marginTop: '12px', display: 'flex', gap: '12px', alignItems: 'center' }}>
-                        <div style={{ position: 'relative', width: '80px', height: '80px', border: '1px solid var(--border-color)', borderRadius: '4px', overflow: 'hidden', backgroundColor: 'black' }}>
-                          <img 
-                            src={cardImage} 
-                            alt="Card Snap" 
-                            style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
-                          />
-                        </div>
-                        <div>
-                          <button 
-                            type="button" 
-                            className="btn btn-secondary" 
-                            style={{ padding: '4px 8px', fontSize: '10px' }}
-                            onClick={handleRotateImage}
-                          >
-                            ↻ Rotate 90° & Re-Scan
-                          </button>
-                        </div>
+                  
+                  {isScanning ? (
+                    <div className="scanner-progress-container" style={{ position: 'relative', overflow: 'hidden', padding: '4px 0' }}>
+                      <div className="scanner-laser-line"></div>
+                      <div style={{ fontSize: '10px', color: '#0d9488', display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                        <span>Analyzing card with OCR AI...</span>
+                        <span>{scanProgress}%</span>
                       </div>
-                    )}
+                      <div className="scanner-progress-bar" style={{ height: '4px', backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: '2px' }}>
+                        <div className="scanner-progress-fill" style={{ height: '100%', backgroundColor: '#0d9488', width: `${scanProgress}%`, transition: 'width 0.15s ease' }}></div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <p style={{ fontSize: '10px', color: 'var(--text-muted)', margin: 0 }}>
+                        Snap a photo of a visiting card from mobile camera to auto-extract details.
+                      </p>
+                      {cardImage && (
+                        <div style={{ marginTop: '12px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+                          <div style={{ position: 'relative', width: '80px', height: '80px', border: '1px solid var(--border-color)', borderRadius: '4px', overflow: 'hidden', backgroundColor: 'black' }}>
+                            <img 
+                              src={cardImage} 
+                              alt="Card Snap" 
+                              style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+                            />
+                          </div>
+                          <div>
+                            <button 
+                              type="button" 
+                              className="btn btn-secondary" 
+                              style={{ padding: '4px 8px', fontSize: '10px' }}
+                              onClick={handleRotateImage}
+                            >
+                              ↻ Rotate 90° & Re-Scan
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="modal-grid-2col">
+                  <div className="form-group">
+                    <label>First Name *</label>
+                    <input type="text" required placeholder="e.g. Ramesh" value={newLead.firstName} onChange={(e) => setNewLead({ ...newLead, firstName: e.target.value })} />
                   </div>
-                )}
-              </div>
+                  <div className="form-group">
+                    <label>Last Name *</label>
+                    <input type="text" required placeholder="e.g. Gowda" value={newLead.lastName} onChange={(e) => setNewLead({ ...newLead, lastName: e.target.value })} />
+                  </div>
+                </div>
 
-              <div className="modal-grid-2col">
                 <div className="form-group">
-                  <label>First Name *</label>
-                  <input type="text" required placeholder="e.g. Ramesh" value={newLead.firstName} onChange={(e) => setNewLead({ ...newLead, firstName: e.target.value })} />
+                  <label>Work Email Address *</label>
+                  <input type="email" required placeholder="e.g. name@company.com" value={newLead.email} onChange={(e) => setNewLead({ ...newLead, email: e.target.value })} />
                 </div>
-                <div className="form-group">
-                  <label>Last Name *</label>
-                  <input type="text" required placeholder="e.g. Gowda" value={newLead.lastName} onChange={(e) => setNewLead({ ...newLead, lastName: e.target.value })} />
-                </div>
-              </div>
 
-              <div className="form-group">
-                <label>Work Email Address *</label>
-                <input type="email" required placeholder="e.g. name@company.com" value={newLead.email} onChange={(e) => setNewLead({ ...newLead, email: e.target.value })} />
-              </div>
+                <div className="modal-grid-2col">
+                  <div className="form-group">
+                    <label>Primary Phone *</label>
+                    <input type="text" required placeholder="e.g. +91 98450 12345" value={newLead.phone} onChange={(e) => setNewLead({ ...newLead, phone: e.target.value })} />
+                  </div>
+                  <div className="form-group">
+                    <label>Alternate Phone</label>
+                    <input type="text" placeholder="e.g. +91 98450 67890" value={newLead.alternatePhone} onChange={(e) => setNewLead({ ...newLead, alternatePhone: e.target.value })} />
+                  </div>
+                </div>
 
-              <div className="modal-grid-2col">
-                <div className="form-group">
-                  <label>Primary Phone *</label>
-                  <input type="text" required placeholder="e.g. +91 98450 12345" value={newLead.phone} onChange={(e) => setNewLead({ ...newLead, phone: e.target.value })} />
+                <div className="modal-grid-2col">
+                  <div className="form-group">
+                    <label>Company Name *</label>
+                    <input 
+                      type="text" 
+                      required 
+                      placeholder="e.g. Mysore Agro Products Pvt Ltd" 
+                      value={newLead.company} 
+                      onChange={(e) => setNewLead({ ...newLead, company: e.target.value })} 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Company Scale / Size *</label>
+                    <select 
+                      value={newLead.companyScale} 
+                      onChange={(e) => setNewLead({ ...newLead, companyScale: e.target.value as any })}
+                    >
+                      {COMPANY_SCALE_OPTIONS.map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-                <div className="form-group">
-                  <label>Alternate Phone</label>
-                  <input type="text" placeholder="e.g. +91 98450 67890" value={newLead.alternatePhone} onChange={(e) => setNewLead({ ...newLead, alternatePhone: e.target.value })} />
-                </div>
-              </div>
 
-              <div className="modal-grid-2col">
                 <div className="form-group">
-                  <label>Company Name *</label>
-                  <input 
-                    type="text" 
-                    required 
-                    placeholder="e.g. Mysore Agro Products Pvt Ltd" 
-                    value={newLead.company} 
-                    onChange={(e) => setNewLead({ ...newLead, company: e.target.value })} 
-                  />
+                  <label>Designation / Job Title</label>
+                  <input type="text" placeholder="e.g. Purchase Director" value={newLead.designation} onChange={(e) => setNewLead({ ...newLead, designation: e.target.value })} />
                 </div>
+
+                <div className="modal-grid-2col">
+                  <div className="form-group">
+                    <label>City *</label>
+                    <input type="text" required placeholder="e.g. Bangalore" value={newLead.city} onChange={(e) => setNewLead({ ...newLead, city: e.target.value })} />
+                  </div>
+                  <div className="form-group">
+                    <label>State *</label>
+                    <input type="text" required placeholder="e.g. Karnataka" value={newLead.state} onChange={(e) => setNewLead({ ...newLead, state: e.target.value })} />
+                  </div>
+                </div>
+
                 <div className="form-group">
-                  <label>Company Scale / Size *</label>
-                  <select 
-                    value={newLead.companyScale} 
-                    onChange={(e) => setNewLead({ ...newLead, companyScale: e.target.value as any })}
-                  >
-                    {COMPANY_SCALE_OPTIONS.map(s => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
+                  <label>Lead Source *</label>
+                  <select value={newLead.leadSource} onChange={(e) => setNewLead({ ...newLead, leadSource: e.target.value })}>
+                    <option value="Website">Website</option>
+                    <option value="Referral">Referral</option>
+                    <option value="Hackathon">Hackathon</option>
+                    <option value="Cold Call">Cold Call</option>
+                    <option value="Event">Event</option>
+                    <option value="Govt Tender">Govt Tender</option>
                   </select>
                 </div>
-              </div>
 
-              <div className="form-group">
-                <label>Designation / Job Title</label>
-                <input type="text" placeholder="e.g. Purchase Director" value={newLead.designation} onChange={(e) => setNewLead({ ...newLead, designation: e.target.value })} />
-              </div>
-
-              <div className="modal-grid-2col">
-                <div className="form-group">
-                  <label>City *</label>
-                  <input type="text" required placeholder="e.g. Bangalore" value={newLead.city} onChange={(e) => setNewLead({ ...newLead, city: e.target.value })} />
+                <div className="modal-grid-2col">
+                  <div className="form-group">
+                    <label>Record Owner (Account Manager) *</label>
+                    <input 
+                      type="text" 
+                      required 
+                      placeholder={`e.g. ${getActiveUserIdentity()}`} 
+                      value={newLead.owner} 
+                      onChange={(e) => setNewLead({ ...newLead, owner: e.target.value })} 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Assigned Sales Rep (Employee) *</label>
+                    <input 
+                      type="text" 
+                      required 
+                      placeholder={`e.g. ${getActiveUserIdentity()}`} 
+                      value={newLead.assignedRep} 
+                      onChange={(e) => setNewLead({ ...newLead, assignedRep: e.target.value })} 
+                    />
+                  </div>
                 </div>
+
                 <div className="form-group">
-                  <label>State *</label>
-                  <input type="text" required placeholder="e.g. Karnataka" value={newLead.state} onChange={(e) => setNewLead({ ...newLead, state: e.target.value })} />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>Lead Source *</label>
-                <select value={newLead.leadSource} onChange={(e) => setNewLead({ ...newLead, leadSource: e.target.value })}>
-                  <option value="Website">Website</option>
-                  <option value="Referral">Referral</option>
-                  <option value="Hackathon">Hackathon</option>
-                  <option value="Cold Call">Cold Call</option>
-                  <option value="Event">Event</option>
-                  <option value="Govt Tender">Govt Tender</option>
-                </select>
-              </div>
-
-              <div className="modal-grid-2col">
-                <div className="form-group">
-                  <label>Record Owner (Account Manager) *</label>
-                  <input 
-                    type="text" 
-                    required 
-                    placeholder={`e.g. ${currentUser?.fullName || 'KP Sumanth'}`} 
-                    list="team-owners-datalist"
-                    value={newLead.owner} 
-                    onChange={(e) => setNewLead({ ...newLead, owner: e.target.value })} 
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Assigned Sales Rep (Employee) *</label>
-                  <input 
-                    type="text" 
-                    required 
-                    placeholder={`e.g. ${currentUser?.fullName || 'KP Sumanth'}`} 
-                    list="team-reps-datalist"
-                    value={newLead.assignedRep} 
-                    onChange={(e) => setNewLead({ ...newLead, assignedRep: e.target.value })} 
-                  />
-                </div>
-              </div>
-
-              <datalist id="team-owners-datalist">
-                <option value={currentUser?.fullName || 'KP Sumanth'}>{currentUser?.fullName || 'KP Sumanth'} (Current User)</option>
-                {dbUsersList.map((u: any) => (
-                  <option key={u.id} value={u.fullName}>{u.fullName} ({u.role})</option>
-                ))}
-                <option value="KP Sumanth">KP Sumanth (ADMIN)</option>
-                <option value="Balasaraswathi">Balasaraswathi (ADMIN)</option>
-                <option value="Pranav">Pranav (SALES_REP)</option>
-                <option value="Riya Sharma">Riya Sharma (MANAGER)</option>
-              </datalist>
-
-              <datalist id="team-reps-datalist">
-                <option value={currentUser?.fullName || 'KP Sumanth'}>{currentUser?.fullName || 'KP Sumanth'} (Current User)</option>
-                {dbUsersList.map((u: any) => (
-                  <option key={u.id} value={u.fullName}>{u.fullName} ({u.role})</option>
-                ))}
-                <option value="KP Sumanth">KP Sumanth (ADMIN)</option>
-                <option value="Balasaraswathi">Balasaraswathi (ADMIN)</option>
-                <option value="Pranav">Pranav (SALES_REP)</option>
-                <option value="Riya Sharma">Riya Sharma (MANAGER)</option>
-              </datalist>
-
-              <div className="form-group">
-                <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>Tags</span>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Click to toggle or type custom tag</span>
-                </label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
-                  {PRESET_TAG_OPTIONS.map(t => {
-                    const isSel = newLead.tags.includes(t);
-                    return (
-                      <button
-                        key={t}
-                        type="button"
-                        className={`badge ${isSel ? 'badge-hot' : 'badge-cold'}`}
-                        style={{ cursor: 'pointer', padding: '3px 8px', fontSize: '11px' }}
-                        onClick={() => {
-                          if (isSel) {
-                            setNewLead({ ...newLead, tags: newLead.tags.filter(tag => tag !== t) });
-                          } else {
-                            setNewLead({ ...newLead, tags: [...newLead.tags, t] });
+                  <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Tags</span>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Click to toggle or type custom tag</span>
+                  </label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                    {PRESET_TAG_OPTIONS.map(t => {
+                      const isSel = newLead.tags.includes(t);
+                      return (
+                        <button
+                          key={t}
+                          type="button"
+                          className={`badge ${isSel ? 'badge-hot' : 'badge-cold'}`}
+                          style={{ cursor: 'pointer', padding: '3px 8px', fontSize: '11px' }}
+                          onClick={() => {
+                            if (isSel) {
+                              setNewLead({ ...newLead, tags: newLead.tags.filter(tag => tag !== t) });
+                            } else {
+                              setNewLead({ ...newLead, tags: [...newLead.tags, t] });
+                            }
+                          }}
+                        >
+                          {isSel ? '✓ ' : '+ '}{t}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <input 
+                      type="text" 
+                      placeholder="Type custom tag & press Enter..."
+                      value={newLead.tagInput || ''}
+                      onChange={(e) => setNewLead({ ...newLead, tagInput: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const trimmed = (newLead.tagInput || '').trim();
+                          if (trimmed && !newLead.tags.includes(trimmed)) {
+                            setNewLead({ ...newLead, tags: [...newLead.tags, trimmed], tagInput: '' });
                           }
-                        }}
-                      >
-                        {isSel ? '✓ ' : '+ '}{t}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <input 
-                    type="text" 
-                    placeholder="Type custom tag & press Enter..."
-                    value={newLead.tagInput || ''}
-                    onChange={(e) => setNewLead({ ...newLead, tagInput: e.target.value })}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
+                        }
+                      }}
+                      style={{ flex: 1, padding: '6px 10px', fontSize: '12px' }}
+                    />
+                    <button 
+                      type="button" 
+                      className="btn btn-secondary" 
+                      style={{ padding: '6px 12px', fontSize: '11px' }}
+                      onClick={() => {
                         const trimmed = (newLead.tagInput || '').trim();
                         if (trimmed && !newLead.tags.includes(trimmed)) {
                           setNewLead({ ...newLead, tags: [...newLead.tags, trimmed], tagInput: '' });
                         }
-                      }
-                    }}
-                    style={{ flex: 1, padding: '6px 10px', fontSize: '12px' }}
-                  />
-                  <button 
-                    type="button" 
-                    className="btn btn-secondary" 
-                    style={{ padding: '6px 12px', fontSize: '11px' }}
-                    onClick={() => {
-                      const trimmed = (newLead.tagInput || '').trim();
-                      if (trimmed && !newLead.tags.includes(trimmed)) {
-                        setNewLead({ ...newLead, tags: [...newLead.tags, trimmed], tagInput: '' });
-                      }
-                    }}
-                  >
-                    + Add
-                  </button>
-                </div>
-                {newLead.tags.length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
-                    {newLead.tags.map(tag => (
-                      <span key={tag} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '600' }}>
-                        #{tag}
-                        <span style={{ cursor: 'pointer', fontWeight: 'bold', marginLeft: '2px' }} onClick={() => setNewLead({ ...newLead, tags: newLead.tags.filter(t => t !== tag) })}>×</span>
-                      </span>
-                    ))}
+                      }}
+                    >
+                      + Add
+                    </button>
                   </div>
-                )}
+                  {newLead.tags.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+                      {newLead.tags.map(tag => (
+                        <span key={tag} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '600' }}>
+                          #{tag}
+                          <span style={{ cursor: 'pointer', fontWeight: 'bold', marginLeft: '2px' }} onClick={() => setNewLead({ ...newLead, tags: newLead.tags.filter(t => t !== tag) })}>×</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Render Admin-configured Custom Fields dynamically */}
+                {customFields.map(field => (
+                  <div key={field.id} className="form-group">
+                    <label>{field.label} (Custom Field)</label>
+                    <input 
+                      type={field.type} 
+                      value={newCustomValues[field.label] || ''}
+                      onChange={(e) => setNewCustomValues({ ...newCustomValues, [field.label]: e.target.value })}
+                    />
+                  </div>
+                ))}
               </div>
 
-              {/* Render Admin-configured Custom Fields dynamically */}
-              {customFields.map(field => (
-                <div key={field.id} className="form-group">
-                  <label>{field.label} (Custom Field)</label>
-                  <input 
-                    type={field.type} 
-                    value={newCustomValues[field.label] || ''}
-                    onChange={(e) => setNewCustomValues({ ...newCustomValues, [field.label]: e.target.value })}
-                  />
-                </div>
-              ))}
-
-              <div className="modal-actions" style={{ position: 'sticky', bottom: 0, backgroundColor: '#ffffff', padding: '14px 0 0 0', borderTop: '1px solid var(--border-color)', zIndex: 10, marginTop: '16px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowLeadModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Create Record</button>
+              <div className="modal-actions" style={{ padding: '16px 24px', borderTop: '1px solid var(--border-color)', backgroundColor: '#f8fafc', margin: 0, display: 'flex', justifyContent: 'flex-end', gap: '12px', alignItems: 'center', flexShrink: 0 }}>
+                <button type="button" className="btn btn-secondary" style={{ padding: '8px 18px', fontSize: '13px', fontWeight: '600' }} onClick={() => setShowLeadModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ padding: '8px 22px', fontSize: '13px', fontWeight: '700' }}>Create Record</button>
               </div>
             </form>
           </div>
@@ -7839,226 +7862,226 @@ export default function App() {
       {/* MODAL: EDIT LEAD DETAILS */}
       {showEditLeadModal && (
         <div className="modal-overlay" style={{ zIndex: 1400 }}>
-          <div className="modal-content" style={{ maxHeight: '85vh', overflowY: 'auto', width: '100%', maxWidth: '620px', zIndex: 1401 }}>
-            <div className="modal-header">
+          <div className="modal-content" style={{ maxHeight: '88vh', display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '620px', padding: 0, overflow: 'hidden', borderRadius: '16px', zIndex: 1401, boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' }}>
+            <div className="modal-header" style={{ padding: '18px 24px', borderBottom: '1px solid var(--border-color)', margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff', flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '18px' }}>✏️</span>
-                <h3>Edit Lead Details</h3>
+                <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '800' }}>Edit Lead & Company Details</h3>
               </div>
               <button className="modal-close-btn" onClick={() => setShowEditLeadModal(false)}>×</button>
             </div>
             
-            <form onSubmit={handleSaveEditLead} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div className="modal-grid-2col">
-                <div className="form-group">
-                  <label>Full Name *</label>
-                  <input 
-                    type="text" 
-                    required 
-                    placeholder="e.g. Ramesh Gowda" 
-                    value={editLeadForm.name} 
-                    onChange={(e) => setEditLeadForm({ ...editLeadForm, name: e.target.value })} 
-                  />
+            <form onSubmit={handleSaveEditLead} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', margin: 0 }}>
+              <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div className="modal-grid-2col">
+                  <div className="form-group">
+                    <label>Full Name *</label>
+                    <input 
+                      type="text" 
+                      required 
+                      placeholder="e.g. Ramesh Gowda" 
+                      value={editLeadForm.name} 
+                      onChange={(e) => setEditLeadForm({ ...editLeadForm, name: e.target.value })} 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Company Name *</label>
+                    <input 
+                      type="text" 
+                      required 
+                      placeholder="e.g. Mysore Agro Products" 
+                      value={editLeadForm.company} 
+                      onChange={(e) => setEditLeadForm({ ...editLeadForm, company: e.target.value })} 
+                    />
+                  </div>
                 </div>
-                <div className="form-group">
-                  <label>Company Name *</label>
-                  <input 
-                    type="text" 
-                    required 
-                    placeholder="e.g. Mysore Agro Products" 
-                    value={editLeadForm.company} 
-                    onChange={(e) => setEditLeadForm({ ...editLeadForm, company: e.target.value })} 
-                  />
-                </div>
-              </div>
 
-              <div className="form-group">
-                <label>Company Scale / Size</label>
-                <select 
-                  value={editLeadForm.companyScale} 
-                  onChange={(e) => setEditLeadForm({ ...editLeadForm, companyScale: e.target.value as any })}
-                >
-                  {COMPANY_SCALE_OPTIONS.map(s => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-              </div>
+                <div className="form-group">
+                  <label>Company Scale / Size</label>
+                  <select 
+                    value={editLeadForm.companyScale} 
+                    onChange={(e) => setEditLeadForm({ ...editLeadForm, companyScale: e.target.value as any })}
+                  >
+                    {COMPANY_SCALE_OPTIONS.map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
 
-              <div className="modal-grid-2col">
-                <div className="form-group">
-                  <label>Work Email Address</label>
-                  <input 
-                    type="email" 
-                    placeholder="name@company.com" 
-                    value={editLeadForm.email} 
-                    onChange={(e) => setEditLeadForm({ ...editLeadForm, email: e.target.value })} 
-                  />
+                <div className="modal-grid-2col">
+                  <div className="form-group">
+                    <label>Work Email Address</label>
+                    <input 
+                      type="email" 
+                      placeholder="name@company.com" 
+                      value={editLeadForm.email} 
+                      onChange={(e) => setEditLeadForm({ ...editLeadForm, email: e.target.value })} 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Primary Phone Number</label>
+                    <input 
+                      type="text" 
+                      placeholder="+91 98450 12345" 
+                      value={editLeadForm.phone} 
+                      onChange={(e) => setEditLeadForm({ ...editLeadForm, phone: e.target.value })} 
+                    />
+                  </div>
                 </div>
-                <div className="form-group">
-                  <label>Primary Phone Number</label>
-                  <input 
-                    type="text" 
-                    placeholder="+91 98450 12345" 
-                    value={editLeadForm.phone} 
-                    onChange={(e) => setEditLeadForm({ ...editLeadForm, phone: e.target.value })} 
-                  />
-                </div>
-              </div>
 
-              <div className="modal-grid-2col">
-                <div className="form-group">
-                  <label>Designation / Role</label>
-                  <input 
-                    type="text" 
-                    placeholder="e.g. Purchase Director" 
-                    value={editLeadForm.designation} 
-                    onChange={(e) => setEditLeadForm({ ...editLeadForm, designation: e.target.value })} 
-                  />
+                <div className="modal-grid-2col">
+                  <div className="form-group">
+                    <label>Designation / Role</label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. Purchase Director" 
+                      value={editLeadForm.designation} 
+                      onChange={(e) => setEditLeadForm({ ...editLeadForm, designation: e.target.value })} 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Record Owner (Account Manager) *</label>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="Enter record owner name..." 
+                      value={editLeadForm.owner} 
+                      onChange={(e) => setEditLeadForm({ ...editLeadForm, owner: e.target.value })} 
+                    />
+                  </div>
                 </div>
+
                 <div className="form-group">
-                  <label>Record Owner (Account Manager) *</label>
+                  <label>Assigned Sales Rep (Employee) *</label>
                   <input 
                     type="text" 
                     required
-                    placeholder="Type or select representative..." 
-                    list="team-owners-datalist"
-                    value={editLeadForm.owner} 
-                    onChange={(e) => setEditLeadForm({ ...editLeadForm, owner: e.target.value })} 
+                    placeholder="Enter assigned sales representative name..." 
+                    value={editLeadForm.assignedRep} 
+                    onChange={(e) => setEditLeadForm({ ...editLeadForm, assignedRep: e.target.value })} 
                   />
                 </div>
-              </div>
 
-              <div className="form-group">
-                <label>Assigned Sales Rep (Employee) *</label>
-                <input 
-                  type="text" 
-                  required
-                  placeholder="Type or select assigned employee..." 
-                  list="team-reps-datalist"
-                  value={editLeadForm.assignedRep} 
-                  onChange={(e) => setEditLeadForm({ ...editLeadForm, assignedRep: e.target.value })} 
-                />
-              </div>
+                <div className="modal-grid-2col">
+                  <div className="form-group">
+                    <label>City</label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. Bangalore" 
+                      value={editLeadForm.city} 
+                      onChange={(e) => setEditLeadForm({ ...editLeadForm, city: e.target.value })} 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>State</label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. Karnataka" 
+                      value={editLeadForm.state} 
+                      onChange={(e) => setEditLeadForm({ ...editLeadForm, state: e.target.value })} 
+                    />
+                  </div>
+                </div>
 
-              <div className="modal-grid-2col">
-                <div className="form-group">
-                  <label>City</label>
-                  <input 
-                    type="text" 
-                    placeholder="e.g. Bangalore" 
-                    value={editLeadForm.city} 
-                    onChange={(e) => setEditLeadForm({ ...editLeadForm, city: e.target.value })} 
-                  />
+                <div className="modal-grid-2col">
+                  <div className="form-group">
+                    <label>Lead Pipeline Status</label>
+                    <select 
+                      value={editLeadForm.status} 
+                      onChange={(e) => setEditLeadForm({ ...editLeadForm, status: e.target.value as any })}
+                    >
+                      <option value="New">New</option>
+                      <option value="Contacted">Contacted</option>
+                      <option value="Qualified">Qualified</option>
+                      <option value="Disqualified">Disqualified</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Lead Score Weight (0 - 100)</label>
+                    <input 
+                      type="number" 
+                      min="0" 
+                      max="100" 
+                      value={editLeadForm.score} 
+                      onChange={(e) => setEditLeadForm({ ...editLeadForm, score: Number(e.target.value) || 0 })} 
+                    />
+                  </div>
                 </div>
-                <div className="form-group">
-                  <label>State</label>
-                  <input 
-                    type="text" 
-                    placeholder="e.g. Karnataka" 
-                    value={editLeadForm.state} 
-                    onChange={(e) => setEditLeadForm({ ...editLeadForm, state: e.target.value })} 
-                  />
-                </div>
-              </div>
 
-              <div className="modal-grid-2col">
                 <div className="form-group">
-                  <label>Lead Pipeline Status</label>
-                  <select 
-                    value={editLeadForm.status} 
-                    onChange={(e) => setEditLeadForm({ ...editLeadForm, status: e.target.value as any })}
-                  >
-                    <option value="New">New</option>
-                    <option value="Contacted">Contacted</option>
-                    <option value="Qualified">Qualified</option>
-                    <option value="Disqualified">Disqualified</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Lead Score Weight (0 - 100)</label>
-                  <input 
-                    type="number" 
-                    min="0" 
-                    max="100" 
-                    value={editLeadForm.score} 
-                    onChange={(e) => setEditLeadForm({ ...editLeadForm, score: Number(e.target.value) || 0 })} 
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>Tags</span>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Click to toggle or type custom tag</span>
-                </label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
-                  {PRESET_TAG_OPTIONS.map(t => {
-                    const isSel = (editLeadForm.tags || []).includes(t);
-                    return (
-                      <button
-                        key={t}
-                        type="button"
-                        className={`badge ${isSel ? 'badge-hot' : 'badge-cold'}`}
-                        style={{ cursor: 'pointer', padding: '3px 8px', fontSize: '11px' }}
-                        onClick={() => {
-                          if (isSel) {
-                            setEditLeadForm({ ...editLeadForm, tags: (editLeadForm.tags || []).filter(tag => tag !== t) });
-                          } else {
-                            setEditLeadForm({ ...editLeadForm, tags: [...(editLeadForm.tags || []), t] });
+                  <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Tags</span>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Click to toggle or type custom tag</span>
+                  </label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                    {PRESET_TAG_OPTIONS.map(t => {
+                      const isSel = (editLeadForm.tags || []).includes(t);
+                      return (
+                        <button
+                          key={t}
+                          type="button"
+                          className={`badge ${isSel ? 'badge-hot' : 'badge-cold'}`}
+                          style={{ cursor: 'pointer', padding: '3px 8px', fontSize: '11px' }}
+                          onClick={() => {
+                            if (isSel) {
+                              setEditLeadForm({ ...editLeadForm, tags: (editLeadForm.tags || []).filter(tag => tag !== t) });
+                            } else {
+                              setEditLeadForm({ ...editLeadForm, tags: [...(editLeadForm.tags || []), t] });
+                            }
+                          }}
+                        >
+                          {isSel ? '✓ ' : '+ '}{t}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <input 
+                      type="text" 
+                      placeholder="Type tag & press Enter..." 
+                      value={editLeadForm.tagInput || ''} 
+                      onChange={(e) => setEditLeadForm({ ...editLeadForm, tagInput: e.target.value })} 
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const trimmed = (editLeadForm.tagInput || '').trim();
+                          if (trimmed && !(editLeadForm.tags || []).includes(trimmed)) {
+                            setEditLeadForm({ ...editLeadForm, tags: [...(editLeadForm.tags || []), trimmed], tagInput: '' });
                           }
-                        }}
-                      >
-                        {isSel ? '✓ ' : '+ '}{t}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <input 
-                    type="text" 
-                    placeholder="Type tag & press Enter..." 
-                    value={editLeadForm.tagInput || ''} 
-                    onChange={(e) => setEditLeadForm({ ...editLeadForm, tagInput: e.target.value })} 
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
+                        }
+                      }}
+                      style={{ flex: 1, padding: '6px 10px', fontSize: '12px' }}
+                    />
+                    <button 
+                      type="button" 
+                      className="btn btn-secondary" 
+                      style={{ padding: '6px 12px', fontSize: '11px' }}
+                      onClick={() => {
                         const trimmed = (editLeadForm.tagInput || '').trim();
                         if (trimmed && !(editLeadForm.tags || []).includes(trimmed)) {
                           setEditLeadForm({ ...editLeadForm, tags: [...(editLeadForm.tags || []), trimmed], tagInput: '' });
                         }
-                      }
-                    }}
-                    style={{ flex: 1, padding: '6px 10px', fontSize: '12px' }}
-                  />
-                  <button 
-                    type="button" 
-                    className="btn btn-secondary" 
-                    style={{ padding: '6px 12px', fontSize: '11px' }}
-                    onClick={() => {
-                      const trimmed = (editLeadForm.tagInput || '').trim();
-                      if (trimmed && !(editLeadForm.tags || []).includes(trimmed)) {
-                        setEditLeadForm({ ...editLeadForm, tags: [...(editLeadForm.tags || []), trimmed], tagInput: '' });
-                      }
-                    }}
-                  >
-                    + Add
-                  </button>
-                </div>
-                {(editLeadForm.tags || []).length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
-                    {(editLeadForm.tags || []).map(tag => (
-                      <span key={tag} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '600' }}>
-                        #{tag}
-                        <span style={{ cursor: 'pointer', fontWeight: 'bold', marginLeft: '2px' }} onClick={() => setEditLeadForm({ ...editLeadForm, tags: (editLeadForm.tags || []).filter(t => t !== tag) })}>×</span>
-                      </span>
-                    ))}
+                      }}
+                    >
+                      + Add
+                    </button>
                   </div>
-                )}
+                  {(editLeadForm.tags || []).length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+                      {(editLeadForm.tags || []).map(tag => (
+                        <span key={tag} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '600' }}>
+                          #{tag}
+                          <span style={{ cursor: 'pointer', fontWeight: 'bold', marginLeft: '2px' }} onClick={() => setEditLeadForm({ ...editLeadForm, tags: (editLeadForm.tags || []).filter(t => t !== tag) })}>×</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="modal-actions" style={{ position: 'sticky', bottom: 0, backgroundColor: '#ffffff', padding: '14px 0 0 0', borderTop: '1px solid var(--border-color)', zIndex: 10, marginTop: '8px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowEditLeadModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" style={{ padding: '8px 20px', fontWeight: '700' }}>Save Changes</button>
+              <div className="modal-actions" style={{ padding: '16px 24px', borderTop: '1px solid var(--border-color)', backgroundColor: '#f8fafc', margin: 0, display: 'flex', justifyContent: 'flex-end', gap: '12px', alignItems: 'center', flexShrink: 0 }}>
+                <button type="button" className="btn btn-secondary" style={{ padding: '8px 18px', fontSize: '13px', fontWeight: '600' }} onClick={() => setShowEditLeadModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ padding: '8px 22px', fontSize: '13px', fontWeight: '700' }}>Save Changes</button>
               </div>
             </form>
           </div>
@@ -8886,11 +8909,11 @@ export default function App() {
                 <div style={{ background: '#eff6ff', padding: '10px', borderRadius: '8px', border: '1px solid #bfdbfe', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <div>
                     <label style={{ fontSize: '10px', textTransform: 'uppercase', color: '#1e40af', fontWeight: 'bold', display: 'block' }}>Deal Owner</label>
-                    <span style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>{selectedDealDetail.owner || 'KP Sumanth'}</span>
+                    <span style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>{selectedDealDetail.owner || 'Unassigned'}</span>
                   </div>
                   <div style={{ borderTop: '1px solid #dbeafe', paddingTop: '4px' }}>
                     <label style={{ fontSize: '10px', textTransform: 'uppercase', color: '#1e40af', fontWeight: 'bold', display: 'block' }}>Assigned Employee (Rep)</label>
-                    <span style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>{selectedDealDetail.assignedRep || selectedDealDetail.owner || 'KP Sumanth'}</span>
+                    <span style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>{selectedDealDetail.assignedRep || selectedDealDetail.owner || 'Unassigned'}</span>
                   </div>
                 </div>
 
@@ -9158,7 +9181,6 @@ export default function App() {
                       <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                         <input 
                           type="text" 
-                          list="team-owners-datalist" 
                           defaultValue={selectedLeadDetail.owner || ''} 
                           id={`owner-edit-input-${selectedLeadDetail.id}`}
                           style={{ flex: 1, padding: '4px 8px', fontSize: '11.5px', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#ffffff' }}
@@ -9183,7 +9205,6 @@ export default function App() {
                       <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                         <input 
                           type="text" 
-                          list="team-reps-datalist" 
                           defaultValue={selectedLeadDetail.assignedRep || selectedLeadDetail.owner || ''} 
                           id={`rep-edit-input-${selectedLeadDetail.id}`}
                           style={{ flex: 1, padding: '4px 8px', fontSize: '11.5px', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#ffffff' }}
@@ -9706,9 +9727,12 @@ export default function App() {
       {/* MODAL: ADD COMPANY SLIDE-OVER DRAWER */}
       {showCompanyModal && (
         <div className="modal-overlay" style={{ zIndex: 1300 }}>
-          <div className="modal-content">
-            <div className="modal-header">
-              <h3>Create Company Account</h3>
+          <div className="modal-content" style={{ maxHeight: '88vh', display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '580px', padding: 0, overflow: 'hidden', borderRadius: '16px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' }}>
+            <div className="modal-header" style={{ padding: '18px 24px', borderBottom: '1px solid var(--border-color)', margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '18px' }}>🏢</span>
+                <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '800' }}>Create Company Account</h3>
+              </div>
               <button className="modal-close-btn" onClick={() => setShowCompanyModal(false)}>×</button>
             </div>
             <form onSubmit={async (e) => {
@@ -9730,8 +9754,8 @@ export default function App() {
                 city: 'Bangalore', 
                 state: 'Karnataka', 
                 address: '',
-                owner: currentUser?.fullName || 'KP Sumanth',
-                assignedRep: currentUser?.fullName || 'KP Sumanth'
+                owner: getActiveUserIdentity(),
+                assignedRep: getActiveUserIdentity()
               });
               try {
                 const { createCompanyAction } = await import('@/app/actions/crm');
@@ -9740,63 +9764,69 @@ export default function App() {
               } catch (err) {
                 console.error('Error adding company to database:', err);
               }
-            }}>
-              <div className="form-group">
-                <label>Company Name *</label>
-                <input type="text" required placeholder="e.g. Acme Industries Ltd" value={newCompany.name} onChange={(e) => setNewCompany({ ...newCompany, name: e.target.value })} />
-              </div>
-              <div className="modal-grid-2col">
+            }} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', margin: 0 }}>
+              <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div className="form-group">
-                  <label>Industry Sector</label>
-                  <input type="text" placeholder="e.g. Manufacturing & Enterprise" value={newCompany.industry} onChange={(e) => setNewCompany({ ...newCompany, industry: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label>Company Scale / Size</label>
-                  <select 
-                    value={newCompany.companyScale} 
-                    onChange={(e) => setNewCompany({ ...newCompany, companyScale: e.target.value as any })}
-                  >
-                    {COMPANY_SCALE_OPTIONS.map(s => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="modal-grid-2col">
-                <div className="form-group">
-                  <label>City</label>
-                  <input type="text" placeholder="e.g. Bangalore" value={newCompany.city} onChange={(e) => setNewCompany({ ...newCompany, city: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label>State</label>
-                  <input type="text" placeholder="e.g. Karnataka" value={newCompany.state} onChange={(e) => setNewCompany({ ...newCompany, state: e.target.value })} />
-                </div>
-              </div>
-              <div className="modal-grid-2col">
-                <div className="form-group">
-                  <label>Record Owner</label>
+                  <label>Company / Organization Name *</label>
                   <input 
                     type="text" 
-                    list="team-owners-datalist" 
-                    placeholder="e.g. KP Sumanth" 
-                    value={newCompany.owner} 
-                    onChange={(e) => setNewCompany({ ...newCompany, owner: e.target.value })} 
+                    required 
+                    placeholder="e.g. Acme Precision Tools Pvt Ltd" 
+                    value={newCompany.name} 
+                    onChange={(e) => setNewCompany({ ...newCompany, name: e.target.value })} 
                   />
                 </div>
-                <div className="form-group">
-                  <label>Assigned Representative</label>
-                  <input 
-                    type="text" 
-                    list="team-reps-datalist" 
-                    placeholder="e.g. KP Sumanth" 
-                    value={newCompany.assignedRep} 
-                    onChange={(e) => setNewCompany({ ...newCompany, assignedRep: e.target.value })} 
-                  />
+                <div className="modal-grid-2col">
+                  <div className="form-group">
+                    <label>Industry</label>
+                    <input type="text" placeholder="e.g. Precision Engineering" value={newCompany.industry} onChange={(e) => setNewCompany({ ...newCompany, industry: e.target.value })} />
+                  </div>
+                  <div className="form-group">
+                    <label>Company Scale / MSME Classification</label>
+                    <select 
+                      value={newCompany.companyScale} 
+                      onChange={(e) => setNewCompany({ ...newCompany, companyScale: e.target.value as any })}
+                    >
+                      {COMPANY_SCALE_OPTIONS.map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="modal-grid-2col">
+                  <div className="form-group">
+                    <label>City</label>
+                    <input type="text" placeholder="e.g. Bangalore" value={newCompany.city} onChange={(e) => setNewCompany({ ...newCompany, city: e.target.value })} />
+                  </div>
+                  <div className="form-group">
+                    <label>State</label>
+                    <input type="text" placeholder="e.g. Karnataka" value={newCompany.state} onChange={(e) => setNewCompany({ ...newCompany, state: e.target.value })} />
+                  </div>
+                </div>
+                <div className="modal-grid-2col">
+                  <div className="form-group">
+                    <label>Record Owner</label>
+                    <input 
+                      type="text" 
+                      placeholder={`e.g. ${getActiveUserIdentity()}`} 
+                      value={newCompany.owner} 
+                      onChange={(e) => setNewCompany({ ...newCompany, owner: e.target.value })} 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Assigned Representative</label>
+                    <input 
+                      type="text" 
+                      placeholder={`e.g. ${getActiveUserIdentity()}`} 
+                      value={newCompany.assignedRep} 
+                      onChange={(e) => setNewCompany({ ...newCompany, assignedRep: e.target.value })} 
+                    />
+                  </div>
                 </div>
               </div>
-              <div className="modal-actions">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowCompanyModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Create Company</button>
+              <div className="modal-actions" style={{ padding: '16px 24px', borderTop: '1px solid var(--border-color)', backgroundColor: '#f8fafc', margin: 0, display: 'flex', justifyContent: 'flex-end', gap: '12px', alignItems: 'center', flexShrink: 0 }}>
+                <button type="button" className="btn btn-secondary" style={{ padding: '8px 18px', fontSize: '13px', fontWeight: '600' }} onClick={() => setShowCompanyModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ padding: '8px 22px', fontSize: '13px', fontWeight: '700' }}>Create Company</button>
               </div>
             </form>
           </div>
@@ -10673,9 +10703,12 @@ export default function App() {
       {/* ADD DAILY CONTACT / VISITING CARD MODAL */}
       {showAddContactModal && (
         <div className="modal-overlay" style={{ zIndex: 1300 }} onClick={() => setShowAddContactModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '540px' }}>
-            <div className="modal-header">
-              <h3>Create Centralized Contact Record</h3>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '88vh', display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '580px', padding: 0, overflow: 'hidden', borderRadius: '16px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' }}>
+            <div className="modal-header" style={{ padding: '18px 24px', borderBottom: '1px solid var(--border-color)', margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '18px' }}>📇</span>
+                <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '800' }}>Create Centralized Contact Record</h3>
+              </div>
               <button className="modal-close-btn" onClick={() => setShowAddContactModal(false)}>×</button>
             </div>
             <form onSubmit={async (e) => {
@@ -10696,8 +10729,8 @@ export default function App() {
                 state: newContactForm.state.trim() || 'Karnataka',
                 category: newContactForm.category || 'Prospect',
                 sourceType: newContactForm.sourceType || 'Direct',
-                owner: newContactForm.owner || currentUser?.fullName || 'KP Sumanth',
-                assignedRep: newContactForm.assignedRep || newContactForm.owner || currentUser?.fullName || 'KP Sumanth',
+                owner: newContactForm.owner || getActiveUserIdentity(),
+                assignedRep: newContactForm.assignedRep || newContactForm.owner || getActiveUserIdentity(),
                 tags: newContactForm.tags && newContactForm.tags.length > 0 ? newContactForm.tags : ['B2G'],
                 notes: newContactForm.notes
               };
@@ -10719,7 +10752,7 @@ export default function App() {
               // Save directly to database
               try {
                 const { createContactAction } = await import('@/app/actions/contacts');
-                const res = await createContactAction(candidate, currentUser?.fullName || 'CRM User');
+                const res = await createContactAction(candidate, getActiveUserIdentity());
                 if (res.success && res.contact) {
                   setContactsList(prev => [{ ...res.contact, phone: res.contact?.preferredPhone || cleanPhone, dateAdded: 'Today' }, ...prev]);
                   triggerToast(`Contact "${candidate.name}" created!`, 'success');
@@ -10742,135 +10775,135 @@ export default function App() {
                 state: '', 
                 category: 'Prospect', 
                 sourceType: 'Direct', 
-                owner: currentUser?.fullName || 'KP Sumanth',
-                assignedRep: currentUser?.fullName || 'KP Sumanth',
+                owner: getActiveUserIdentity(),
+                assignedRep: getActiveUserIdentity(),
                 tags: ['B2G'],
                 tagInput: '',
                 notes: '' 
               });
-            }}>
-              <div className="form-group">
-                <label>Contact Full Name *</label>
-                <input 
-                  type="text" 
-                  required 
-                  value={newContactForm.name} 
-                  onChange={(e) => setNewContactForm({ ...newContactForm, name: e.target.value })} 
-                  placeholder="e.g. Ramesh Patel"
-                />
+            }} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', margin: 0 }}>
+              <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div className="form-group">
+                  <label>Contact Full Name *</label>
+                  <input 
+                    type="text" 
+                    required 
+                    value={newContactForm.name} 
+                    onChange={(e) => setNewContactForm({ ...newContactForm, name: e.target.value })} 
+                    placeholder="e.g. Ramesh Patel"
+                  />
+                </div>
+                <div className="modal-grid-2col">
+                  <div className="form-group">
+                    <label>Company Name</label>
+                    <input 
+                      type="text" 
+                      value={newContactForm.company} 
+                      onChange={(e) => setNewContactForm({ ...newContactForm, company: e.target.value })} 
+                      placeholder="e.g. Patel Logistics Ltd"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Company Scale / Size</label>
+                    <select 
+                      value={newContactForm.companyScale} 
+                      onChange={(e) => setNewContactForm({ ...newContactForm, companyScale: e.target.value as any })}
+                    >
+                      {COMPANY_SCALE_OPTIONS.map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="modal-grid-2col">
+                  <div className="form-group">
+                    <label>Primary Phone Number</label>
+                    <input 
+                      type="text" 
+                      value={newContactForm.phone} 
+                      onChange={(e) => setNewContactForm({ ...newContactForm, phone: e.target.value })} 
+                      placeholder="e.g. +91 98450 11223"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Work Email Address</label>
+                    <input 
+                      type="email" 
+                      value={newContactForm.email} 
+                      onChange={(e) => setNewContactForm({ ...newContactForm, email: e.target.value })} 
+                      placeholder="e.g. ramesh@patellogistics.in"
+                    />
+                  </div>
+                </div>
+                <div className="modal-grid-2col">
+                  <div className="form-group">
+                    <label>Designation / Role</label>
+                    <input 
+                      type="text" 
+                      value={newContactForm.designation} 
+                      onChange={(e) => setNewContactForm({ ...newContactForm, designation: e.target.value })} 
+                      placeholder="e.g. Managing Director"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Category</label>
+                    <select 
+                      value={newContactForm.category}
+                      onChange={(e) => setNewContactForm({ ...newContactForm, category: e.target.value })}
+                    >
+                      <option value="Prospect">Prospect</option>
+                      <option value="Customer">Customer</option>
+                      <option value="Partner">Partner</option>
+                      <option value="Vendor">Vendor</option>
+                      <option value="VIP">VIP</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="modal-grid-2col">
+                  <div className="form-group">
+                    <label>Record Owner</label>
+                    <input 
+                      type="text" 
+                      placeholder={`e.g. ${getActiveUserIdentity()}`} 
+                      value={newContactForm.owner} 
+                      onChange={(e) => setNewContactForm({ ...newContactForm, owner: e.target.value })} 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Assigned Representative</label>
+                    <input 
+                      type="text" 
+                      placeholder={`e.g. ${getActiveUserIdentity()}`} 
+                      value={newContactForm.assignedRep} 
+                      onChange={(e) => setNewContactForm({ ...newContactForm, assignedRep: e.target.value })} 
+                    />
+                  </div>
+                </div>
+                <div className="modal-grid-2col">
+                  <div className="form-group">
+                    <label>City</label>
+                    <input 
+                      type="text" 
+                      value={newContactForm.city} 
+                      onChange={(e) => setNewContactForm({ ...newContactForm, city: e.target.value })} 
+                      placeholder="e.g. Bengaluru"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>State</label>
+                    <input 
+                      type="text" 
+                      value={newContactForm.state} 
+                      onChange={(e) => setNewContactForm({ ...newContactForm, state: e.target.value })} 
+                      placeholder="e.g. Karnataka"
+                    />
+                  </div>
+                </div>
               </div>
-              <div className="modal-grid-2col">
-                <div className="form-group">
-                  <label>Company Name</label>
-                  <input 
-                    type="text" 
-                    value={newContactForm.company} 
-                    onChange={(e) => setNewContactForm({ ...newContactForm, company: e.target.value })} 
-                    placeholder="e.g. Patel Logistics Ltd"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Company Scale / Size</label>
-                  <select 
-                    value={newContactForm.companyScale} 
-                    onChange={(e) => setNewContactForm({ ...newContactForm, companyScale: e.target.value as any })}
-                  >
-                    {COMPANY_SCALE_OPTIONS.map(s => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="modal-grid-2col">
-                <div className="form-group">
-                  <label>Primary Phone Number</label>
-                  <input 
-                    type="text" 
-                    value={newContactForm.phone} 
-                    onChange={(e) => setNewContactForm({ ...newContactForm, phone: e.target.value })} 
-                    placeholder="e.g. +91 98450 11223"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Work Email Address</label>
-                  <input 
-                    type="email" 
-                    value={newContactForm.email} 
-                    onChange={(e) => setNewContactForm({ ...newContactForm, email: e.target.value })} 
-                    placeholder="e.g. ramesh@patellogistics.in"
-                  />
-                </div>
-              </div>
-              <div className="modal-grid-2col">
-                <div className="form-group">
-                  <label>Designation / Role</label>
-                  <input 
-                    type="text" 
-                    value={newContactForm.designation} 
-                    onChange={(e) => setNewContactForm({ ...newContactForm, designation: e.target.value })} 
-                    placeholder="e.g. Managing Director"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Category</label>
-                  <select
-                    value={newContactForm.category}
-                    onChange={(e) => setNewContactForm({ ...newContactForm, category: e.target.value })}
-                  >
-                    <option value="Prospect">Prospect</option>
-                    <option value="Customer">Customer</option>
-                    <option value="Partner">Partner</option>
-                    <option value="Vendor">Vendor</option>
-                    <option value="VIP">VIP</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-              </div>
-              <div className="modal-grid-2col">
-                <div className="form-group">
-                  <label>Record Owner</label>
-                  <input 
-                    type="text" 
-                    list="team-owners-datalist" 
-                    placeholder="e.g. KP Sumanth" 
-                    value={newContactForm.owner} 
-                    onChange={(e) => setNewContactForm({ ...newContactForm, owner: e.target.value })} 
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Assigned Representative</label>
-                  <input 
-                    type="text" 
-                    list="team-reps-datalist" 
-                    placeholder="e.g. KP Sumanth" 
-                    value={newContactForm.assignedRep} 
-                    onChange={(e) => setNewContactForm({ ...newContactForm, assignedRep: e.target.value })} 
-                  />
-                </div>
-              </div>
-              <div className="modal-grid-2col">
-                <div className="form-group">
-                  <label>City</label>
-                  <input 
-                    type="text" 
-                    value={newContactForm.city} 
-                    onChange={(e) => setNewContactForm({ ...newContactForm, city: e.target.value })} 
-                    placeholder="e.g. Bengaluru"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>State</label>
-                  <input 
-                    type="text" 
-                    value={newContactForm.state} 
-                    onChange={(e) => setNewContactForm({ ...newContactForm, state: e.target.value })} 
-                    placeholder="e.g. Karnataka"
-                  />
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '20px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowAddContactModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Save Contact Record →</button>
+              <div className="modal-actions" style={{ padding: '16px 24px', borderTop: '1px solid var(--border-color)', backgroundColor: '#f8fafc', margin: 0, display: 'flex', justifyContent: 'flex-end', gap: '12px', alignItems: 'center', flexShrink: 0 }}>
+                <button type="button" className="btn btn-secondary" style={{ padding: '8px 18px', fontSize: '13px', fontWeight: '600' }} onClick={() => setShowAddContactModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ padding: '8px 22px', fontSize: '13px', fontWeight: '700' }}>Save Contact Record →</button>
               </div>
             </form>
           </div>
@@ -11009,7 +11042,7 @@ export default function App() {
                     city: scannedResultForm.city || '',
                     category: 'Prospect',
                     sourceType: 'Visiting Card',
-                    owner: currentUser?.fullName || 'peketi balasaraswathi'
+                    owner: getActiveUserIdentity()
                   };
 
                   // Duplicate check before saving scanned card
@@ -11041,7 +11074,7 @@ export default function App() {
                   // Persist Scanned Contact & Company to PostgreSQL Database via Server Action
                   try {
                     const { createContactAction } = await import('@/app/actions/contacts');
-                    const res = await createContactAction(candidate, currentUser?.fullName || 'peketi balasaraswathi');
+                    const res = await createContactAction(candidate, getActiveUserIdentity());
                     if (res && res.isDuplicate && !res.success) {
                       triggerToast(res.error || `Contact "${candidate.name}" is already in the database!`, 'warning');
                       setShowScanModal(false);
@@ -11238,9 +11271,12 @@ export default function App() {
       {/* CONVERT LEAD TO DEAL MODAL */}
       {showConvertLeadModal && selectedLeadForConversion && (
         <div className="modal-overlay" style={{ zIndex: 1300 }} onClick={() => setShowConvertLeadModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px' }}>
-            <div className="modal-header">
-              <h3>Convert Lead to Deal (Kanban Pipeline)</h3>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '88vh', display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '520px', padding: 0, overflow: 'hidden', borderRadius: '16px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' }}>
+            <div className="modal-header" style={{ padding: '18px 24px', borderBottom: '1px solid var(--border-color)', margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '18px' }}>🚀</span>
+                <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '800' }}>Convert Lead to Pipeline Deal</h3>
+              </div>
               <button className="modal-close-btn" onClick={() => setShowConvertLeadModal(false)}>×</button>
             </div>
             <form onSubmit={async (e) => {
@@ -11268,8 +11304,8 @@ export default function App() {
                   value: Number(convertDealForm.dealValue) || 500000,
                   probability: 40,
                   stage: targetStage,
-                  owner: selectedLeadForConversion.owner || currentUser?.fullName || 'KP Sumanth',
-                  assignedRep: selectedLeadForConversion.assignedRep || selectedLeadForConversion.owner || currentUser?.fullName || 'KP Sumanth',
+                  owner: selectedLeadForConversion.owner || getActiveUserIdentity(),
+                  assignedRep: selectedLeadForConversion.assignedRep || selectedLeadForConversion.owner || getActiveUserIdentity(),
                   leadId: selectedLeadForConversion.id
                 });
                 if (res.isDuplicate) {
@@ -11287,8 +11323,8 @@ export default function App() {
                     value: Number(res.data.value) || Number(convertDealForm.dealValue) || 500000,
                     probability: res.data.probability || 40,
                     stage: normalizeDealStage(res.data.stage || targetStage),
-                    owner: res.data.owner || selectedLeadForConversion.owner || currentUser?.fullName || 'KP Sumanth',
-                    assignedRep: selectedLeadForConversion.assignedRep || selectedLeadForConversion.owner || currentUser?.fullName || 'KP Sumanth',
+                    owner: res.data.owner || selectedLeadForConversion.owner || getActiveUserIdentity(),
+                    assignedRep: selectedLeadForConversion.assignedRep || selectedLeadForConversion.owner || getActiveUserIdentity(),
                     leadId: selectedLeadForConversion.id,
                     daysInStage: 0,
                     expectedClose: new Date().toISOString().slice(0, 10)
@@ -11306,49 +11342,51 @@ export default function App() {
                 console.error('Error converting lead to deal:', err);
                 alert('Database error converting lead to deal.');
               }
-            }}>
-              <div className="form-group">
-                <label>Lead / Contact Name</label>
-                <input type="text" disabled value={selectedLeadForConversion.name} style={{ background: '#f1f5f9' }} />
+            }} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', margin: 0 }}>
+              <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div className="form-group">
+                  <label>Lead / Contact Name</label>
+                  <input type="text" disabled value={selectedLeadForConversion.name} style={{ background: '#f1f5f9' }} />
+                </div>
+                <div className="form-group">
+                  <label>Company / Organization</label>
+                  <input type="text" disabled value={selectedLeadForConversion.company || '—'} style={{ background: '#f1f5f9' }} />
+                </div>
+                <div className="form-group">
+                  <label>Deal Name *</label>
+                  <input 
+                    type="text" 
+                    required 
+                    value={convertDealForm.dealName} 
+                    onChange={(e) => setConvertDealForm({ ...convertDealForm, dealName: e.target.value })} 
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Expected Deal Value (₹ INR) *</label>
+                  <input 
+                    type="number" 
+                    required 
+                    value={convertDealForm.dealValue} 
+                    onChange={(e) => setConvertDealForm({ ...convertDealForm, dealValue: e.target.value })} 
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Target Pipeline Stage *</label>
+                  <select 
+                    value={convertDealForm.stage} 
+                    onChange={(e) => setConvertDealForm({ ...convertDealForm, stage: e.target.value })}
+                  >
+                    <option value="New">Discovered (New Lead Inquiry)</option>
+                    <option value="Contacted">Engaged (Contacted & Meeting Scheduled)</option>
+                    <option value="Proposal Sent">Proposal Sent (Commercial Quote Shared)</option>
+                    <option value="Negotiation">Negotiation (Final Terms)</option>
+                    <option value="Won">Won (Deal Closed / Order Received)</option>
+                  </select>
+                </div>
               </div>
-              <div className="form-group">
-                <label>Company / Organization</label>
-                <input type="text" disabled value={selectedLeadForConversion.company || '—'} style={{ background: '#f1f5f9' }} />
-              </div>
-              <div className="form-group">
-                <label>Deal Name *</label>
-                <input 
-                  type="text" 
-                  required 
-                  value={convertDealForm.dealName} 
-                  onChange={(e) => setConvertDealForm({ ...convertDealForm, dealName: e.target.value })} 
-                />
-              </div>
-              <div className="form-group">
-                <label>Expected Deal Value (₹ INR) *</label>
-                <input 
-                  type="number" 
-                  required 
-                  value={convertDealForm.dealValue} 
-                  onChange={(e) => setConvertDealForm({ ...convertDealForm, dealValue: e.target.value })} 
-                />
-              </div>
-              <div className="form-group">
-                <label>Target Pipeline Stage *</label>
-                <select 
-                  value={convertDealForm.stage} 
-                  onChange={(e) => setConvertDealForm({ ...convertDealForm, stage: e.target.value })}
-                >
-                  <option value="New">Discovered (New Lead Inquiry)</option>
-                  <option value="Contacted">Engaged (Contacted & Meeting Scheduled)</option>
-                  <option value="Proposal Sent">Proposal Sent (Commercial Quote Shared)</option>
-                  <option value="Negotiation">Negotiation (Final Terms)</option>
-                  <option value="Won">Won (Deal Closed / Order Received)</option>
-                </select>
-              </div>
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '20px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowConvertLeadModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" style={{ backgroundColor: '#10b981', borderColor: '#10b981' }}>Create Deal in Pipeline →</button>
+              <div className="modal-actions" style={{ padding: '16px 24px', borderTop: '1px solid var(--border-color)', backgroundColor: '#f8fafc', margin: 0, display: 'flex', justifyContent: 'flex-end', gap: '12px', alignItems: 'center', flexShrink: 0 }}>
+                <button type="button" className="btn btn-secondary" style={{ padding: '8px 18px', fontSize: '13px', fontWeight: '600' }} onClick={() => setShowConvertLeadModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ padding: '8px 22px', fontSize: '13px', fontWeight: '700', backgroundColor: '#10b981', borderColor: '#10b981' }}>Create Deal in Pipeline →</button>
               </div>
             </form>
           </div>
@@ -11387,7 +11425,7 @@ export default function App() {
                 phone: cnt.preferredPhone || cnt.phone,
                 status: 'New',
                 score: 25,
-                owner: currentUser?.fullName || 'peketi balasaraswathi'
+                owner: getActiveUserIdentity()
               });
               if (res.success && res.data) {
                 const newLead: Lead = {
@@ -11398,7 +11436,7 @@ export default function App() {
                   phone: res.data.phone || '',
                   status: (res.data.status as any) || 'New',
                   score: res.data.score || 25,
-                  owner: res.data.owner || currentUser?.fullName || 'peketi balasaraswathi',
+                  owner: res.data.owner || getActiveUserIdentity(),
                   activities: []
                 };
                 setLeads(prev => [newLead, ...prev]);
