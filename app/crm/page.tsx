@@ -1317,9 +1317,23 @@ export default function App() {
   const [followUpTaskTitle, setFollowUpTaskTitle] = useState('');
   const [followUpTaskDueDate, setFollowUpTaskDueDate] = useState('2026-07-20');
   
+  // Dynamic Real-Time System Date & Calendar Navigation
   const [calendarViewMode, setCalendarViewMode] = useState<'month' | 'week'>('month');
-  const [calendarMonth, setCalendarMonth] = useState<'June' | 'July' | 'August'>('July');
-  const [selectedCalendarDay, setSelectedCalendarDay] = useState<number | null>(null);
+  const [calendarYear, setCalendarYear] = useState<number>(() => new Date().getFullYear());
+  const [calendarMonthIndex, setCalendarMonthIndex] = useState<number>(() => new Date().getMonth());
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
+  const [showDayQuickTaskForm, setShowDayQuickTaskForm] = useState(false);
+  const [dayQuickTask, setDayQuickTask] = useState({
+    title: '',
+    description: '',
+    time: '10:00',
+    priority: 'Medium' as 'Low' | 'Medium' | 'High',
+    linkedTo: '',
+    syncOutlook: true
+  });
   
   // Phase 7 Administration, Search & Backup States
   const [notifications, setNotifications] = useState<Array<{ id: string; title: string; message: string; date: string; unread: boolean }>>([
@@ -2346,6 +2360,73 @@ export default function App() {
         }
       } catch (err) {
         console.error('Failed to save/sync task:', err);
+      }
+    })();
+  };
+
+  const handleDayQuickTaskSubmit = async (selectedDateStr: string, keepOpen = false) => {
+    if (!dayQuickTask.title.trim()) {
+      triggerToast('Please enter a task / work title.', 'warning');
+      return;
+    }
+
+    const freshTask: Task = {
+      id: `T-${Date.now().toString().slice(-3)}-${Math.random().toString(36).substr(2, 3)}`,
+      title: dayQuickTask.title.trim(),
+      description: dayQuickTask.description.trim(),
+      dueDate: selectedDateStr,
+      dueTime: dayQuickTask.time || '10:00',
+      priority: dayQuickTask.priority,
+      status: 'Open',
+      assignee: currentUser?.fullName || currentAgentName,
+      linkedTo: dayQuickTask.linkedTo.trim()
+    };
+
+    setTasks(prev => [freshTask, ...prev]);
+    if (!keepOpen) {
+      setShowDayQuickTaskForm(false);
+    }
+    setDayQuickTask(prev => ({
+      ...prev,
+      title: '',
+      description: '',
+      linkedTo: ''
+    }));
+
+    triggerToast(`Task "${freshTask.title}" scheduled for ${selectedDateStr}!`, 'success');
+
+    // Background auto-sync to Microsoft Outlook if user account is linked
+    if (outlookAccountStatus.connected && currentUser?.email) {
+      try {
+        const { syncTaskToOutlookAction } = await import('@/app/actions/outlook');
+        await syncTaskToOutlookAction(currentUser.email, {
+          title: freshTask.title,
+          description: freshTask.description,
+          dueDate: freshTask.dueDate,
+          dueTime: freshTask.dueTime || '10:00',
+          priority: freshTask.priority,
+          linkedTo: freshTask.linkedTo
+        });
+      } catch (err) {
+        console.warn('Background Outlook auto-sync error:', err);
+      }
+    }
+
+    // 2. Persist to DB in background
+    (async () => {
+      try {
+        const { createTaskAction } = await import('@/app/actions/crm');
+        await createTaskAction({
+          title: freshTask.title,
+          description: freshTask.description,
+          dueDate: freshTask.dueDate,
+          priority: freshTask.priority,
+          status: 'Open',
+          assignee: freshTask.assignee,
+          linkedTo: freshTask.linkedTo
+        });
+      } catch (err) {
+        console.error('Failed to save day task to DB:', err);
       }
     })();
   };
@@ -5407,23 +5488,43 @@ export default function App() {
 
           {/* TAB 5: OPERATIONAL CALENDAR */}
           {activeTab === 'calendar' && (() => {
-            const getMonthDetails = () => {
-              if (calendarMonth === 'June') return { name: 'June 2026', days: 30, offset: 1 };
-              if (calendarMonth === 'August') return { name: 'August 2026', days: 31, offset: 6 };
-              return { name: 'July 2026', days: 31, offset: 3 }; // July
-            };
+            const now = new Date();
+            const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
-            const { name: monthName, days: monthDays, offset: monthOffset } = getMonthDetails();
-            const totalCells = monthOffset + monthDays > 35 ? 42 : 35;
+            // Real dynamic month calculations based on current system time
+            const monthDateObj = new Date(calendarYear, calendarMonthIndex, 1);
+            const monthName = monthDateObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            const daysInMonth = new Date(calendarYear, calendarMonthIndex + 1, 0).getDate();
+            const startDayOffset = new Date(calendarYear, calendarMonthIndex, 1).getDay(); // 0 = Sun
+            const totalCells = Math.ceil((startDayOffset + daysInMonth) / 7) * 7;
+            
             const cells = Array.from({ length: totalCells }, (_, idx) => {
-              const dayNum = idx - monthOffset + 1;
-              return dayNum > 0 && dayNum <= monthDays ? dayNum : null;
+              const dayNum = idx - startDayOffset + 1;
+              return dayNum > 0 && dayNum <= daysInMonth ? dayNum : null;
             });
 
-            const weeklyDays = [12, 13, 14, 15, 16, 17, 18];
+            // Calculate dynamic weekly 7-day strip based on selected date or today
+            const baseDate = selectedCalendarDate ? new Date(selectedCalendarDate + 'T00:00:00') : now;
+            const startOfWeek = new Date(baseDate);
+            startOfWeek.setDate(baseDate.getDate() - baseDate.getDay());
 
-            const renderEventsForDay = (day: number) => {
-              const dateStr = `2026-${calendarMonth === 'June' ? '06' : calendarMonth === 'August' ? '08' : '07'}-${day < 10 ? '0' + day : day}`;
+            const weeklyDays = Array.from({ length: 7 }, (_, i) => {
+              const d = new Date(startOfWeek);
+              d.setDate(startOfWeek.getDate() + i);
+              const dY = d.getFullYear();
+              const dM = String(d.getMonth() + 1).padStart(2, '0');
+              const dD = String(d.getDate()).padStart(2, '0');
+              const dateStr = `${dY}-${dM}-${dD}`;
+              return {
+                day: d.getDate(),
+                dateStr: dateStr,
+                dayName: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][i],
+                isToday: dateStr === todayStr,
+                isSelected: dateStr === selectedCalendarDate
+              };
+            });
+
+            const renderEventsForDay = (dateStr: string) => {
               const dayTasks = tasks.filter(t => t.dueDate === dateStr);
               const dayDeals = deals.filter(d => d.expectedClose === dateStr);
               const dayActs = activities.filter(a => a.date === dateStr);
@@ -5433,10 +5534,21 @@ export default function App() {
                   {dayTasks.map(t => (
                     <div 
                       key={t.id} 
-                      style={{ background: '#eff6ff', color: '#1e40af', borderLeft: '3px solid #3b82f6', fontSize: '9.5px', padding: '2px 4px', borderRadius: '3px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} 
-                      title={`Task: ${t.title}`}
+                      style={{ 
+                        background: t.status === 'Completed' ? '#f1f5f9' : '#eff6ff', 
+                        color: t.status === 'Completed' ? '#94a3b8' : '#1e40af', 
+                        borderLeft: t.status === 'Completed' ? '3px solid #94a3b8' : '3px solid #3b82f6', 
+                        fontSize: '9.5px', 
+                        padding: '2px 4px', 
+                        borderRadius: '3px', 
+                        textOverflow: 'ellipsis', 
+                        overflow: 'hidden', 
+                        whiteSpace: 'nowrap',
+                        fontWeight: '600'
+                      }} 
+                      title={`Task: ${t.title} ${t.dueTime ? '(' + t.dueTime + ')' : ''}`}
                     >
-                      {t.title}
+                      {t.dueTime ? `${t.dueTime} ` : ''}{t.title}
                     </div>
                   ))}
                   {dayDeals.map(d => (
@@ -5461,12 +5573,9 @@ export default function App() {
               );
             };
 
-            const selectedDateStr = selectedCalendarDay 
-              ? `2026-${calendarMonth === 'June' ? '06' : calendarMonth === 'August' ? '08' : '07'}-${selectedCalendarDay < 10 ? '0' + selectedCalendarDay : selectedCalendarDay}`
-              : null;
-            const inspectedTasks = selectedDateStr ? tasks.filter(t => t.dueDate === selectedDateStr) : [];
-            const inspectedDeals = selectedDateStr ? deals.filter(d => d.expectedClose === selectedDateStr) : [];
-            const inspectedActs = selectedDateStr ? activities.filter(a => a.date === selectedDateStr) : [];
+            const inspectedTasks = selectedCalendarDate ? tasks.filter(t => t.dueDate === selectedCalendarDate) : [];
+            const inspectedDeals = selectedCalendarDate ? deals.filter(d => d.expectedClose === selectedCalendarDate) : [];
+            const inspectedActs = selectedCalendarDate ? activities.filter(a => a.date === selectedCalendarDate) : [];
 
             return (
               <div className="animate-fade">
@@ -5524,38 +5633,55 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="calendar-split-container" style={{ display: 'grid', gridTemplateColumns: selectedCalendarDay ? '3fr 2fr' : '1fr', gap: '20px', width: '100%', maxWidth: '100%' }}>
+                <div className="calendar-split-container" style={{ display: 'grid', gridTemplateColumns: selectedCalendarDate ? '3fr 2fr' : '1fr', gap: '20px', width: '100%', maxWidth: '100%' }}>
                   <div className="panel-card" style={{ padding: '16px', width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
                     
-                    {/* Calendar Controls */}
+                    {/* Calendar Navigation Controls */}
                     <div className="calendar-controls-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
                       <div style={{ display: 'flex', gap: '6px' }}>
                         <button 
                           className="btn btn-secondary" 
                           style={{ padding: '6px 12px', fontSize: '12px' }}
                           onClick={() => {
-                            if (calendarMonth === 'July') setCalendarMonth('June');
-                            if (calendarMonth === 'August') setCalendarMonth('July');
+                            if (calendarMonthIndex === 0) {
+                              setCalendarMonthIndex(11);
+                              setCalendarYear(y => y - 1);
+                            } else {
+                              setCalendarMonthIndex(m => m - 1);
+                            }
                           }}
-                          disabled={calendarMonth === 'June'}
                         >
                           ◀ Prev
                         </button>
                         <button 
                           className="btn btn-secondary" 
+                          style={{ padding: '6px 12px', fontSize: '12px', fontWeight: '700' }}
+                          onClick={() => {
+                            setCalendarYear(now.getFullYear());
+                            setCalendarMonthIndex(now.getMonth());
+                            setSelectedCalendarDate(todayStr);
+                          }}
+                        >
+                          Today
+                        </button>
+                        <button 
+                          className="btn btn-secondary" 
                           style={{ padding: '6px 12px', fontSize: '12px' }}
                           onClick={() => {
-                            if (calendarMonth === 'June') setCalendarMonth('July');
-                            if (calendarMonth === 'July') setCalendarMonth('August');
+                            if (calendarMonthIndex === 11) {
+                              setCalendarMonthIndex(0);
+                              setCalendarYear(y => y + 1);
+                            } else {
+                              setCalendarMonthIndex(m => m + 1);
+                            }
                           }}
-                          disabled={calendarMonth === 'August'}
                         >
                           Next ▶
                         </button>
                       </div>
                       
-                      <h3 style={{ fontSize: '15px', fontWeight: '800', margin: 0 }}>
-                        {calendarViewMode === 'month' ? monthName : 'Week of July 12 - 18, 2026'}
+                      <h3 style={{ fontSize: '15px', fontWeight: '800', margin: 0, color: '#0f172a' }}>
+                        {calendarViewMode === 'month' ? monthName : `Week of ${weeklyDays[0].dateStr} - ${weeklyDays[6].dateStr}`}
                       </h3>
 
                       {/* Legend indicators */}
@@ -5575,8 +5701,11 @@ export default function App() {
                         <div className="calendar-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', width: '100%' }}>
                           {cells.map((day, idx) => {
                             if (!day) return <div key={idx} style={{ background: '#f8fafc', borderRadius: '6px', minHeight: '90px', opacity: 0.4 }}></div>;
-                            const isToday = calendarMonth === 'July' && day === 16;
-                            const isSelected = selectedCalendarDay === day;
+                            const dM = String(calendarMonthIndex + 1).padStart(2, '0');
+                            const dD = String(day).padStart(2, '0');
+                            const dateStr = `${calendarYear}-${dM}-${dD}`;
+                            const isToday = dateStr === todayStr;
+                            const isSelected = dateStr === selectedCalendarDate;
 
                             return (
                               <div 
@@ -5584,22 +5713,50 @@ export default function App() {
                                 style={{ 
                                   background: isToday ? '#fffbeb' : '#ffffff', 
                                   borderRadius: '6px', 
-                                  border: isSelected ? '2px solid #d49b38' : isToday ? '1px solid #fde68a' : '1px solid var(--border-color)', 
+                                  border: isSelected ? '2px solid #0078d4' : isToday ? '1px solid #fde68a' : '1px solid var(--border-color)', 
                                   minHeight: '95px', 
                                   padding: '6px', 
                                   cursor: 'pointer',
                                   transition: 'all 0.15s ease-in-out',
-                                  boxShadow: isSelected ? '0 4px 6px -1px rgba(0, 0, 0, 0.05)' : 'none'
+                                  boxShadow: isSelected ? '0 4px 10px -1px rgba(0, 120, 212, 0.15)' : 'none'
                                 }}
-                                onClick={() => setSelectedCalendarDay(day)}
+                                onClick={() => setSelectedCalendarDate(dateStr)}
                               >
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                  <span style={{ fontSize: '11px', fontWeight: '800', color: isToday ? '#b45309' : '#475569' }}>
+                                  <span style={{ fontSize: '11.5px', fontWeight: '800', color: isToday ? '#b45309' : isSelected ? '#0078d4' : '#475569' }}>
                                     {day}
                                   </span>
-                                  {isToday && <span style={{ fontSize: '9px', background: '#fef3c7', color: '#b45309', padding: '1px 4px', borderRadius: '4px', fontWeight: '800' }}>TODAY</span>}
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    {isToday && <span style={{ fontSize: '9px', background: '#fef3c7', color: '#b45309', padding: '1px 4px', borderRadius: '4px', fontWeight: '800' }}>TODAY</span>}
+                                    <button
+                                      style={{
+                                        background: isSelected ? '#0078d4' : '#eff6ff',
+                                        border: isSelected ? '1px solid #0078d4' : '1px solid #bfdbfe',
+                                        color: isSelected ? '#ffffff' : '#0078d4',
+                                        fontSize: '12px',
+                                        fontWeight: 'bold',
+                                        width: '18px',
+                                        height: '18px',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        lineHeight: '1',
+                                        padding: 0
+                                      }}
+                                      title={`Schedule Task for ${dateStr}`}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedCalendarDate(dateStr);
+                                        setShowDayQuickTaskForm(true);
+                                      }}
+                                    >
+                                      +
+                                    </button>
+                                  </div>
                                 </div>
-                                {renderEventsForDay(day)}
+                                {renderEventsForDay(dateStr)}
                               </div>
                             );
                           })}
@@ -5608,30 +5765,56 @@ export default function App() {
                     ) : (
                       <>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '10px' }}>
-                          {weeklyDays.map((day) => {
-                            const isToday = day === 16;
-                            const isSelected = selectedCalendarDay === day;
-                            const weekDayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][(day - 12) % 7];
+                          {weeklyDays.map((wDay) => {
+                            const isToday = wDay.isToday;
+                            const isSelected = wDay.isSelected;
 
                             return (
                               <div 
-                                key={day}
+                                key={wDay.dateStr}
                                 style={{ 
                                   background: isToday ? '#fffbeb' : '#ffffff', 
                                   borderRadius: '8px', 
-                                  border: isSelected ? '2px solid #d49b38' : isToday ? '1px solid #fde68a' : '1px solid var(--border-color)', 
+                                  border: isSelected ? '2px solid #0078d4' : isToday ? '1px solid #fde68a' : '1px solid var(--border-color)', 
                                   minHeight: '280px', 
                                   padding: '10px',
                                   cursor: 'pointer'
                                 }}
-                                onClick={() => setSelectedCalendarDay(day)}
+                                onClick={() => setSelectedCalendarDate(wDay.dateStr)}
                               >
-                                <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '6px', marginBottom: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                  <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--text-muted)' }}>{weekDayName}</span>
-                                  <span style={{ fontSize: '18px', fontWeight: '800', color: isToday ? '#b45309' : '#0f172a' }}>{day}</span>
+                                <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '6px', marginBottom: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
+                                  <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--text-muted)' }}>{wDay.dayName}</span>
+                                  <span style={{ fontSize: '18px', fontWeight: '800', color: isToday ? '#b45309' : '#0f172a' }}>{wDay.day}</span>
                                   {isToday && <span style={{ fontSize: '8px', background: '#fef3c7', color: '#b45309', padding: '1px 3px', borderRadius: '3px', fontWeight: 'bold', marginTop: '2px' }}>TODAY</span>}
+                                  <button
+                                    style={{
+                                      position: 'absolute',
+                                      top: '0',
+                                      right: '0',
+                                      background: '#eff6ff',
+                                      border: '1px solid #bfdbfe',
+                                      color: '#0078d4',
+                                      fontSize: '12px',
+                                      fontWeight: 'bold',
+                                      width: '20px',
+                                      height: '20px',
+                                      borderRadius: '4px',
+                                      cursor: 'pointer',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center'
+                                    }}
+                                    title={`Schedule Task for ${wDay.dateStr}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedCalendarDate(wDay.dateStr);
+                                      setShowDayQuickTaskForm(true);
+                                    }}
+                                  >
+                                    +
+                                  </button>
                                 </div>
-                                {renderEventsForDay(day)}
+                                {renderEventsForDay(wDay.dateStr)}
                               </div>
                             );
                           })}
@@ -5640,25 +5823,144 @@ export default function App() {
                     )}
                   </div>
 
-                  {selectedCalendarDay && (
-                    <div className="panel-card animate-fade" style={{ padding: '20px', borderLeft: '4px solid #d49b38' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', marginBottom: '16px' }}>
-                        <h3 style={{ fontSize: '14px', fontWeight: '800', margin: 0 }}>
-                          Inspect Day: {calendarMonth} {selectedCalendarDay}, 2026
-                        </h3>
-                        <button 
-                          className="btn btn-secondary" 
-                          style={{ padding: '2px 8px', fontSize: '11px' }}
-                          onClick={() => setSelectedCalendarDay(null)}
-                        >
-                          ✕ Close
-                        </button>
+                  {selectedCalendarDate && (
+                    <div className="panel-card animate-fade" style={{ padding: '20px', borderLeft: '4px solid #0078d4' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+                        <div>
+                          <h3 style={{ fontSize: '14.5px', fontWeight: '800', margin: 0, color: '#0f172a' }}>
+                            Inspect Day: {new Date(selectedCalendarDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                          </h3>
+                          <span style={{ fontSize: '11px', color: '#64748b' }}>
+                            {selectedCalendarDate} • {inspectedTasks.length} task(s) scheduled
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          <button 
+                            className="btn btn-primary"
+                            style={{ padding: '5px 10px', fontSize: '11.5px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: '#0078d4', borderColor: '#0078d4' }}
+                            onClick={() => setShowDayQuickTaskForm(!showDayQuickTaskForm)}
+                          >
+                            {showDayQuickTaskForm ? '✕ Close Form' : '+ Add Task'}
+                          </button>
+                          <button 
+                            className="btn btn-secondary" 
+                            style={{ padding: '4px 8px', fontSize: '11px' }}
+                            onClick={() => setSelectedCalendarDate(null)}
+                          >
+                            ✕
+                          </button>
+                        </div>
                       </div>
 
+                      {/* INLINE QUICK TASK CREATION FORM WITH MULTI-TASK SUPPORT */}
+                      {showDayQuickTaskForm && (
+                        <div className="animate-fade" style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '10px', padding: '14px', marginBottom: '18px' }}>
+                          <div style={{ fontWeight: '800', fontSize: '12.5px', color: '#1e40af', marginBottom: '10px' }}>
+                            <span>📅 Add Task for {selectedCalendarDate}</span>
+                          </div>
+
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '3px' }}>Task / Work Title *</label>
+                              <input 
+                                type="text"
+                                placeholder="e.g. Client Follow-up Call, Contract Signing, Site Review"
+                                value={dayQuickTask.title}
+                                onChange={(e) => setDayQuickTask({ ...dayQuickTask, title: e.target.value })}
+                                style={{ width: '100%', padding: '7px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                              />
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                              <div>
+                                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '3px' }}>Scheduled Time</label>
+                                <input 
+                                  type="time"
+                                  value={dayQuickTask.time}
+                                  onChange={(e) => setDayQuickTask({ ...dayQuickTask, time: e.target.value })}
+                                  style={{ width: '100%', padding: '6px 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                                />
+                              </div>
+
+                              <div>
+                                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '3px' }}>Priority</label>
+                                <select 
+                                  value={dayQuickTask.priority}
+                                  onChange={(e) => setDayQuickTask({ ...dayQuickTask, priority: e.target.value as any })}
+                                  style={{ width: '100%', padding: '6px 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                                >
+                                  <option value="High">High Priority</option>
+                                  <option value="Medium">Medium Priority</option>
+                                  <option value="Low">Low Priority</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '3px' }}>Linked Company / Contact (Optional)</label>
+                              <input 
+                                type="text"
+                                placeholder="e.g. Apex Biotech, Dr. Sharma"
+                                value={dayQuickTask.linkedTo}
+                                onChange={(e) => setDayQuickTask({ ...dayQuickTask, linkedTo: e.target.value })}
+                                style={{ width: '100%', padding: '7px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                              />
+                            </div>
+
+                            <div>
+                              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '3px' }}>Description / Agenda (Optional)</label>
+                              <textarea 
+                                rows={2}
+                                placeholder="Key points, meeting agenda, or preparation notes..."
+                                value={dayQuickTask.description}
+                                onChange={(e) => setDayQuickTask({ ...dayQuickTask, description: e.target.value })}
+                                style={{ width: '100%', padding: '7px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box', resize: 'vertical' }}
+                              />
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', marginTop: '4px', flexWrap: 'wrap' }}>
+                              <button 
+                                type="button" 
+                                className="btn btn-secondary" 
+                                style={{ padding: '5px 10px', fontSize: '11.5px' }}
+                                onClick={() => setShowDayQuickTaskForm(false)}
+                              >
+                                Cancel
+                              </button>
+                              <button 
+                                type="button" 
+                                className="btn btn-secondary" 
+                                style={{ padding: '5px 12px', fontSize: '11.5px', fontWeight: '700', color: '#0078d4', borderColor: '#bfdbfe', background: '#ffffff' }}
+                                onClick={() => handleDayQuickTaskSubmit(selectedCalendarDate!, true)}
+                              >
+                                ➕ Save & Add Another
+                              </button>
+                              <button 
+                                type="button" 
+                                className="btn btn-primary" 
+                                style={{ padding: '5px 16px', fontSize: '11.5px', fontWeight: '700', backgroundColor: '#0078d4', borderColor: '#0078d4' }}
+                                onClick={() => handleDayQuickTaskSubmit(selectedCalendarDate!, false)}
+                              >
+                                Save Task
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       <div style={{ marginBottom: '16px' }}>
-                        <h4 style={{ fontSize: '12px', fontWeight: 'bold', color: '#1e40af', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                           Tasks Scheduled ({inspectedTasks.length})
-                        </h4>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                          <h4 style={{ fontSize: '12.5px', fontWeight: 'bold', color: '#1e40af', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                             Tasks Scheduled on this Date ({inspectedTasks.length})
+                          </h4>
+                          <button
+                            style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#0078d4', fontSize: '11px', fontWeight: '700', cursor: 'pointer', padding: '3px 8px', borderRadius: '4px' }}
+                            onClick={() => setShowDayQuickTaskForm(true)}
+                          >
+                            + Add Another Task
+                          </button>
+                        </div>
+
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                           {inspectedTasks.map(t => (
                             <div key={t.id} style={{ background: '#f8fafc', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-color)', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
@@ -5669,34 +5971,67 @@ export default function App() {
                                 style={{ marginTop: '3px' }}
                               />
                               <div style={{ flexGrow: 1 }}>
-                                <div style={{ fontSize: '12.5px', fontWeight: '700', textDecoration: t.status === 'Completed' ? 'line-through' : 'none' }}>{t.title}</div>
-                                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t.description}</div>
-                                <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+                                <div style={{ fontSize: '12.5px', fontWeight: '700', textDecoration: t.status === 'Completed' ? 'line-through' : 'none', color: '#0f172a' }}>{t.title}</div>
+                                {t.description && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t.description}</div>}
+                                <div style={{ display: 'flex', gap: '6px', marginTop: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
                                   <span className="badge badge-secondary" style={{ fontSize: '9px' }}>{t.assignee}</span>
                                   <span className={`badge ${t.priority === 'High' ? 'badge-hot' : t.priority === 'Medium' ? 'badge-warm' : 'badge-cold'}`} style={{ fontSize: '9px' }}>{t.priority}</span>
+                                  {t.dueTime && <span style={{ fontSize: '10px', color: '#64748b', fontWeight: '600' }}>⏰ {t.dueTime}</span>}
+                                  {t.linkedTo && <span style={{ fontSize: '10px', color: '#3b82f6' }}>🔗 {t.linkedTo}</span>}
                                 </div>
                               </div>
-                              <button
-                                className="btn btn-secondary"
-                                style={{ padding: '3px 8px', fontSize: '10.5px', color: '#0078d4', borderColor: '#bfdbfe', background: '#eff6ff', whiteSpace: 'nowrap' }}
-                                title="Open event in Microsoft Outlook Calendar"
-                                onClick={() => {
-                                  const url = getOutlookWebComposeUrl({
-                                    title: `[Task] ${t.title}`,
-                                    description: `Priority: ${t.priority}\nStatus: ${t.status}\nLinked: ${t.linkedTo || 'None'}\n\n${t.description || ''}`,
-                                    startDate: t.dueDate || selectedDateStr || '',
-                                    startTime: t.dueTime || '09:00',
-                                    location: t.linkedTo || 'Anveshak CRM'
-                                  });
-                                  window.open(url, '_blank', 'noopener,noreferrer');
-                                  triggerToast('Opening task in Outlook...', 'info');
-                                }}
-                              >
-                                📅 Outlook ↗
-                              </button>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
+                                <button
+                                  className="btn btn-secondary"
+                                  style={{ padding: '3px 8px', fontSize: '10.5px', color: '#0078d4', borderColor: '#bfdbfe', background: '#eff6ff', whiteSpace: 'nowrap' }}
+                                  title="Open event in Microsoft Outlook Calendar"
+                                  onClick={() => {
+                                    const url = getOutlookWebComposeUrl({
+                                      title: `[Task] ${t.title}`,
+                                      description: `Priority: ${t.priority}\nStatus: ${t.status}\nLinked: ${t.linkedTo || 'None'}\n\n${t.description || ''}`,
+                                      startDate: t.dueDate || selectedCalendarDate || '',
+                                      startTime: t.dueTime || '09:00',
+                                      location: t.linkedTo || 'Anveshak CRM'
+                                    });
+                                    window.open(url, '_blank', 'noopener,noreferrer');
+                                    triggerToast('Opening task in Outlook...', 'info');
+                                  }}
+                                >
+                                  📅 Outlook ↗
+                                </button>
+                                <div style={{ display: 'flex', gap: '4px' }}>
+                                  <button
+                                    style={{ background: 'none', border: 'none', color: '#64748b', fontSize: '10px', cursor: 'pointer', padding: '2px 4px' }}
+                                    onClick={() => openEditTaskModal(t)}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '10px', cursor: 'pointer', padding: '2px 4px' }}
+                                    onClick={() => {
+                                      if (confirm(`Delete task "${t.title}"?`)) {
+                                        setTasks(tasks.filter(tk => tk.id !== t.id));
+                                      }
+                                    }}
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </div>
                             </div>
                           ))}
-                          {inspectedTasks.length === 0 && <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: 0 }}>No tasks due on this day.</p>}
+                          {inspectedTasks.length === 0 && (
+                            <div style={{ padding: '12px', background: '#f8fafc', borderRadius: '6px', border: '1px dashed #cbd5e1', textAlign: 'center' }}>
+                              <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: '0 0 6px 0' }}>No tasks due on this day.</p>
+                              <button 
+                                className="btn btn-secondary"
+                                style={{ padding: '4px 10px', fontSize: '11px', color: '#0078d4', borderColor: '#bfdbfe', background: '#eff6ff' }}
+                                onClick={() => setShowDayQuickTaskForm(true)}
+                              >
+                                + Add First Task
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -5720,7 +6055,7 @@ export default function App() {
                                     const url = getOutlookWebComposeUrl({
                                       title: `[Deal Close] ${d.name} (${d.company})`,
                                       description: `Company: ${d.company}\nStage: ${d.stage}\nValue: ₹${(d.value || 0).toLocaleString('en-IN')}\nOwner: ${d.owner || 'Unassigned'}`,
-                                      startDate: d.expectedClose || selectedDateStr || '',
+                                      startDate: d.expectedClose || selectedCalendarDate || '',
                                       startTime: '10:00',
                                       location: d.company || 'Anveshak CRM'
                                     });
