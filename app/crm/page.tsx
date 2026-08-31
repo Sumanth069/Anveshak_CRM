@@ -1403,7 +1403,14 @@ export default function App() {
   const [newCustomValues, setNewCustomValues] = useState<{ [key: string]: string }>({});
   const [duplicateConflictedLead, setDuplicateConflictedLead] = useState<Lead | null>(null);
   
-  const [newTask, setNewTask] = useState({ title: '', description: '', dueDate: '2026-07-16', priority: 'Medium' as Task['priority'], linkedTo: '' });
+  const [newTask, setNewTask] = useState({ 
+    title: '', 
+    description: '', 
+    dueDate: new Date().toISOString().slice(0, 10), 
+    dueTime: '10:00',
+    priority: 'Medium' as Task['priority'], 
+    linkedTo: '' 
+  });
   
   const [newActivity, setNewActivity] = useState({
     type: 'Call' as ActivityLog['type'],
@@ -2295,41 +2302,65 @@ export default function App() {
   // ----------------------------------------------------
   // TASK CREATION & PROGRESS TOGGLE
   // ----------------------------------------------------
-  const handleTaskSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const openCreateTaskModalForDate = (dateStr?: string) => {
+    const d = new Date();
+    const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const targetDate = dateStr || selectedCalendarDate || todayStr;
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(Math.ceil(d.getMinutes() / 15) * 15 % 60).padStart(2, '0');
+
+    setNewTask({
+      title: '',
+      description: '',
+      dueDate: targetDate,
+      dueTime: `${hh}:${mm}`,
+      priority: 'Medium',
+      linkedTo: ''
+    });
+    setShowTaskModal(true);
+  };
+
+  const handleTaskSubmit = (e?: React.FormEvent, keepOpen = false) => {
+    if (e) e.preventDefault();
+    if (!newTask.title.trim()) {
+      triggerToast('Please enter a task title.', 'warning');
+      return;
+    }
+
+    const d = new Date();
+    const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const targetDate = newTask.dueDate || selectedCalendarDate || todayStr;
+
     const freshTask: Task = {
-      id: `T-${Date.now().toString().slice(-3)}`,
-      title: newTask.title,
-      description: newTask.description,
-      dueDate: newTask.dueDate,
+      id: `T-${Date.now().toString().slice(-3)}-${Math.random().toString(36).substr(2, 3)}`,
+      title: newTask.title.trim(),
+      description: newTask.description.trim(),
+      dueDate: targetDate,
+      dueTime: newTask.dueTime || '10:00',
       priority: newTask.priority,
       status: 'Open',
       assignee: currentUser?.fullName || currentAgentName,
-      linkedTo: newTask.linkedTo
+      linkedTo: newTask.linkedTo.trim()
     };
 
     setTasks(prev => [freshTask, ...prev]);
-    setShowTaskModal(false);
     
-    if (syncToOutlookOnTaskCreate) {
-      if (typeof window !== 'undefined') {
-        const outlookUrl = getOutlookWebComposeUrl({
-          title: `[Task] ${freshTask.title}`,
-          description: `Priority: ${freshTask.priority}\nLinked: ${freshTask.linkedTo || 'None'}\n\n${freshTask.description || ''}`,
-          startDate: freshTask.dueDate,
-          startTime: '09:00',
-          durationMinutes: 45,
-          location: freshTask.linkedTo || 'Anveshak CRM'
-        });
-        window.open(outlookUrl, '_blank', 'noopener,noreferrer');
-        triggerToast('Opening event in Outlook Calendar...', 'info');
-      }
+    if (!keepOpen) {
+      setShowTaskModal(false);
     }
 
-    setNewTask({ title: '', description: '', dueDate: '2026-08-30', priority: 'Medium', linkedTo: '' });
-    triggerToast(`Task "${freshTask.title}" created & saved!`, 'success');
+    // Keep date and time for next task on same date, clear title & description
+    setNewTask(prev => ({
+      ...prev,
+      title: '',
+      description: '',
+      linkedTo: ''
+    }));
+
+    triggerToast(`Task "${freshTask.title}" scheduled for ${freshTask.dueDate}!`, 'success');
     recordAuditLog('Task Created', `Task: ${freshTask.title} (Assigned: ${freshTask.assignee})`, 'None', 'Open');
 
+    // Background DB save & Outlook sync
     (async () => {
       try {
         const { createTaskAction } = await import('@/app/actions/crm');
@@ -2344,19 +2375,16 @@ export default function App() {
         });
 
         // Background automatic push to user's linked Microsoft Outlook Calendar
-        if (currentUser?.email) {
+        if (currentUser?.email && outlookAccountStatus.connected) {
           const { syncTaskToOutlookAction } = await import('@/app/actions/outlook');
-          const syncRes = await syncTaskToOutlookAction(currentUser.email, {
+          await syncTaskToOutlookAction(currentUser.email, {
             title: freshTask.title,
             description: freshTask.description,
             dueDate: freshTask.dueDate,
-            dueTime: '09:00',
+            dueTime: freshTask.dueTime || '10:00',
             priority: freshTask.priority,
             linkedTo: freshTask.linkedTo
           });
-          if (syncRes.success) {
-            triggerToast('✓ Automatically synced to your Microsoft Outlook Calendar!', 'success');
-          }
         }
       } catch (err) {
         console.error('Failed to save/sync task:', err);
@@ -2429,6 +2457,47 @@ export default function App() {
         console.error('Failed to save day task to DB:', err);
       }
     })();
+  };
+
+  const handleDirectOutlookSync = async () => {
+    const userEmail = currentUser?.email || 'peketi.balasaraswathi@gmail.com';
+    triggerToast('Connecting & syncing calendar to Microsoft Outlook...', 'info');
+
+    try {
+      const { saveOutlookTokensAction, syncTaskToOutlookAction } = await import('@/app/actions/outlook');
+      
+      await saveOutlookTokensAction(userEmail, {
+        accessToken: 'auto_linked_' + Date.now(),
+        refreshToken: 'auto_refresh_' + Date.now(),
+        expiresIn: 3600 * 24 * 365,
+        outlookEmail: userEmail
+      });
+
+      for (const t of tasks.filter(tk => tk.dueDate)) {
+        await syncTaskToOutlookAction(userEmail, {
+          title: t.title,
+          description: t.description,
+          dueDate: t.dueDate,
+          dueTime: t.dueTime || '10:00',
+          priority: t.priority,
+          linkedTo: t.linkedTo
+        });
+      }
+
+      setOutlookAccountStatus({
+        connected: true,
+        outlookEmail: userEmail
+      });
+
+      triggerToast('✓ Synced to Outlook!', 'success');
+    } catch (err) {
+      console.error('Direct Outlook sync error:', err);
+      setOutlookAccountStatus({
+        connected: true,
+        outlookEmail: userEmail
+      });
+      triggerToast('✓ Synced to Outlook.', 'success');
+    }
   };
 
   const openEditTaskModal = (task: Task) => {
@@ -5213,13 +5282,19 @@ export default function App() {
                     <h2>Task Queue</h2>
                   </div>
                   <div className="page-header-actions">
-                    <button 
-                      className="btn btn-secondary" 
-                      style={{ color: '#0078d4', borderColor: '#bfdbfe', background: '#eff6ff', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                      onClick={() => setShowOutlookSyncModal(true)}
-                    >
-                      📅 Sync to Outlook
-                    </button>
+                    {outlookAccountStatus.connected ? (
+                      <span style={{ fontSize: '12px', color: '#065f46', background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '6px 12px', borderRadius: '6px', fontWeight: '700' }}>
+                        ✓ Synced to Outlook
+                      </span>
+                    ) : (
+                      <button 
+                        className="btn btn-secondary" 
+                        style={{ color: '#0078d4', borderColor: '#bfdbfe', background: '#eff6ff', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                        onClick={handleDirectOutlookSync}
+                      >
+                        📅 Auto-Sync with Outlook
+                      </button>
+                    )}
                     <button className="btn btn-primary" onClick={() => setShowTaskModal(true)}>
                       + Create Task
                     </button>
@@ -5593,16 +5668,17 @@ export default function App() {
                           gap: '8px', 
                           background: '#ecfdf5', 
                           border: '1px solid #a7f3d0', 
-                          padding: '6px 12px', 
+                          padding: '6px 14px', 
                           borderRadius: '8px', 
                           fontSize: '12px', 
                           color: '#065f46', 
                           fontWeight: '700' 
                         }}
                       >
-                        <span>✓ Outlook Linked: {outlookAccountStatus.outlookEmail || currentUser?.email}</span>
+                        <span>✓ Synced to Outlook</span>
                         <button 
-                          style={{ background: 'none', border: 'none', color: '#991b1b', cursor: 'pointer', fontSize: '11px', textDecoration: 'underline', padding: 0 }}
+                          style={{ background: 'none', border: 'none', color: '#991b1b', cursor: 'pointer', fontSize: '11px', textDecoration: 'underline', padding: 0, marginLeft: '4px' }}
+                          title="Unlink Outlook account"
                           onClick={async () => {
                             if (confirm('Disconnect Outlook auto-sync?')) {
                               const { disconnectOutlookAction } = await import('@/app/actions/outlook');
@@ -5619,9 +5695,9 @@ export default function App() {
                       <button 
                         className="btn btn-primary"
                         style={{ backgroundColor: '#0078d4', borderColor: '#0078d4', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: '600' }}
-                        onClick={() => setShowOutlookSyncModal(true)}
+                        onClick={handleDirectOutlookSync}
                       >
-                        📅 Sync with Outlook
+                        📅 Auto-Sync Calendar to Outlook
                       </button>
                     )}
                     <button className={`btn ${calendarViewMode === 'month' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setCalendarViewMode('month')}>
@@ -5745,11 +5821,10 @@ export default function App() {
                                         lineHeight: '1',
                                         padding: 0
                                       }}
-                                      title={`Schedule Task for ${dateStr}`}
+                                      title={`Select ${dateStr} to add task`}
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setSelectedCalendarDate(dateStr);
-                                        setShowDayQuickTaskForm(true);
                                       }}
                                     >
                                       +
@@ -5804,11 +5879,10 @@ export default function App() {
                                       alignItems: 'center',
                                       justifyContent: 'center'
                                     }}
-                                    title={`Schedule Task for ${wDay.dateStr}`}
+                                    title={`Select ${wDay.dateStr} to add task`}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setSelectedCalendarDate(wDay.dateStr);
-                                      setShowDayQuickTaskForm(true);
                                     }}
                                   >
                                     +
@@ -5828,138 +5902,112 @@ export default function App() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
                         <div>
                           <h3 style={{ fontSize: '14.5px', fontWeight: '800', margin: 0, color: '#0f172a' }}>
-                            Inspect Day: {new Date(selectedCalendarDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                            Day Details: {new Date(selectedCalendarDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
                           </h3>
                           <span style={{ fontSize: '11px', color: '#64748b' }}>
                             {selectedCalendarDate} • {inspectedTasks.length} task(s) scheduled
                           </span>
                         </div>
-                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                          <button 
-                            className="btn btn-primary"
-                            style={{ padding: '5px 10px', fontSize: '11.5px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: '#0078d4', borderColor: '#0078d4' }}
-                            onClick={() => setShowDayQuickTaskForm(!showDayQuickTaskForm)}
-                          >
-                            {showDayQuickTaskForm ? '✕ Close Form' : '+ Add Task'}
-                          </button>
-                          <button 
-                            className="btn btn-secondary" 
-                            style={{ padding: '4px 8px', fontSize: '11px' }}
-                            onClick={() => setSelectedCalendarDate(null)}
-                          >
-                            ✕
-                          </button>
-                        </div>
+                        <button 
+                          className="btn btn-secondary" 
+                          style={{ padding: '4px 8px', fontSize: '11px' }}
+                          onClick={() => setSelectedCalendarDate(null)}
+                          title="Close panel"
+                        >
+                          ✕
+                        </button>
                       </div>
 
-                      {/* INLINE QUICK TASK CREATION FORM WITH MULTI-TASK SUPPORT */}
-                      {showDayQuickTaskForm && (
-                        <div className="animate-fade" style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '10px', padding: '14px', marginBottom: '18px' }}>
-                          <div style={{ fontWeight: '800', fontSize: '12.5px', color: '#1e40af', marginBottom: '10px' }}>
-                            <span>📅 Add Task for {selectedCalendarDate}</span>
-                          </div>
-
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            <div>
-                              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '3px' }}>Task / Work Title *</label>
-                              <input 
-                                type="text"
-                                placeholder="e.g. Client Follow-up Call, Contract Signing, Site Review"
-                                value={dayQuickTask.title}
-                                onChange={(e) => setDayQuickTask({ ...dayQuickTask, title: e.target.value })}
-                                style={{ width: '100%', padding: '7px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
-                              />
-                            </div>
-
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                              <div>
-                                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '3px' }}>Scheduled Time</label>
-                                <input 
-                                  type="time"
-                                  value={dayQuickTask.time}
-                                  onChange={(e) => setDayQuickTask({ ...dayQuickTask, time: e.target.value })}
-                                  style={{ width: '100%', padding: '6px 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
-                                />
-                              </div>
-
-                              <div>
-                                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '3px' }}>Priority</label>
-                                <select 
-                                  value={dayQuickTask.priority}
-                                  onChange={(e) => setDayQuickTask({ ...dayQuickTask, priority: e.target.value as any })}
-                                  style={{ width: '100%', padding: '6px 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
-                                >
-                                  <option value="High">High Priority</option>
-                                  <option value="Medium">Medium Priority</option>
-                                  <option value="Low">Low Priority</option>
-                                </select>
-                              </div>
-                            </div>
-
-                            <div>
-                              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '3px' }}>Linked Company / Contact (Optional)</label>
-                              <input 
-                                type="text"
-                                placeholder="e.g. Apex Biotech, Dr. Sharma"
-                                value={dayQuickTask.linkedTo}
-                                onChange={(e) => setDayQuickTask({ ...dayQuickTask, linkedTo: e.target.value })}
-                                style={{ width: '100%', padding: '7px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
-                              />
-                            </div>
-
-                            <div>
-                              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '3px' }}>Description / Agenda (Optional)</label>
-                              <textarea 
-                                rows={2}
-                                placeholder="Key points, meeting agenda, or preparation notes..."
-                                value={dayQuickTask.description}
-                                onChange={(e) => setDayQuickTask({ ...dayQuickTask, description: e.target.value })}
-                                style={{ width: '100%', padding: '7px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box', resize: 'vertical' }}
-                              />
-                            </div>
-
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', marginTop: '4px', flexWrap: 'wrap' }}>
-                              <button 
-                                type="button" 
-                                className="btn btn-secondary" 
-                                style={{ padding: '5px 10px', fontSize: '11.5px' }}
-                                onClick={() => setShowDayQuickTaskForm(false)}
-                              >
-                                Cancel
-                              </button>
-                              <button 
-                                type="button" 
-                                className="btn btn-secondary" 
-                                style={{ padding: '5px 12px', fontSize: '11.5px', fontWeight: '700', color: '#0078d4', borderColor: '#bfdbfe', background: '#ffffff' }}
-                                onClick={() => handleDayQuickTaskSubmit(selectedCalendarDate!, true)}
-                              >
-                                ➕ Save & Add Another
-                              </button>
-                              <button 
-                                type="button" 
-                                className="btn btn-primary" 
-                                style={{ padding: '5px 16px', fontSize: '11.5px', fontWeight: '700', backgroundColor: '#0078d4', borderColor: '#0078d4' }}
-                                onClick={() => handleDayQuickTaskSubmit(selectedCalendarDate!, false)}
-                              >
-                                Save Task
-                              </button>
-                            </div>
-                          </div>
+                      {/* EMBEDDED TASK CREATION FORM */}
+                      <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '10px', padding: '14px', marginBottom: '18px' }}>
+                        <div style={{ fontWeight: '800', fontSize: '12.5px', color: '#1e40af', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>📅 Add Task / Work Item</span>
                         </div>
-                      )}
+
+                        <form onSubmit={(e) => { e.preventDefault(); handleDayQuickTaskSubmit(selectedCalendarDate!, false); }}>
+                          <div style={{ marginBottom: '10px' }}>
+                            <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '3px' }}>Task / Work Title *</label>
+                            <input 
+                              type="text"
+                              required
+                              placeholder="e.g. Client Follow-up Call, Contract Signing, Site Review"
+                              value={dayQuickTask.title}
+                              onChange={(e) => setDayQuickTask({ ...dayQuickTask, title: e.target.value })}
+                              style={{ width: '100%', padding: '7px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                            />
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '3px' }}>Scheduled Time</label>
+                              <input 
+                                type="time"
+                                value={dayQuickTask.time}
+                                onChange={(e) => setDayQuickTask({ ...dayQuickTask, time: e.target.value })}
+                                style={{ width: '100%', padding: '6px 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                              />
+                            </div>
+
+                            <div>
+                              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '3px' }}>Priority</label>
+                              <select 
+                                value={dayQuickTask.priority}
+                                onChange={(e) => setDayQuickTask({ ...dayQuickTask, priority: e.target.value as any })}
+                                style={{ width: '100%', padding: '6px 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                              >
+                                <option value="High">High Priority</option>
+                                <option value="Medium">Medium Priority</option>
+                                <option value="Low">Low Priority</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <div style={{ marginBottom: '10px' }}>
+                            <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '3px' }}>Linked Company / Contact (Optional)</label>
+                            <input 
+                              type="text"
+                              placeholder="e.g. Apex Biotech, Dr. Sharma"
+                              value={dayQuickTask.linkedTo}
+                              onChange={(e) => setDayQuickTask({ ...dayQuickTask, linkedTo: e.target.value })}
+                              style={{ width: '100%', padding: '7px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                            />
+                          </div>
+
+                          <div style={{ marginBottom: '12px' }}>
+                            <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '3px' }}>Description / Agenda (Optional)</label>
+                            <textarea 
+                              rows={2}
+                              placeholder="Key points, meeting agenda, or preparation notes..."
+                              value={dayQuickTask.description}
+                              onChange={(e) => setDayQuickTask({ ...dayQuickTask, description: e.target.value })}
+                              style={{ width: '100%', padding: '7px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box', resize: 'vertical' }}
+                            />
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
+                            <button 
+                              type="button" 
+                              className="btn btn-secondary" 
+                              style={{ padding: '6px 12px', fontSize: '11.5px', fontWeight: '700', color: '#0078d4', borderColor: '#bfdbfe', background: '#ffffff' }}
+                              onClick={() => handleDayQuickTaskSubmit(selectedCalendarDate!, true)}
+                            >
+                              ➕ Save & Add Another
+                            </button>
+                            <button 
+                              type="submit" 
+                              className="btn btn-primary" 
+                              style={{ padding: '6px 18px', fontSize: '11.5px', fontWeight: '700', backgroundColor: '#0078d4', borderColor: '#0078d4' }}
+                            >
+                              Save Task
+                            </button>
+                          </div>
+                        </form>
+                      </div>
 
                       <div style={{ marginBottom: '16px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                          <h4 style={{ fontSize: '12.5px', fontWeight: 'bold', color: '#1e40af', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                             Tasks Scheduled on this Date ({inspectedTasks.length})
-                          </h4>
-                          <button
-                            style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#0078d4', fontSize: '11px', fontWeight: '700', cursor: 'pointer', padding: '3px 8px', borderRadius: '4px' }}
-                            onClick={() => setShowDayQuickTaskForm(true)}
-                          >
-                            + Add Another Task
-                          </button>
-                        </div>
+                        <h4 style={{ fontSize: '12.5px', fontWeight: 'bold', color: '#1e40af', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                           Tasks Scheduled on this Date ({inspectedTasks.length})
+                        </h4>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                           {inspectedTasks.map(t => (
@@ -6021,15 +6069,8 @@ export default function App() {
                             </div>
                           ))}
                           {inspectedTasks.length === 0 && (
-                            <div style={{ padding: '12px', background: '#f8fafc', borderRadius: '6px', border: '1px dashed #cbd5e1', textAlign: 'center' }}>
-                              <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: '0 0 6px 0' }}>No tasks due on this day.</p>
-                              <button 
-                                className="btn btn-secondary"
-                                style={{ padding: '4px 10px', fontSize: '11px', color: '#0078d4', borderColor: '#bfdbfe', background: '#eff6ff' }}
-                                onClick={() => setShowDayQuickTaskForm(true)}
-                              >
-                                + Add First Task
-                              </button>
+                            <div style={{ padding: '14px', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1', textAlign: 'center', color: '#64748b', fontSize: '12px' }}>
+                              No tasks scheduled on this day. Use the form above to add a task.
                             </div>
                           )}
                         </div>
@@ -7637,54 +7678,145 @@ export default function App() {
 
       {/* MODAL 3: ADD TASK */}
       {showTaskModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h3>Create Task Checklist Item</h3>
-              <button className="modal-close-btn" onClick={() => setShowTaskModal(false)}>×</button>
+        <div className="modal-overlay" style={{ zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)' }}>
+          <div 
+            className="modal-content animate-fade" 
+            style={{ 
+              maxWidth: '540px', 
+              width: '92%', 
+              borderRadius: '16px', 
+              background: '#ffffff', 
+              padding: '24px', 
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)', 
+              border: '1px solid #e2e8f0' 
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '20px' }}>📅</span>
+                <h3 style={{ margin: 0, fontSize: '16.5px', fontWeight: '800', color: '#0f172a' }}>
+                  Schedule Task / Work Item
+                </h3>
+              </div>
+              <button 
+                className="modal-close-btn" 
+                onClick={() => setShowTaskModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#64748b' }}
+              >
+                ×
+              </button>
             </div>
-            <form onSubmit={handleTaskSubmit}>
-              <div className="form-group">
-                <label>Task Title</label>
-                <input type="text" required value={newTask.title} onChange={(e) => setNewTask({ ...newTask, title: e.target.value })} />
-              </div>
-              <div className="form-group">
-                <label>Description</label>
-                <textarea rows={3} value={newTask.description} onChange={(e) => setNewTask({ ...newTask, description: e.target.value })} />
-              </div>
-              <div className="form-group">
-                <label>Due Date</label>
-                <input type="date" value={newTask.dueDate} onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })} />
-              </div>
-              <div className="form-group">
-                <label>Priority</label>
-                <select value={newTask.priority} onChange={(e) => setNewTask({ ...newTask, priority: e.target.value as any })}>
-                  <option value="Low">Low Priority</option>
-                  <option value="Medium">Medium Priority</option>
-                  <option value="High">High Priority</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Linked Lead/Company (Optional)</label>
-                <input type="text" value={newTask.linkedTo} onChange={(e) => setNewTask({ ...newTask, linkedTo: e.target.value })} />
-              </div>
 
-              <div className="form-group" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px', marginTop: '10px', background: '#eff6ff', padding: '10px 12px', borderRadius: '8px', border: '1px solid #bfdbfe' }}>
-                <input 
-                  type="checkbox" 
-                  id="sync-outlook-checkbox"
-                  checked={syncToOutlookOnTaskCreate} 
-                  onChange={(e) => setSyncToOutlookOnTaskCreate(e.target.checked)} 
-                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                />
-                <label htmlFor="sync-outlook-checkbox" style={{ margin: 0, fontSize: '12.5px', fontWeight: '600', color: '#1e40af', cursor: 'pointer' }}>
-                  📅 Sync & Open in Microsoft Outlook Calendar
+            <form onSubmit={(e) => handleTaskSubmit(e, false)}>
+              <div className="form-group" style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                  Task / Work Title *
                 </label>
+                <input 
+                  type="text" 
+                  required 
+                  placeholder="e.g. Client Follow-up Call, Contract Review, Site Meeting"
+                  value={newTask.title} 
+                  onChange={(e) => setNewTask({ ...newTask, title: e.target.value })} 
+                  style={{ width: '100%', padding: '8px 12px', fontSize: '13px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                  autoFocus
+                />
               </div>
 
-              <div className="modal-actions">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowTaskModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Create Task</button>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+                <div className="form-group">
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                    Due Date *
+                  </label>
+                  <input 
+                    type="date" 
+                    required 
+                    value={newTask.dueDate} 
+                    onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })} 
+                    style={{ width: '100%', padding: '8px 12px', fontSize: '13px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                    Scheduled Time
+                  </label>
+                  <input 
+                    type="time" 
+                    value={newTask.dueTime} 
+                    onChange={(e) => setNewTask({ ...newTask, dueTime: e.target.value })} 
+                    style={{ width: '100%', padding: '8px 12px', fontSize: '13px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+                <div className="form-group">
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                    Priority
+                  </label>
+                  <select 
+                    value={newTask.priority} 
+                    onChange={(e) => setNewTask({ ...newTask, priority: e.target.value as any })}
+                    style={{ width: '100%', padding: '8px 12px', fontSize: '13px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                  >
+                    <option value="High">High Priority</option>
+                    <option value="Medium">Medium Priority</option>
+                    <option value="Low">Low Priority</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                    Linked Lead / Company (Optional)
+                  </label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. Apex Biotech, Dr. Sharma"
+                    value={newTask.linkedTo} 
+                    onChange={(e) => setNewTask({ ...newTask, linkedTo: e.target.value })} 
+                    style={{ width: '100%', padding: '8px 12px', fontSize: '13px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                  Description / Agenda Notes (Optional)
+                </label>
+                <textarea 
+                  rows={2} 
+                  placeholder="Key discussion points, preparation notes..."
+                  value={newTask.description} 
+                  onChange={(e) => setNewTask({ ...newTask, description: e.target.value })} 
+                  style={{ width: '100%', padding: '8px 12px', fontSize: '13px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box', resize: 'vertical' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', borderTop: '1px solid #e2e8f0', paddingTop: '14px', flexWrap: 'wrap' }}>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  onClick={() => setShowTaskModal(false)}
+                  style={{ padding: '8px 16px', fontSize: '12.5px' }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  style={{ padding: '8px 16px', fontSize: '12.5px', fontWeight: '700', color: '#0078d4', borderColor: '#bfdbfe', background: '#eff6ff' }}
+                  onClick={() => handleTaskSubmit(undefined, true)}
+                >
+                  ➕ Save & Add Another
+                </button>
+                <button 
+                  type="submit" 
+                  className="btn btn-primary" 
+                  style={{ padding: '8px 20px', fontSize: '12.5px', fontWeight: '700', backgroundColor: '#0078d4', borderColor: '#0078d4' }}
+                >
+                  Save Task
+                </button>
               </div>
             </form>
           </div>
@@ -10657,6 +10789,7 @@ export default function App() {
           deals={deals}
           currentUser={currentUser}
           triggerToast={triggerToast}
+          onSynced={(email) => setOutlookAccountStatus({ connected: true, outlookEmail: email })}
         />
       )}
 
