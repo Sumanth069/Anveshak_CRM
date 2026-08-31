@@ -160,7 +160,10 @@ export async function loginAction(email: string, password: string) {
               email: u.email,
               role: u.role || 'SALES_REP',
               isActive: u.is_active ?? true,
-              assignedCount: u.assigned_count || 0
+              assignedCount: u.assigned_count || 0,
+              title: u.title || (u.role === 'ADMIN' ? 'System Administrator' : u.role === 'MANAGER' ? 'Sales Manager' : 'Sales Representative'),
+              phone: u.phone || '',
+              avatarUrl: u.avatar_url || ''
             }
           };
         } else {
@@ -190,7 +193,10 @@ export async function loginAction(email: string, password: string) {
               email: dbUser.email,
               role: dbUser.role || 'SALES_REP',
               isActive: dbUser.isActive ?? true,
-              assignedCount: dbUser.assignedCount || 0
+              assignedCount: dbUser.assignedCount || 0,
+              title: (dbUser as any).title || (dbUser.role === 'ADMIN' ? 'System Administrator' : dbUser.role === 'MANAGER' ? 'Sales Manager' : 'Sales Representative'),
+              phone: (dbUser as any).phone || '',
+              avatarUrl: (dbUser as any).avatarUrl || ''
             }
           };
         } else {

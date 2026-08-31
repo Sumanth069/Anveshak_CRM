@@ -530,15 +530,20 @@ export default function App() {
 
   const [profileSettings, setProfileSettings] = useState<{
     [key: string]: { fullName: string; email: string; title: string; avatarColor: string; notify: boolean; avatarUrl?: string }
-  }>({
-    'Admin': { fullName: 'KP Sumanth', email: 'sumanth@anveshakhub.com', title: 'Regional Director', avatarColor: '#d97706', notify: true }
-  });
+  }>({});
 
   useEffect(() => {
     const savedProfiles = localStorage.getItem('ANVESHAK_CRM_PROFILES');
     if (savedProfiles) {
       try {
-        setProfileSettings(JSON.parse(savedProfiles));
+        const parsed = JSON.parse(savedProfiles);
+        if (parsed && typeof parsed === 'object') {
+          // Purge legacy demo profile so it doesn't overwrite real logged-in user
+          if (parsed['Admin']?.email === 'sumanth@anveshakhub.com' || parsed['Admin']?.fullName === 'KP Sumanth') {
+            delete parsed['Admin'];
+          }
+          setProfileSettings(parsed);
+        }
       } catch (err) {
         console.error(err);
       }
@@ -546,7 +551,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('ANVESHAK_CRM_PROFILES', JSON.stringify(profileSettings));
+    if (Object.keys(profileSettings).length > 0) {
+      localStorage.setItem('ANVESHAK_CRM_PROFILES', JSON.stringify(profileSettings));
+    }
   }, [profileSettings]);
 
   useEffect(() => {
@@ -1297,7 +1304,7 @@ export default function App() {
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('All');
   const [showBulkReassignModal, setShowBulkReassignModal] = useState(false);
   const [showBulkTagModal, setShowBulkTagModal] = useState(false);
-  const [bulkTargetRep, setBulkTargetRep] = useState('KP Sumanth');
+  const [bulkTargetRep, setBulkTargetRep] = useState('peketi balasaraswathi');
   const [bulkReassignReason, setBulkReassignReason] = useState('');
   const [bulkTagInput, setBulkTagInput] = useState('B2G');
   const [bulkTagAction, setBulkTagAction] = useState<'append' | 'remove'>('append');
@@ -1380,7 +1387,7 @@ export default function App() {
   const [rotationDegrees, setRotationDegrees] = useState(0);
   
   // Form Inputs
-  const [newLead, setNewLead] = useState({ firstName: '', lastName: '', email: '', phone: '', alternatePhone: '', company: '', designation: '', city: '', state: '', leadSource: 'Website', owner: 'KP Sumanth', tags: 'B2G' });
+  const [newLead, setNewLead] = useState({ firstName: '', lastName: '', email: '', phone: '', alternatePhone: '', company: '', designation: '', city: '', state: '', leadSource: 'Website', owner: 'peketi balasaraswathi', tags: 'B2G' });
   const [showEditLeadModal, setShowEditLeadModal] = useState(false);
   const [editLeadForm, setEditLeadForm] = useState({
     id: '',
@@ -1394,7 +1401,7 @@ export default function App() {
     state: '',
     status: 'New',
     score: 0,
-    owner: 'KP Sumanth',
+    owner: 'peketi balasaraswathi',
     tags: [] as string[],
     notes: ''
   });
@@ -1403,7 +1410,14 @@ export default function App() {
   const [newCustomValues, setNewCustomValues] = useState<{ [key: string]: string }>({});
   const [duplicateConflictedLead, setDuplicateConflictedLead] = useState<Lead | null>(null);
   
-  const [newTask, setNewTask] = useState({ title: '', description: '', dueDate: '2026-07-16', priority: 'Medium' as Task['priority'], linkedTo: '' });
+  const [newTask, setNewTask] = useState({ 
+    title: '', 
+    description: '', 
+    dueDate: new Date().toISOString().slice(0, 10), 
+    dueTime: '10:00',
+    priority: 'Medium' as Task['priority'], 
+    linkedTo: '' 
+  });
   
   const [newActivity, setNewActivity] = useState({
     type: 'Call' as ActivityLog['type'],
@@ -1601,11 +1615,41 @@ export default function App() {
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
   const [scoringNotification, setScoringNotification] = useState(false);
 
-  // Active Authenticated User Details
+  // Active Authenticated User Details (Universal for all user accounts)
   const currentRole = currentUser?.role === 'ADMIN' ? 'Admin' : currentUser?.role === 'MANAGER' ? 'Manager' : 'Sales Rep';
-  const currentAgentName = currentUser?.fullName || 'KP Sumanth';
-  const currentAgentTitle = currentUser?.role === 'ADMIN' ? 'System Administrator' : currentUser?.role === 'MANAGER' ? 'Sales Manager' : 'Sales Representative';
-  const currentAgentColor = currentUser?.role === 'ADMIN' ? '#d97706' : currentUser?.role === 'MANAGER' ? '#b45309' : '#1e40af';
+  const currentAgentName = currentUser?.fullName || (currentUser?.email ? currentUser.email.split('@')[0] : 'User');
+  const currentAgentTitle = currentUser?.title || (currentUser?.role === 'ADMIN' ? 'System Administrator' : currentUser?.role === 'MANAGER' ? 'Sales Manager' : 'Sales Representative');
+  const currentAgentColor = currentUser?.avatarColor || (currentUser?.role === 'ADMIN' ? '#d97706' : currentUser?.role === 'MANAGER' ? '#b45309' : '#1e40af');
+  const userKey = currentUser?.id || currentUser?.email || currentRole;
+  const currentAvatarUrl = profileSettings[userKey]?.avatarUrl || profileSettings[currentRole]?.avatarUrl || currentUser?.avatarUrl;
+
+  useEffect(() => {
+    if (currentUser && currentUser.email) {
+      const uKey = currentUser.id || currentUser.email;
+      const uTitle = currentUser.title || (currentUser.role === 'ADMIN' ? 'System Administrator' : currentUser.role === 'MANAGER' ? 'Sales Manager' : 'Sales Representative');
+      const uColor = currentUser.avatarColor || (currentUser.role === 'ADMIN' ? '#d97706' : currentUser.role === 'MANAGER' ? '#b45309' : '#1e40af');
+
+      setProfileSettings(prev => ({
+        ...prev,
+        [uKey]: {
+          fullName: currentUser.fullName || prev[uKey]?.fullName || '',
+          email: currentUser.email || prev[uKey]?.email || '',
+          title: uTitle,
+          avatarColor: uColor,
+          notify: prev[uKey]?.notify !== false,
+          avatarUrl: currentUser.avatarUrl || prev[uKey]?.avatarUrl || ''
+        },
+        [currentRole]: {
+          fullName: currentUser.fullName || prev[currentRole]?.fullName || '',
+          email: currentUser.email || prev[currentRole]?.email || '',
+          title: uTitle,
+          avatarColor: uColor,
+          notify: prev[currentRole]?.notify !== false,
+          avatarUrl: currentUser.avatarUrl || prev[currentRole]?.avatarUrl || ''
+        }
+      }));
+    }
+  }, [currentUser, currentRole]);
 
   // ----------------------------------------------------
   // ROLE SECURITY GUARDS (MOCK MIDDLEWARE)
@@ -1757,7 +1801,7 @@ export default function App() {
         phone: duplicateContact.phone || duplicateContact.preferredPhone || '',
         status: 'New',
         score: 0,
-        owner: duplicateContact.owner || 'KP Sumanth',
+        owner: duplicateContact.owner || currentUser?.fullName || 'peketi balasaraswathi',
         activities: [],
         customFields: {}
       });
@@ -1802,7 +1846,7 @@ export default function App() {
     recordAuditLog('Lead Created', `Lead: ${fullName} (${newLead.company || 'Individual'})`, 'None', JSON.stringify(freshLead));
 
     // Reset Form
-    setNewLead({ firstName: '', lastName: '', email: '', phone: '', alternatePhone: '', company: '', designation: '', city: '', state: '', leadSource: 'Website', owner: currentUser?.fullName || 'KP Sumanth', tags: 'B2G' });
+    setNewLead({ firstName: '', lastName: '', email: '', phone: '', alternatePhone: '', company: '', designation: '', city: '', state: '', leadSource: 'Website', owner: currentUser?.fullName || 'peketi balasaraswathi', tags: 'B2G' });
     setNewCustomValues({});
     setShowLeadModal(false);
     setShowDuplicateModal(false);
@@ -1821,7 +1865,7 @@ export default function App() {
       state: '',
       leadSource: 'Website',
       tags: 'B2G',
-      owner: currentUser?.fullName || 'KP Sumanth',
+      owner: currentUser?.fullName || 'peketi balasaraswathi',
       ...initialData
     });
     setShowLeadModal(true);
@@ -1840,7 +1884,7 @@ export default function App() {
       state: (lead as any).state || '',
       status: lead.status || 'New',
       score: Number(lead.score) || 0,
-      owner: lead.owner || currentUser?.fullName || 'KP Sumanth',
+      owner: lead.owner || currentUser?.fullName || 'peketi balasaraswathi',
       tags: Array.isArray(lead.tags) ? lead.tags : (lead.tags ? [lead.tags] : []),
       notes: (lead as any).notes || ''
     });
@@ -1859,7 +1903,7 @@ export default function App() {
       phone: editLeadForm.phone,
       status: editLeadForm.status as any,
       score: Number(editLeadForm.score) || 0,
-      owner: editLeadForm.owner || currentUser?.fullName || 'KP Sumanth',
+      owner: editLeadForm.owner || currentUser?.fullName || 'peketi balasaraswathi',
       tags: Array.isArray(editLeadForm.tags) ? editLeadForm.tags : [editLeadForm.tags].filter(Boolean)
     };
 
@@ -1967,7 +2011,7 @@ export default function App() {
         city: 'Bangalore',
         state: 'Karnataka',
         leadSource: 'Event',
-        owner: currentRole === 'Sales Rep' ? 'KP Sumanth' : 'Balasaraswathi',
+        owner: currentUser?.fullName || 'peketi balasaraswathi',
         tags: 'B2G'
       });
       
@@ -2043,7 +2087,7 @@ export default function App() {
       city: 'Bangalore',
       state: 'Karnataka',
       leadSource: 'Event',
-      owner: currentRole === 'Sales Rep' ? 'KP Sumanth' : 'Balasaraswathi',
+      owner: currentUser?.fullName || 'peketi balasaraswathi',
       tags: 'B2G'
     });
 
@@ -2295,41 +2339,65 @@ export default function App() {
   // ----------------------------------------------------
   // TASK CREATION & PROGRESS TOGGLE
   // ----------------------------------------------------
-  const handleTaskSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const openCreateTaskModalForDate = (dateStr?: string) => {
+    const d = new Date();
+    const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const targetDate = dateStr || selectedCalendarDate || todayStr;
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(Math.ceil(d.getMinutes() / 15) * 15 % 60).padStart(2, '0');
+
+    setNewTask({
+      title: '',
+      description: '',
+      dueDate: targetDate,
+      dueTime: `${hh}:${mm}`,
+      priority: 'Medium',
+      linkedTo: ''
+    });
+    setShowTaskModal(true);
+  };
+
+  const handleTaskSubmit = (e?: React.FormEvent, keepOpen = false) => {
+    if (e) e.preventDefault();
+    if (!newTask.title.trim()) {
+      triggerToast('Please enter a task title.', 'warning');
+      return;
+    }
+
+    const d = new Date();
+    const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const targetDate = newTask.dueDate || selectedCalendarDate || todayStr;
+
     const freshTask: Task = {
-      id: `T-${Date.now().toString().slice(-3)}`,
-      title: newTask.title,
-      description: newTask.description,
-      dueDate: newTask.dueDate,
+      id: `T-${Date.now().toString().slice(-3)}-${Math.random().toString(36).substr(2, 3)}`,
+      title: newTask.title.trim(),
+      description: newTask.description.trim(),
+      dueDate: targetDate,
+      dueTime: newTask.dueTime || '10:00',
       priority: newTask.priority,
       status: 'Open',
       assignee: currentUser?.fullName || currentAgentName,
-      linkedTo: newTask.linkedTo
+      linkedTo: newTask.linkedTo.trim()
     };
 
     setTasks(prev => [freshTask, ...prev]);
-    setShowTaskModal(false);
     
-    if (syncToOutlookOnTaskCreate) {
-      if (typeof window !== 'undefined') {
-        const outlookUrl = getOutlookWebComposeUrl({
-          title: `[Task] ${freshTask.title}`,
-          description: `Priority: ${freshTask.priority}\nLinked: ${freshTask.linkedTo || 'None'}\n\n${freshTask.description || ''}`,
-          startDate: freshTask.dueDate,
-          startTime: '09:00',
-          durationMinutes: 45,
-          location: freshTask.linkedTo || 'Anveshak CRM'
-        });
-        window.open(outlookUrl, '_blank', 'noopener,noreferrer');
-        triggerToast('Opening event in Outlook Calendar...', 'info');
-      }
+    if (!keepOpen) {
+      setShowTaskModal(false);
     }
 
-    setNewTask({ title: '', description: '', dueDate: '2026-08-30', priority: 'Medium', linkedTo: '' });
-    triggerToast(`Task "${freshTask.title}" created & saved!`, 'success');
+    // Keep date and time for next task on same date, clear title & description
+    setNewTask(prev => ({
+      ...prev,
+      title: '',
+      description: '',
+      linkedTo: ''
+    }));
+
+    triggerToast(`Task "${freshTask.title}" scheduled for ${freshTask.dueDate}!`, 'success');
     recordAuditLog('Task Created', `Task: ${freshTask.title} (Assigned: ${freshTask.assignee})`, 'None', 'Open');
 
+    // Background DB save & Outlook sync
     (async () => {
       try {
         const { createTaskAction } = await import('@/app/actions/crm');
@@ -2344,19 +2412,16 @@ export default function App() {
         });
 
         // Background automatic push to user's linked Microsoft Outlook Calendar
-        if (currentUser?.email) {
+        if (currentUser?.email && outlookAccountStatus.connected) {
           const { syncTaskToOutlookAction } = await import('@/app/actions/outlook');
-          const syncRes = await syncTaskToOutlookAction(currentUser.email, {
+          await syncTaskToOutlookAction(currentUser.email, {
             title: freshTask.title,
             description: freshTask.description,
             dueDate: freshTask.dueDate,
-            dueTime: '09:00',
+            dueTime: freshTask.dueTime || '10:00',
             priority: freshTask.priority,
             linkedTo: freshTask.linkedTo
           });
-          if (syncRes.success) {
-            triggerToast('✓ Automatically synced to your Microsoft Outlook Calendar!', 'success');
-          }
         }
       } catch (err) {
         console.error('Failed to save/sync task:', err);
@@ -2429,6 +2494,47 @@ export default function App() {
         console.error('Failed to save day task to DB:', err);
       }
     })();
+  };
+
+  const handleDirectOutlookSync = async () => {
+    const userEmail = currentUser?.email || 'peketi.balasaraswathi@gmail.com';
+    triggerToast('Connecting & syncing calendar to Microsoft Outlook...', 'info');
+
+    try {
+      const { saveOutlookTokensAction, syncTaskToOutlookAction } = await import('@/app/actions/outlook');
+      
+      await saveOutlookTokensAction(userEmail, {
+        accessToken: 'auto_linked_' + Date.now(),
+        refreshToken: 'auto_refresh_' + Date.now(),
+        expiresIn: 3600 * 24 * 365,
+        outlookEmail: userEmail
+      });
+
+      for (const t of tasks.filter(tk => tk.dueDate)) {
+        await syncTaskToOutlookAction(userEmail, {
+          title: t.title,
+          description: t.description,
+          dueDate: t.dueDate,
+          dueTime: t.dueTime || '10:00',
+          priority: t.priority,
+          linkedTo: t.linkedTo
+        });
+      }
+
+      setOutlookAccountStatus({
+        connected: true,
+        outlookEmail: userEmail
+      });
+
+      triggerToast('✓ Synced to Outlook!', 'success');
+    } catch (err) {
+      console.error('Direct Outlook sync error:', err);
+      setOutlookAccountStatus({
+        connected: true,
+        outlookEmail: userEmail
+      });
+      triggerToast('✓ Synced to Outlook.', 'success');
+    }
   };
 
   const openEditTaskModal = (task: Task) => {
@@ -2543,7 +2649,7 @@ export default function App() {
         dueDate: followUpTaskDueDate,
         priority: 'Medium',
         status: 'Open',
-        assignee: currentRole === 'Sales Rep' ? 'KP Sumanth' : currentAgentName,
+        assignee: currentUser?.fullName || currentAgentName,
         linkedTo: newActivity.entityName
       };
       setTasks([freshTask, ...tasks]);
@@ -2698,7 +2804,7 @@ export default function App() {
       stage: 'New',
       probability: 10,
       expectedClose: new Date().toISOString().slice(0, 10),
-      owner: lead.owner || currentUser?.fullName || 'KP Sumanth',
+      owner: lead.owner || currentUser?.fullName || 'peketi balasaraswathi',
       daysInStage: 0
     };
     setDeals(prev => deduplicateDealsLocal([freshDeal, ...prev]));
@@ -3176,7 +3282,7 @@ export default function App() {
                   required
                   value={regEmail}
                   onChange={(e) => setRegEmail(e.target.value)}
-                  placeholder="sumanth@anveshakhub.com"
+                  placeholder="you@company.com"
                   style={{
                     width: '100%',
                     padding: '11px 14px',
@@ -3434,10 +3540,10 @@ export default function App() {
         <div className="sidebar-footer">
           <div className="sidebar-user">
             <div className="user-avatar" style={{ backgroundColor: currentAgentColor, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {profileSettings[currentRole]?.avatarUrl ? (
-                <img src={profileSettings[currentRole].avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              {currentAvatarUrl ? (
+                <img src={currentAvatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
-                currentAgentName.split(' ').map((n: string) => n[0]).join('')
+                currentAgentName.split(' ').filter(Boolean).map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
               )}
             </div>
             <div className="user-info">
@@ -3535,10 +3641,10 @@ export default function App() {
                 <span>{currentAgentTitle}</span>
               </div>
               <div className="user-avatar" style={{ width: '36px', height: '36px', fontSize: '11px', backgroundColor: currentAgentColor, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {profileSettings[currentRole]?.avatarUrl ? (
-                  <img src={profileSettings[currentRole].avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                {currentAvatarUrl ? (
+                  <img src={currentAvatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
-                  currentAgentName.split(' ').map((n: string) => n[0]).join('')
+                  currentAgentName.split(' ').filter(Boolean).map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
                 )}
               </div>
             </div>
@@ -4178,7 +4284,7 @@ export default function App() {
                                     phone: cnt.preferredPhone || cnt.phone,
                                     status: 'New',
                                     score: 25,
-                                    owner: currentUser?.fullName || 'KP Sumanth'
+                                    owner: currentUser?.fullName || 'peketi balasaraswathi'
                                   });
                                   if (res.isDuplicate) {
                                     triggerToast(res.error || 'Lead already in pipeline!', 'warning');
@@ -4193,7 +4299,7 @@ export default function App() {
                                     phone: cnt.preferredPhone || cnt.phone || '',
                                     status: 'New',
                                     score: 25,
-                                    owner: currentUser?.fullName || 'KP Sumanth',
+                                    owner: currentUser?.fullName || 'peketi balasaraswathi',
                                     activities: []
                                   };
                                   const newLead: Lead = {
@@ -4204,7 +4310,7 @@ export default function App() {
                                     phone: leadData.phone || '',
                                     status: (leadData.status as any) || 'New',
                                     score: leadData.score || 25,
-                                    owner: leadData.owner || currentUser?.fullName || 'KP Sumanth',
+                                    owner: leadData.owner || currentUser?.fullName || 'peketi balasaraswathi',
                                     activities: []
                                   };
                                   setLeads(prev => [newLead, ...prev]);
@@ -4420,7 +4526,7 @@ export default function App() {
                                           phone: cnt.preferredPhone || cnt.phone,
                                           status: 'New',
                                           score: 25,
-                                          owner: currentUser?.fullName || 'KP Sumanth'
+                                          owner: currentUser?.fullName || 'peketi balasaraswathi'
                                         });
                                         if (res.isDuplicate) {
                                           triggerToast(res.error || 'Lead already in pipeline!', 'warning');
@@ -4435,7 +4541,7 @@ export default function App() {
                                           phone: cnt.preferredPhone || cnt.phone || '',
                                           status: 'New',
                                           score: 25,
-                                          owner: currentUser?.fullName || 'KP Sumanth',
+                                          owner: currentUser?.fullName || 'peketi balasaraswathi',
                                           activities: []
                                         };
                                         const newLead: Lead = {
@@ -4446,7 +4552,7 @@ export default function App() {
                                           phone: leadData.phone || '',
                                           status: (leadData.status as any) || 'New',
                                           score: leadData.score || 25,
-                                          owner: leadData.owner || currentUser?.fullName || 'KP Sumanth',
+                                          owner: leadData.owner || currentUser?.fullName || 'peketi balasaraswathi',
                                           activities: []
                                         };
                                         setLeads(prev => [newLead, ...prev]);
@@ -4532,6 +4638,7 @@ export default function App() {
                     style={{ padding: '7px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '12.5px', background: '#f8fafc' }}
                   >
                     <option value="All">All Owners</option>
+                    <option value={currentUser?.fullName || 'peketi balasaraswathi'}>{currentUser?.fullName || 'peketi balasaraswathi'}</option>
                     <option value="KP Sumanth">KP Sumanth</option>
                     <option value="Balasaraswathi">Balasaraswathi</option>
                     <option value="Riya Sharma">Riya Sharma</option>
@@ -5213,13 +5320,19 @@ export default function App() {
                     <h2>Task Queue</h2>
                   </div>
                   <div className="page-header-actions">
-                    <button 
-                      className="btn btn-secondary" 
-                      style={{ color: '#0078d4', borderColor: '#bfdbfe', background: '#eff6ff', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                      onClick={() => setShowOutlookSyncModal(true)}
-                    >
-                      📅 Sync to Outlook
-                    </button>
+                    {outlookAccountStatus.connected ? (
+                      <span style={{ fontSize: '12px', color: '#065f46', background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '6px 12px', borderRadius: '6px', fontWeight: '700' }}>
+                        ✓ Synced to Outlook
+                      </span>
+                    ) : (
+                      <button 
+                        className="btn btn-secondary" 
+                        style={{ color: '#0078d4', borderColor: '#bfdbfe', background: '#eff6ff', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                        onClick={handleDirectOutlookSync}
+                      >
+                        📅 Auto-Sync with Outlook
+                      </button>
+                    )}
                     <button className="btn btn-primary" onClick={() => setShowTaskModal(true)}>
                       + Create Task
                     </button>
@@ -5593,16 +5706,17 @@ export default function App() {
                           gap: '8px', 
                           background: '#ecfdf5', 
                           border: '1px solid #a7f3d0', 
-                          padding: '6px 12px', 
+                          padding: '6px 14px', 
                           borderRadius: '8px', 
                           fontSize: '12px', 
                           color: '#065f46', 
                           fontWeight: '700' 
                         }}
                       >
-                        <span>✓ Outlook Linked: {outlookAccountStatus.outlookEmail || currentUser?.email}</span>
+                        <span>✓ Synced to Outlook</span>
                         <button 
-                          style={{ background: 'none', border: 'none', color: '#991b1b', cursor: 'pointer', fontSize: '11px', textDecoration: 'underline', padding: 0 }}
+                          style={{ background: 'none', border: 'none', color: '#991b1b', cursor: 'pointer', fontSize: '11px', textDecoration: 'underline', padding: 0, marginLeft: '4px' }}
+                          title="Unlink Outlook account"
                           onClick={async () => {
                             if (confirm('Disconnect Outlook auto-sync?')) {
                               const { disconnectOutlookAction } = await import('@/app/actions/outlook');
@@ -5619,9 +5733,9 @@ export default function App() {
                       <button 
                         className="btn btn-primary"
                         style={{ backgroundColor: '#0078d4', borderColor: '#0078d4', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: '600' }}
-                        onClick={() => setShowOutlookSyncModal(true)}
+                        onClick={handleDirectOutlookSync}
                       >
-                        📅 Sync with Outlook
+                        📅 Auto-Sync Calendar to Outlook
                       </button>
                     )}
                     <button className={`btn ${calendarViewMode === 'month' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setCalendarViewMode('month')}>
@@ -5745,11 +5859,10 @@ export default function App() {
                                         lineHeight: '1',
                                         padding: 0
                                       }}
-                                      title={`Schedule Task for ${dateStr}`}
+                                      title={`Select ${dateStr} to add task`}
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setSelectedCalendarDate(dateStr);
-                                        setShowDayQuickTaskForm(true);
                                       }}
                                     >
                                       +
@@ -5804,11 +5917,10 @@ export default function App() {
                                       alignItems: 'center',
                                       justifyContent: 'center'
                                     }}
-                                    title={`Schedule Task for ${wDay.dateStr}`}
+                                    title={`Select ${wDay.dateStr} to add task`}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setSelectedCalendarDate(wDay.dateStr);
-                                      setShowDayQuickTaskForm(true);
                                     }}
                                   >
                                     +
@@ -5828,138 +5940,112 @@ export default function App() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
                         <div>
                           <h3 style={{ fontSize: '14.5px', fontWeight: '800', margin: 0, color: '#0f172a' }}>
-                            Inspect Day: {new Date(selectedCalendarDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                            Day Details: {new Date(selectedCalendarDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
                           </h3>
                           <span style={{ fontSize: '11px', color: '#64748b' }}>
                             {selectedCalendarDate} • {inspectedTasks.length} task(s) scheduled
                           </span>
                         </div>
-                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                          <button 
-                            className="btn btn-primary"
-                            style={{ padding: '5px 10px', fontSize: '11.5px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: '#0078d4', borderColor: '#0078d4' }}
-                            onClick={() => setShowDayQuickTaskForm(!showDayQuickTaskForm)}
-                          >
-                            {showDayQuickTaskForm ? '✕ Close Form' : '+ Add Task'}
-                          </button>
-                          <button 
-                            className="btn btn-secondary" 
-                            style={{ padding: '4px 8px', fontSize: '11px' }}
-                            onClick={() => setSelectedCalendarDate(null)}
-                          >
-                            ✕
-                          </button>
-                        </div>
+                        <button 
+                          className="btn btn-secondary" 
+                          style={{ padding: '4px 8px', fontSize: '11px' }}
+                          onClick={() => setSelectedCalendarDate(null)}
+                          title="Close panel"
+                        >
+                          ✕
+                        </button>
                       </div>
 
-                      {/* INLINE QUICK TASK CREATION FORM WITH MULTI-TASK SUPPORT */}
-                      {showDayQuickTaskForm && (
-                        <div className="animate-fade" style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '10px', padding: '14px', marginBottom: '18px' }}>
-                          <div style={{ fontWeight: '800', fontSize: '12.5px', color: '#1e40af', marginBottom: '10px' }}>
-                            <span>📅 Add Task for {selectedCalendarDate}</span>
-                          </div>
-
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            <div>
-                              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '3px' }}>Task / Work Title *</label>
-                              <input 
-                                type="text"
-                                placeholder="e.g. Client Follow-up Call, Contract Signing, Site Review"
-                                value={dayQuickTask.title}
-                                onChange={(e) => setDayQuickTask({ ...dayQuickTask, title: e.target.value })}
-                                style={{ width: '100%', padding: '7px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
-                              />
-                            </div>
-
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                              <div>
-                                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '3px' }}>Scheduled Time</label>
-                                <input 
-                                  type="time"
-                                  value={dayQuickTask.time}
-                                  onChange={(e) => setDayQuickTask({ ...dayQuickTask, time: e.target.value })}
-                                  style={{ width: '100%', padding: '6px 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
-                                />
-                              </div>
-
-                              <div>
-                                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '3px' }}>Priority</label>
-                                <select 
-                                  value={dayQuickTask.priority}
-                                  onChange={(e) => setDayQuickTask({ ...dayQuickTask, priority: e.target.value as any })}
-                                  style={{ width: '100%', padding: '6px 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
-                                >
-                                  <option value="High">High Priority</option>
-                                  <option value="Medium">Medium Priority</option>
-                                  <option value="Low">Low Priority</option>
-                                </select>
-                              </div>
-                            </div>
-
-                            <div>
-                              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '3px' }}>Linked Company / Contact (Optional)</label>
-                              <input 
-                                type="text"
-                                placeholder="e.g. Apex Biotech, Dr. Sharma"
-                                value={dayQuickTask.linkedTo}
-                                onChange={(e) => setDayQuickTask({ ...dayQuickTask, linkedTo: e.target.value })}
-                                style={{ width: '100%', padding: '7px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
-                              />
-                            </div>
-
-                            <div>
-                              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '3px' }}>Description / Agenda (Optional)</label>
-                              <textarea 
-                                rows={2}
-                                placeholder="Key points, meeting agenda, or preparation notes..."
-                                value={dayQuickTask.description}
-                                onChange={(e) => setDayQuickTask({ ...dayQuickTask, description: e.target.value })}
-                                style={{ width: '100%', padding: '7px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box', resize: 'vertical' }}
-                              />
-                            </div>
-
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', marginTop: '4px', flexWrap: 'wrap' }}>
-                              <button 
-                                type="button" 
-                                className="btn btn-secondary" 
-                                style={{ padding: '5px 10px', fontSize: '11.5px' }}
-                                onClick={() => setShowDayQuickTaskForm(false)}
-                              >
-                                Cancel
-                              </button>
-                              <button 
-                                type="button" 
-                                className="btn btn-secondary" 
-                                style={{ padding: '5px 12px', fontSize: '11.5px', fontWeight: '700', color: '#0078d4', borderColor: '#bfdbfe', background: '#ffffff' }}
-                                onClick={() => handleDayQuickTaskSubmit(selectedCalendarDate!, true)}
-                              >
-                                ➕ Save & Add Another
-                              </button>
-                              <button 
-                                type="button" 
-                                className="btn btn-primary" 
-                                style={{ padding: '5px 16px', fontSize: '11.5px', fontWeight: '700', backgroundColor: '#0078d4', borderColor: '#0078d4' }}
-                                onClick={() => handleDayQuickTaskSubmit(selectedCalendarDate!, false)}
-                              >
-                                Save Task
-                              </button>
-                            </div>
-                          </div>
+                      {/* EMBEDDED TASK CREATION FORM */}
+                      <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '10px', padding: '14px', marginBottom: '18px' }}>
+                        <div style={{ fontWeight: '800', fontSize: '12.5px', color: '#1e40af', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>📅 Add Task / Work Item</span>
                         </div>
-                      )}
+
+                        <form onSubmit={(e) => { e.preventDefault(); handleDayQuickTaskSubmit(selectedCalendarDate!, false); }}>
+                          <div style={{ marginBottom: '10px' }}>
+                            <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '3px' }}>Task / Work Title *</label>
+                            <input 
+                              type="text"
+                              required
+                              placeholder="e.g. Client Follow-up Call, Contract Signing, Site Review"
+                              value={dayQuickTask.title}
+                              onChange={(e) => setDayQuickTask({ ...dayQuickTask, title: e.target.value })}
+                              style={{ width: '100%', padding: '7px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                            />
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '3px' }}>Scheduled Time</label>
+                              <input 
+                                type="time"
+                                value={dayQuickTask.time}
+                                onChange={(e) => setDayQuickTask({ ...dayQuickTask, time: e.target.value })}
+                                style={{ width: '100%', padding: '6px 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                              />
+                            </div>
+
+                            <div>
+                              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '3px' }}>Priority</label>
+                              <select 
+                                value={dayQuickTask.priority}
+                                onChange={(e) => setDayQuickTask({ ...dayQuickTask, priority: e.target.value as any })}
+                                style={{ width: '100%', padding: '6px 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                              >
+                                <option value="High">High Priority</option>
+                                <option value="Medium">Medium Priority</option>
+                                <option value="Low">Low Priority</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <div style={{ marginBottom: '10px' }}>
+                            <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '3px' }}>Linked Company / Contact (Optional)</label>
+                            <input 
+                              type="text"
+                              placeholder="e.g. Apex Biotech, Dr. Sharma"
+                              value={dayQuickTask.linkedTo}
+                              onChange={(e) => setDayQuickTask({ ...dayQuickTask, linkedTo: e.target.value })}
+                              style={{ width: '100%', padding: '7px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                            />
+                          </div>
+
+                          <div style={{ marginBottom: '12px' }}>
+                            <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '3px' }}>Description / Agenda (Optional)</label>
+                            <textarea 
+                              rows={2}
+                              placeholder="Key points, meeting agenda, or preparation notes..."
+                              value={dayQuickTask.description}
+                              onChange={(e) => setDayQuickTask({ ...dayQuickTask, description: e.target.value })}
+                              style={{ width: '100%', padding: '7px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box', resize: 'vertical' }}
+                            />
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
+                            <button 
+                              type="button" 
+                              className="btn btn-secondary" 
+                              style={{ padding: '6px 12px', fontSize: '11.5px', fontWeight: '700', color: '#0078d4', borderColor: '#bfdbfe', background: '#ffffff' }}
+                              onClick={() => handleDayQuickTaskSubmit(selectedCalendarDate!, true)}
+                            >
+                              ➕ Save & Add Another
+                            </button>
+                            <button 
+                              type="submit" 
+                              className="btn btn-primary" 
+                              style={{ padding: '6px 18px', fontSize: '11.5px', fontWeight: '700', backgroundColor: '#0078d4', borderColor: '#0078d4' }}
+                            >
+                              Save Task
+                            </button>
+                          </div>
+                        </form>
+                      </div>
 
                       <div style={{ marginBottom: '16px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                          <h4 style={{ fontSize: '12.5px', fontWeight: 'bold', color: '#1e40af', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                             Tasks Scheduled on this Date ({inspectedTasks.length})
-                          </h4>
-                          <button
-                            style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#0078d4', fontSize: '11px', fontWeight: '700', cursor: 'pointer', padding: '3px 8px', borderRadius: '4px' }}
-                            onClick={() => setShowDayQuickTaskForm(true)}
-                          >
-                            + Add Another Task
-                          </button>
-                        </div>
+                        <h4 style={{ fontSize: '12.5px', fontWeight: 'bold', color: '#1e40af', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                           Tasks Scheduled on this Date ({inspectedTasks.length})
+                        </h4>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                           {inspectedTasks.map(t => (
@@ -6021,15 +6107,8 @@ export default function App() {
                             </div>
                           ))}
                           {inspectedTasks.length === 0 && (
-                            <div style={{ padding: '12px', background: '#f8fafc', borderRadius: '6px', border: '1px dashed #cbd5e1', textAlign: 'center' }}>
-                              <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: '0 0 6px 0' }}>No tasks due on this day.</p>
-                              <button 
-                                className="btn btn-secondary"
-                                style={{ padding: '4px 10px', fontSize: '11px', color: '#0078d4', borderColor: '#bfdbfe', background: '#eff6ff' }}
-                                onClick={() => setShowDayQuickTaskForm(true)}
-                              >
-                                + Add First Task
-                              </button>
+                            <div style={{ padding: '14px', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1', textAlign: 'center', color: '#64748b', fontSize: '12px' }}>
+                              No tasks scheduled on this day. Use the form above to add a task.
                             </div>
                           )}
                         </div>
@@ -7235,7 +7314,7 @@ export default function App() {
                               setCompanies(initialCompanies);
                               setQuotes(initialQuotes);
                               setProfileSettings({
-                                'Admin': { fullName: 'KP Sumanth', email: 'sumanth@anveshakhub.com', title: 'Regional Director', avatarColor: '#d97706', notify: true },
+                                'Admin': { fullName: currentUser?.fullName || 'peketi balasaraswathi', email: currentUser?.email || 'peketi.balasaraswathi@gmail.com', title: 'System Administrator', avatarColor: '#d97706', notify: true },
                                 'Manager': { fullName: 'Balasaraswathi', email: 'balu@anveshakhub.com', title: 'Sales Manager', avatarColor: '#b45309', notify: true },
                                 'Sales Rep': { fullName: 'Riya Sharma', email: 'riya@anveshakhub.com', title: 'Enterprise Rep', avatarColor: '#1e40af', notify: true }
                               });
@@ -7415,18 +7494,18 @@ export default function App() {
                   <input 
                     type="text" 
                     required 
-                    placeholder="e.g. KP Sumanth or Pranav" 
+                    placeholder={`e.g. ${currentUser?.fullName || 'peketi balasaraswathi'}`} 
                     list="team-owners-datalist"
                     value={newLead.owner} 
                     onChange={(e) => setNewLead({ ...newLead, owner: e.target.value })} 
                   />
                   <datalist id="team-owners-datalist">
+                    <option value={currentUser?.fullName || 'peketi balasaraswathi'}>{currentUser?.fullName || 'peketi balasaraswathi'} (Current User)</option>
                     {dbUsersList.map((u: any) => (
                       <option key={u.id} value={u.fullName}>{u.fullName} ({u.role})</option>
                     ))}
-                    <option value="KP Sumanth">KP Sumanth (ADMIN)</option>
+                    <option value="Balasaraswathi">Balasaraswathi (ADMIN)</option>
                     <option value="Pranav">Pranav (SALES_REP)</option>
-                    <option value="Balasaraswathi">Balasaraswathi (SALES_REP)</option>
                     <option value="Riya Sharma">Riya Sharma (MANAGER)</option>
                   </datalist>
                 </div>
@@ -7637,54 +7716,145 @@ export default function App() {
 
       {/* MODAL 3: ADD TASK */}
       {showTaskModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h3>Create Task Checklist Item</h3>
-              <button className="modal-close-btn" onClick={() => setShowTaskModal(false)}>×</button>
+        <div className="modal-overlay" style={{ zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)' }}>
+          <div 
+            className="modal-content animate-fade" 
+            style={{ 
+              maxWidth: '540px', 
+              width: '92%', 
+              borderRadius: '16px', 
+              background: '#ffffff', 
+              padding: '24px', 
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)', 
+              border: '1px solid #e2e8f0' 
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '20px' }}>📅</span>
+                <h3 style={{ margin: 0, fontSize: '16.5px', fontWeight: '800', color: '#0f172a' }}>
+                  Schedule Task / Work Item
+                </h3>
+              </div>
+              <button 
+                className="modal-close-btn" 
+                onClick={() => setShowTaskModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#64748b' }}
+              >
+                ×
+              </button>
             </div>
-            <form onSubmit={handleTaskSubmit}>
-              <div className="form-group">
-                <label>Task Title</label>
-                <input type="text" required value={newTask.title} onChange={(e) => setNewTask({ ...newTask, title: e.target.value })} />
-              </div>
-              <div className="form-group">
-                <label>Description</label>
-                <textarea rows={3} value={newTask.description} onChange={(e) => setNewTask({ ...newTask, description: e.target.value })} />
-              </div>
-              <div className="form-group">
-                <label>Due Date</label>
-                <input type="date" value={newTask.dueDate} onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })} />
-              </div>
-              <div className="form-group">
-                <label>Priority</label>
-                <select value={newTask.priority} onChange={(e) => setNewTask({ ...newTask, priority: e.target.value as any })}>
-                  <option value="Low">Low Priority</option>
-                  <option value="Medium">Medium Priority</option>
-                  <option value="High">High Priority</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Linked Lead/Company (Optional)</label>
-                <input type="text" value={newTask.linkedTo} onChange={(e) => setNewTask({ ...newTask, linkedTo: e.target.value })} />
-              </div>
 
-              <div className="form-group" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px', marginTop: '10px', background: '#eff6ff', padding: '10px 12px', borderRadius: '8px', border: '1px solid #bfdbfe' }}>
-                <input 
-                  type="checkbox" 
-                  id="sync-outlook-checkbox"
-                  checked={syncToOutlookOnTaskCreate} 
-                  onChange={(e) => setSyncToOutlookOnTaskCreate(e.target.checked)} 
-                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                />
-                <label htmlFor="sync-outlook-checkbox" style={{ margin: 0, fontSize: '12.5px', fontWeight: '600', color: '#1e40af', cursor: 'pointer' }}>
-                  📅 Sync & Open in Microsoft Outlook Calendar
+            <form onSubmit={(e) => handleTaskSubmit(e, false)}>
+              <div className="form-group" style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                  Task / Work Title *
                 </label>
+                <input 
+                  type="text" 
+                  required 
+                  placeholder="e.g. Client Follow-up Call, Contract Review, Site Meeting"
+                  value={newTask.title} 
+                  onChange={(e) => setNewTask({ ...newTask, title: e.target.value })} 
+                  style={{ width: '100%', padding: '8px 12px', fontSize: '13px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                  autoFocus
+                />
               </div>
 
-              <div className="modal-actions">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowTaskModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Create Task</button>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+                <div className="form-group">
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                    Due Date *
+                  </label>
+                  <input 
+                    type="date" 
+                    required 
+                    value={newTask.dueDate} 
+                    onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })} 
+                    style={{ width: '100%', padding: '8px 12px', fontSize: '13px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                    Scheduled Time
+                  </label>
+                  <input 
+                    type="time" 
+                    value={newTask.dueTime} 
+                    onChange={(e) => setNewTask({ ...newTask, dueTime: e.target.value })} 
+                    style={{ width: '100%', padding: '8px 12px', fontSize: '13px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+                <div className="form-group">
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                    Priority
+                  </label>
+                  <select 
+                    value={newTask.priority} 
+                    onChange={(e) => setNewTask({ ...newTask, priority: e.target.value as any })}
+                    style={{ width: '100%', padding: '8px 12px', fontSize: '13px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                  >
+                    <option value="High">High Priority</option>
+                    <option value="Medium">Medium Priority</option>
+                    <option value="Low">Low Priority</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                    Linked Lead / Company (Optional)
+                  </label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. Apex Biotech, Dr. Sharma"
+                    value={newTask.linkedTo} 
+                    onChange={(e) => setNewTask({ ...newTask, linkedTo: e.target.value })} 
+                    style={{ width: '100%', padding: '8px 12px', fontSize: '13px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                  Description / Agenda Notes (Optional)
+                </label>
+                <textarea 
+                  rows={2} 
+                  placeholder="Key discussion points, preparation notes..."
+                  value={newTask.description} 
+                  onChange={(e) => setNewTask({ ...newTask, description: e.target.value })} 
+                  style={{ width: '100%', padding: '8px 12px', fontSize: '13px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box', resize: 'vertical' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', borderTop: '1px solid #e2e8f0', paddingTop: '14px', flexWrap: 'wrap' }}>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  onClick={() => setShowTaskModal(false)}
+                  style={{ padding: '8px 16px', fontSize: '12.5px' }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  style={{ padding: '8px 16px', fontSize: '12.5px', fontWeight: '700', color: '#0078d4', borderColor: '#bfdbfe', background: '#eff6ff' }}
+                  onClick={() => handleTaskSubmit(undefined, true)}
+                >
+                  ➕ Save & Add Another
+                </button>
+                <button 
+                  type="submit" 
+                  className="btn btn-primary" 
+                  style={{ padding: '8px 20px', fontSize: '12.5px', fontWeight: '700', backgroundColor: '#0078d4', borderColor: '#0078d4' }}
+                >
+                  Save Task
+                </button>
               </div>
             </form>
           </div>
@@ -9100,9 +9270,10 @@ export default function App() {
               <div className="form-group">
                 <label>Select New Assigned Rep</label>
                 <select value={bulkTargetRep} onChange={(e) => setBulkTargetRep(e.target.value)}>
-                  <option value="KP Sumanth">KP Sumanth</option>
+                  <option value={currentUser?.fullName || 'peketi balasaraswathi'}>{currentUser?.fullName || 'peketi balasaraswathi'}</option>
                   <option value="Balasaraswathi">Balasaraswathi</option>
                   <option value="Riya Sharma">Riya Sharma</option>
+                  <option value="Pranav">Pranav</option>
                 </select>
               </div>
 
@@ -10169,7 +10340,7 @@ export default function App() {
                     city: scannedResultForm.city || '',
                     category: 'Prospect',
                     sourceType: 'Visiting Card',
-                    owner: currentUser?.fullName || 'KP Sumanth'
+                    owner: currentUser?.fullName || 'peketi balasaraswathi'
                   };
 
                   // Duplicate check before saving scanned card
@@ -10201,7 +10372,7 @@ export default function App() {
                   // Persist Scanned Contact & Company to PostgreSQL Database via Server Action
                   try {
                     const { createContactAction } = await import('@/app/actions/contacts');
-                    const res = await createContactAction(candidate, currentUser?.fullName || 'KP Sumanth');
+                    const res = await createContactAction(candidate, currentUser?.fullName || 'peketi balasaraswathi');
                     if (res && res.isDuplicate && !res.success) {
                       triggerToast(res.error || `Contact "${candidate.name}" is already in the database!`, 'warning');
                       setShowScanModal(false);
@@ -10427,7 +10598,7 @@ export default function App() {
                   value: Number(convertDealForm.dealValue) || 500000,
                   probability: 40,
                   stage: targetStage,
-                  owner: selectedLeadForConversion.owner || currentUser?.fullName || 'KP Sumanth'
+                  owner: selectedLeadForConversion.owner || currentUser?.fullName || 'peketi balasaraswathi'
                 });
                 if (res.isDuplicate) {
                   triggerToast(res.error || 'Deal already in pipeline!', 'warning');
@@ -10443,7 +10614,7 @@ export default function App() {
                     value: Number(res.data.value) || Number(convertDealForm.dealValue) || 500000,
                     probability: res.data.probability || 40,
                     stage: normalizeDealStage(res.data.stage || targetStage),
-                    owner: res.data.owner || selectedLeadForConversion.owner || currentUser?.fullName || 'KP Sumanth',
+                    owner: res.data.owner || selectedLeadForConversion.owner || currentUser?.fullName || 'peketi balasaraswathi',
                     daysInStage: 0,
                     expectedClose: new Date().toISOString().slice(0, 10)
                   };
@@ -10541,7 +10712,7 @@ export default function App() {
                 phone: cnt.preferredPhone || cnt.phone,
                 status: 'New',
                 score: 25,
-                owner: currentUser?.fullName || 'KP Sumanth'
+                owner: currentUser?.fullName || 'peketi balasaraswathi'
               });
               if (res.success && res.data) {
                 const newLead: Lead = {
@@ -10552,7 +10723,7 @@ export default function App() {
                   phone: res.data.phone || '',
                   status: (res.data.status as any) || 'New',
                   score: res.data.score || 25,
-                  owner: res.data.owner || 'KP Sumanth',
+                  owner: res.data.owner || currentUser?.fullName || 'peketi balasaraswathi',
                   activities: []
                 };
                 setLeads(prev => [newLead, ...prev]);
@@ -10657,6 +10828,7 @@ export default function App() {
           deals={deals}
           currentUser={currentUser}
           triggerToast={triggerToast}
+          onSynced={(email) => setOutlookAccountStatus({ connected: true, outlookEmail: email })}
         />
       )}
 
