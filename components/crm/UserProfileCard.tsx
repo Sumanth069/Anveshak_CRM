@@ -29,26 +29,45 @@ export default function UserProfileCard({
   completedTasksCount = 0,
   winRatePercent = 0
 }: UserProfileCardProps) {
-  const currentProfile = profileSettings[currentRole] || {
-    fullName: currentUser?.fullName || '',
-    email: currentUser?.email || '',
-    title: currentUser?.title || '',
-    avatarColor: '#d97706',
-    notify: true,
-    phone: currentUser?.phone || '',
-    department: currentUser?.department || ''
+  const getInitials = (name?: string) => {
+    if (!name || !name.trim()) return 'U';
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return 'U';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
+  const defaultTitle = currentUser?.role === 'ADMIN' 
+    ? 'System Administrator' 
+    : currentUser?.role === 'MANAGER' 
+      ? 'Sales Manager' 
+      : 'Enterprise Representative';
+
   const [formState, setFormState] = useState({
-    fullName: currentProfile.fullName || currentUser?.fullName || '',
-    email: currentProfile.email || currentUser?.email || '',
-    title: currentProfile.title || currentUser?.title || '',
-    phone: currentProfile.phone || currentUser?.phone || '',
-    department: currentProfile.department || currentUser?.department || '',
-    notify: currentProfile.notify !== false,
-    avatarUrl: currentProfile.avatarUrl || '',
+    fullName: currentUser?.fullName || '',
+    email: currentUser?.email || '',
+    title: currentUser?.title || defaultTitle,
+    phone: currentUser?.phone || '',
+    department: currentUser?.department || 'Enterprise Solutions',
+    notify: true,
+    avatarUrl: currentUser?.avatarUrl || '',
     newPassword: ''
   });
+
+  // Sync state whenever currentUser loads or changes
+  React.useEffect(() => {
+    if (currentUser && currentUser.email) {
+      setFormState(prev => ({
+        ...prev,
+        fullName: currentUser.fullName || prev.fullName,
+        email: currentUser.email || prev.email,
+        title: currentUser.title || prev.title || defaultTitle,
+        phone: currentUser.phone !== undefined ? currentUser.phone : prev.phone,
+        department: currentUser.department !== undefined ? currentUser.department : prev.department,
+        avatarUrl: currentUser.avatarUrl || prev.avatarUrl
+      }));
+    }
+  }, [currentUser, defaultTitle]);
 
   const [isSaving, setIsSaving] = useState(false);
 
@@ -75,12 +94,15 @@ export default function UserProfileCard({
     setIsSaving(true);
 
     const updatedProfile = {
-      ...currentProfile,
-      ...formState
+      ...formState,
+      avatarColor: currentUser?.avatarColor || '#d97706'
     };
+
+    const userKey = currentUser?.id || currentUser?.email || currentRole;
 
     const updatedSettings = {
       ...profileSettings,
+      [userKey]: updatedProfile,
       [currentRole]: updatedProfile
     };
 
@@ -161,7 +183,7 @@ export default function UserProfileCard({
                   border: '3px solid rgba(255, 255, 255, 0.4)',
                   boxShadow: '0 8px 24px rgba(99, 102, 241, 0.4)'
                 }}>
-                  {formState.fullName ? formState.fullName.slice(0, 2).toUpperCase() : 'KP'}
+                  {getInitials(formState.fullName || currentUser?.fullName)}
                 </div>
               )}
 
@@ -403,13 +425,13 @@ export default function UserProfileCard({
             className="btn btn-secondary"
             onClick={() => {
               setFormState({
-                fullName: currentProfile.fullName || currentUser?.fullName || '',
-                email: currentProfile.email || currentUser?.email || '',
-                title: currentProfile.title || '',
-                phone: currentProfile.phone || '',
-                department: currentProfile.department || '',
-                notify: currentProfile.notify !== false,
-                avatarUrl: currentProfile.avatarUrl || '',
+                fullName: currentUser?.fullName || '',
+                email: currentUser?.email || '',
+                title: currentUser?.title || defaultTitle,
+                phone: currentUser?.phone || '',
+                department: currentUser?.department || 'Enterprise Solutions',
+                notify: true,
+                avatarUrl: currentUser?.avatarUrl || '',
                 newPassword: ''
               });
               triggerToast('Profile changes reset.', 'info');

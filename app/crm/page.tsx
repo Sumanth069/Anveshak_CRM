@@ -530,15 +530,20 @@ export default function App() {
 
   const [profileSettings, setProfileSettings] = useState<{
     [key: string]: { fullName: string; email: string; title: string; avatarColor: string; notify: boolean; avatarUrl?: string }
-  }>({
-    'Admin': { fullName: 'KP Sumanth', email: 'sumanth@anveshakhub.com', title: 'Regional Director', avatarColor: '#d97706', notify: true }
-  });
+  }>({});
 
   useEffect(() => {
     const savedProfiles = localStorage.getItem('ANVESHAK_CRM_PROFILES');
     if (savedProfiles) {
       try {
-        setProfileSettings(JSON.parse(savedProfiles));
+        const parsed = JSON.parse(savedProfiles);
+        if (parsed && typeof parsed === 'object') {
+          // Purge legacy demo profile so it doesn't overwrite real logged-in user
+          if (parsed['Admin']?.email === 'sumanth@anveshakhub.com' || parsed['Admin']?.fullName === 'KP Sumanth') {
+            delete parsed['Admin'];
+          }
+          setProfileSettings(parsed);
+        }
       } catch (err) {
         console.error(err);
       }
@@ -546,7 +551,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('ANVESHAK_CRM_PROFILES', JSON.stringify(profileSettings));
+    if (Object.keys(profileSettings).length > 0) {
+      localStorage.setItem('ANVESHAK_CRM_PROFILES', JSON.stringify(profileSettings));
+    }
   }, [profileSettings]);
 
   useEffect(() => {
@@ -1297,7 +1304,7 @@ export default function App() {
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('All');
   const [showBulkReassignModal, setShowBulkReassignModal] = useState(false);
   const [showBulkTagModal, setShowBulkTagModal] = useState(false);
-  const [bulkTargetRep, setBulkTargetRep] = useState('KP Sumanth');
+  const [bulkTargetRep, setBulkTargetRep] = useState('peketi balasaraswathi');
   const [bulkReassignReason, setBulkReassignReason] = useState('');
   const [bulkTagInput, setBulkTagInput] = useState('B2G');
   const [bulkTagAction, setBulkTagAction] = useState<'append' | 'remove'>('append');
@@ -1380,7 +1387,7 @@ export default function App() {
   const [rotationDegrees, setRotationDegrees] = useState(0);
   
   // Form Inputs
-  const [newLead, setNewLead] = useState({ firstName: '', lastName: '', email: '', phone: '', alternatePhone: '', company: '', designation: '', city: '', state: '', leadSource: 'Website', owner: 'KP Sumanth', tags: 'B2G' });
+  const [newLead, setNewLead] = useState({ firstName: '', lastName: '', email: '', phone: '', alternatePhone: '', company: '', designation: '', city: '', state: '', leadSource: 'Website', owner: 'peketi balasaraswathi', tags: 'B2G' });
   const [showEditLeadModal, setShowEditLeadModal] = useState(false);
   const [editLeadForm, setEditLeadForm] = useState({
     id: '',
@@ -1394,7 +1401,7 @@ export default function App() {
     state: '',
     status: 'New',
     score: 0,
-    owner: 'KP Sumanth',
+    owner: 'peketi balasaraswathi',
     tags: [] as string[],
     notes: ''
   });
@@ -1608,11 +1615,41 @@ export default function App() {
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
   const [scoringNotification, setScoringNotification] = useState(false);
 
-  // Active Authenticated User Details
+  // Active Authenticated User Details (Universal for all user accounts)
   const currentRole = currentUser?.role === 'ADMIN' ? 'Admin' : currentUser?.role === 'MANAGER' ? 'Manager' : 'Sales Rep';
-  const currentAgentName = currentUser?.fullName || 'KP Sumanth';
-  const currentAgentTitle = currentUser?.role === 'ADMIN' ? 'System Administrator' : currentUser?.role === 'MANAGER' ? 'Sales Manager' : 'Sales Representative';
-  const currentAgentColor = currentUser?.role === 'ADMIN' ? '#d97706' : currentUser?.role === 'MANAGER' ? '#b45309' : '#1e40af';
+  const currentAgentName = currentUser?.fullName || (currentUser?.email ? currentUser.email.split('@')[0] : 'User');
+  const currentAgentTitle = currentUser?.title || (currentUser?.role === 'ADMIN' ? 'System Administrator' : currentUser?.role === 'MANAGER' ? 'Sales Manager' : 'Sales Representative');
+  const currentAgentColor = currentUser?.avatarColor || (currentUser?.role === 'ADMIN' ? '#d97706' : currentUser?.role === 'MANAGER' ? '#b45309' : '#1e40af');
+  const userKey = currentUser?.id || currentUser?.email || currentRole;
+  const currentAvatarUrl = profileSettings[userKey]?.avatarUrl || profileSettings[currentRole]?.avatarUrl || currentUser?.avatarUrl;
+
+  useEffect(() => {
+    if (currentUser && currentUser.email) {
+      const uKey = currentUser.id || currentUser.email;
+      const uTitle = currentUser.title || (currentUser.role === 'ADMIN' ? 'System Administrator' : currentUser.role === 'MANAGER' ? 'Sales Manager' : 'Sales Representative');
+      const uColor = currentUser.avatarColor || (currentUser.role === 'ADMIN' ? '#d97706' : currentUser.role === 'MANAGER' ? '#b45309' : '#1e40af');
+
+      setProfileSettings(prev => ({
+        ...prev,
+        [uKey]: {
+          fullName: currentUser.fullName || prev[uKey]?.fullName || '',
+          email: currentUser.email || prev[uKey]?.email || '',
+          title: uTitle,
+          avatarColor: uColor,
+          notify: prev[uKey]?.notify !== false,
+          avatarUrl: currentUser.avatarUrl || prev[uKey]?.avatarUrl || ''
+        },
+        [currentRole]: {
+          fullName: currentUser.fullName || prev[currentRole]?.fullName || '',
+          email: currentUser.email || prev[currentRole]?.email || '',
+          title: uTitle,
+          avatarColor: uColor,
+          notify: prev[currentRole]?.notify !== false,
+          avatarUrl: currentUser.avatarUrl || prev[currentRole]?.avatarUrl || ''
+        }
+      }));
+    }
+  }, [currentUser, currentRole]);
 
   // ----------------------------------------------------
   // ROLE SECURITY GUARDS (MOCK MIDDLEWARE)
@@ -1764,7 +1801,7 @@ export default function App() {
         phone: duplicateContact.phone || duplicateContact.preferredPhone || '',
         status: 'New',
         score: 0,
-        owner: duplicateContact.owner || 'KP Sumanth',
+        owner: duplicateContact.owner || currentUser?.fullName || 'peketi balasaraswathi',
         activities: [],
         customFields: {}
       });
@@ -1809,7 +1846,7 @@ export default function App() {
     recordAuditLog('Lead Created', `Lead: ${fullName} (${newLead.company || 'Individual'})`, 'None', JSON.stringify(freshLead));
 
     // Reset Form
-    setNewLead({ firstName: '', lastName: '', email: '', phone: '', alternatePhone: '', company: '', designation: '', city: '', state: '', leadSource: 'Website', owner: currentUser?.fullName || 'KP Sumanth', tags: 'B2G' });
+    setNewLead({ firstName: '', lastName: '', email: '', phone: '', alternatePhone: '', company: '', designation: '', city: '', state: '', leadSource: 'Website', owner: currentUser?.fullName || 'peketi balasaraswathi', tags: 'B2G' });
     setNewCustomValues({});
     setShowLeadModal(false);
     setShowDuplicateModal(false);
@@ -1828,7 +1865,7 @@ export default function App() {
       state: '',
       leadSource: 'Website',
       tags: 'B2G',
-      owner: currentUser?.fullName || 'KP Sumanth',
+      owner: currentUser?.fullName || 'peketi balasaraswathi',
       ...initialData
     });
     setShowLeadModal(true);
@@ -1847,7 +1884,7 @@ export default function App() {
       state: (lead as any).state || '',
       status: lead.status || 'New',
       score: Number(lead.score) || 0,
-      owner: lead.owner || currentUser?.fullName || 'KP Sumanth',
+      owner: lead.owner || currentUser?.fullName || 'peketi balasaraswathi',
       tags: Array.isArray(lead.tags) ? lead.tags : (lead.tags ? [lead.tags] : []),
       notes: (lead as any).notes || ''
     });
@@ -1866,7 +1903,7 @@ export default function App() {
       phone: editLeadForm.phone,
       status: editLeadForm.status as any,
       score: Number(editLeadForm.score) || 0,
-      owner: editLeadForm.owner || currentUser?.fullName || 'KP Sumanth',
+      owner: editLeadForm.owner || currentUser?.fullName || 'peketi balasaraswathi',
       tags: Array.isArray(editLeadForm.tags) ? editLeadForm.tags : [editLeadForm.tags].filter(Boolean)
     };
 
@@ -1974,7 +2011,7 @@ export default function App() {
         city: 'Bangalore',
         state: 'Karnataka',
         leadSource: 'Event',
-        owner: currentRole === 'Sales Rep' ? 'KP Sumanth' : 'Balasaraswathi',
+        owner: currentUser?.fullName || 'peketi balasaraswathi',
         tags: 'B2G'
       });
       
@@ -2050,7 +2087,7 @@ export default function App() {
       city: 'Bangalore',
       state: 'Karnataka',
       leadSource: 'Event',
-      owner: currentRole === 'Sales Rep' ? 'KP Sumanth' : 'Balasaraswathi',
+      owner: currentUser?.fullName || 'peketi balasaraswathi',
       tags: 'B2G'
     });
 
@@ -2612,7 +2649,7 @@ export default function App() {
         dueDate: followUpTaskDueDate,
         priority: 'Medium',
         status: 'Open',
-        assignee: currentRole === 'Sales Rep' ? 'KP Sumanth' : currentAgentName,
+        assignee: currentUser?.fullName || currentAgentName,
         linkedTo: newActivity.entityName
       };
       setTasks([freshTask, ...tasks]);
@@ -2767,7 +2804,7 @@ export default function App() {
       stage: 'New',
       probability: 10,
       expectedClose: new Date().toISOString().slice(0, 10),
-      owner: lead.owner || currentUser?.fullName || 'KP Sumanth',
+      owner: lead.owner || currentUser?.fullName || 'peketi balasaraswathi',
       daysInStage: 0
     };
     setDeals(prev => deduplicateDealsLocal([freshDeal, ...prev]));
@@ -3245,7 +3282,7 @@ export default function App() {
                   required
                   value={regEmail}
                   onChange={(e) => setRegEmail(e.target.value)}
-                  placeholder="sumanth@anveshakhub.com"
+                  placeholder="you@company.com"
                   style={{
                     width: '100%',
                     padding: '11px 14px',
@@ -3503,10 +3540,10 @@ export default function App() {
         <div className="sidebar-footer">
           <div className="sidebar-user">
             <div className="user-avatar" style={{ backgroundColor: currentAgentColor, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {profileSettings[currentRole]?.avatarUrl ? (
-                <img src={profileSettings[currentRole].avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              {currentAvatarUrl ? (
+                <img src={currentAvatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
-                currentAgentName.split(' ').map((n: string) => n[0]).join('')
+                currentAgentName.split(' ').filter(Boolean).map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
               )}
             </div>
             <div className="user-info">
@@ -3604,10 +3641,10 @@ export default function App() {
                 <span>{currentAgentTitle}</span>
               </div>
               <div className="user-avatar" style={{ width: '36px', height: '36px', fontSize: '11px', backgroundColor: currentAgentColor, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {profileSettings[currentRole]?.avatarUrl ? (
-                  <img src={profileSettings[currentRole].avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                {currentAvatarUrl ? (
+                  <img src={currentAvatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
-                  currentAgentName.split(' ').map((n: string) => n[0]).join('')
+                  currentAgentName.split(' ').filter(Boolean).map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
                 )}
               </div>
             </div>
@@ -4247,7 +4284,7 @@ export default function App() {
                                     phone: cnt.preferredPhone || cnt.phone,
                                     status: 'New',
                                     score: 25,
-                                    owner: currentUser?.fullName || 'KP Sumanth'
+                                    owner: currentUser?.fullName || 'peketi balasaraswathi'
                                   });
                                   if (res.isDuplicate) {
                                     triggerToast(res.error || 'Lead already in pipeline!', 'warning');
@@ -4262,7 +4299,7 @@ export default function App() {
                                     phone: cnt.preferredPhone || cnt.phone || '',
                                     status: 'New',
                                     score: 25,
-                                    owner: currentUser?.fullName || 'KP Sumanth',
+                                    owner: currentUser?.fullName || 'peketi balasaraswathi',
                                     activities: []
                                   };
                                   const newLead: Lead = {
@@ -4273,7 +4310,7 @@ export default function App() {
                                     phone: leadData.phone || '',
                                     status: (leadData.status as any) || 'New',
                                     score: leadData.score || 25,
-                                    owner: leadData.owner || currentUser?.fullName || 'KP Sumanth',
+                                    owner: leadData.owner || currentUser?.fullName || 'peketi balasaraswathi',
                                     activities: []
                                   };
                                   setLeads(prev => [newLead, ...prev]);
@@ -4489,7 +4526,7 @@ export default function App() {
                                           phone: cnt.preferredPhone || cnt.phone,
                                           status: 'New',
                                           score: 25,
-                                          owner: currentUser?.fullName || 'KP Sumanth'
+                                          owner: currentUser?.fullName || 'peketi balasaraswathi'
                                         });
                                         if (res.isDuplicate) {
                                           triggerToast(res.error || 'Lead already in pipeline!', 'warning');
@@ -4504,7 +4541,7 @@ export default function App() {
                                           phone: cnt.preferredPhone || cnt.phone || '',
                                           status: 'New',
                                           score: 25,
-                                          owner: currentUser?.fullName || 'KP Sumanth',
+                                          owner: currentUser?.fullName || 'peketi balasaraswathi',
                                           activities: []
                                         };
                                         const newLead: Lead = {
@@ -4515,7 +4552,7 @@ export default function App() {
                                           phone: leadData.phone || '',
                                           status: (leadData.status as any) || 'New',
                                           score: leadData.score || 25,
-                                          owner: leadData.owner || currentUser?.fullName || 'KP Sumanth',
+                                          owner: leadData.owner || currentUser?.fullName || 'peketi balasaraswathi',
                                           activities: []
                                         };
                                         setLeads(prev => [newLead, ...prev]);
@@ -4601,6 +4638,7 @@ export default function App() {
                     style={{ padding: '7px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '12.5px', background: '#f8fafc' }}
                   >
                     <option value="All">All Owners</option>
+                    <option value={currentUser?.fullName || 'peketi balasaraswathi'}>{currentUser?.fullName || 'peketi balasaraswathi'}</option>
                     <option value="KP Sumanth">KP Sumanth</option>
                     <option value="Balasaraswathi">Balasaraswathi</option>
                     <option value="Riya Sharma">Riya Sharma</option>
@@ -7276,7 +7314,7 @@ export default function App() {
                               setCompanies(initialCompanies);
                               setQuotes(initialQuotes);
                               setProfileSettings({
-                                'Admin': { fullName: 'KP Sumanth', email: 'sumanth@anveshakhub.com', title: 'Regional Director', avatarColor: '#d97706', notify: true },
+                                'Admin': { fullName: currentUser?.fullName || 'peketi balasaraswathi', email: currentUser?.email || 'peketi.balasaraswathi@gmail.com', title: 'System Administrator', avatarColor: '#d97706', notify: true },
                                 'Manager': { fullName: 'Balasaraswathi', email: 'balu@anveshakhub.com', title: 'Sales Manager', avatarColor: '#b45309', notify: true },
                                 'Sales Rep': { fullName: 'Riya Sharma', email: 'riya@anveshakhub.com', title: 'Enterprise Rep', avatarColor: '#1e40af', notify: true }
                               });
@@ -7456,18 +7494,18 @@ export default function App() {
                   <input 
                     type="text" 
                     required 
-                    placeholder="e.g. KP Sumanth or Pranav" 
+                    placeholder={`e.g. ${currentUser?.fullName || 'peketi balasaraswathi'}`} 
                     list="team-owners-datalist"
                     value={newLead.owner} 
                     onChange={(e) => setNewLead({ ...newLead, owner: e.target.value })} 
                   />
                   <datalist id="team-owners-datalist">
+                    <option value={currentUser?.fullName || 'peketi balasaraswathi'}>{currentUser?.fullName || 'peketi balasaraswathi'} (Current User)</option>
                     {dbUsersList.map((u: any) => (
                       <option key={u.id} value={u.fullName}>{u.fullName} ({u.role})</option>
                     ))}
-                    <option value="KP Sumanth">KP Sumanth (ADMIN)</option>
+                    <option value="Balasaraswathi">Balasaraswathi (ADMIN)</option>
                     <option value="Pranav">Pranav (SALES_REP)</option>
-                    <option value="Balasaraswathi">Balasaraswathi (SALES_REP)</option>
                     <option value="Riya Sharma">Riya Sharma (MANAGER)</option>
                   </datalist>
                 </div>
@@ -9232,9 +9270,10 @@ export default function App() {
               <div className="form-group">
                 <label>Select New Assigned Rep</label>
                 <select value={bulkTargetRep} onChange={(e) => setBulkTargetRep(e.target.value)}>
-                  <option value="KP Sumanth">KP Sumanth</option>
+                  <option value={currentUser?.fullName || 'peketi balasaraswathi'}>{currentUser?.fullName || 'peketi balasaraswathi'}</option>
                   <option value="Balasaraswathi">Balasaraswathi</option>
                   <option value="Riya Sharma">Riya Sharma</option>
+                  <option value="Pranav">Pranav</option>
                 </select>
               </div>
 
@@ -10301,7 +10340,7 @@ export default function App() {
                     city: scannedResultForm.city || '',
                     category: 'Prospect',
                     sourceType: 'Visiting Card',
-                    owner: currentUser?.fullName || 'KP Sumanth'
+                    owner: currentUser?.fullName || 'peketi balasaraswathi'
                   };
 
                   // Duplicate check before saving scanned card
@@ -10333,7 +10372,7 @@ export default function App() {
                   // Persist Scanned Contact & Company to PostgreSQL Database via Server Action
                   try {
                     const { createContactAction } = await import('@/app/actions/contacts');
-                    const res = await createContactAction(candidate, currentUser?.fullName || 'KP Sumanth');
+                    const res = await createContactAction(candidate, currentUser?.fullName || 'peketi balasaraswathi');
                     if (res && res.isDuplicate && !res.success) {
                       triggerToast(res.error || `Contact "${candidate.name}" is already in the database!`, 'warning');
                       setShowScanModal(false);
@@ -10559,7 +10598,7 @@ export default function App() {
                   value: Number(convertDealForm.dealValue) || 500000,
                   probability: 40,
                   stage: targetStage,
-                  owner: selectedLeadForConversion.owner || currentUser?.fullName || 'KP Sumanth'
+                  owner: selectedLeadForConversion.owner || currentUser?.fullName || 'peketi balasaraswathi'
                 });
                 if (res.isDuplicate) {
                   triggerToast(res.error || 'Deal already in pipeline!', 'warning');
@@ -10575,7 +10614,7 @@ export default function App() {
                     value: Number(res.data.value) || Number(convertDealForm.dealValue) || 500000,
                     probability: res.data.probability || 40,
                     stage: normalizeDealStage(res.data.stage || targetStage),
-                    owner: res.data.owner || selectedLeadForConversion.owner || currentUser?.fullName || 'KP Sumanth',
+                    owner: res.data.owner || selectedLeadForConversion.owner || currentUser?.fullName || 'peketi balasaraswathi',
                     daysInStage: 0,
                     expectedClose: new Date().toISOString().slice(0, 10)
                   };
@@ -10673,7 +10712,7 @@ export default function App() {
                 phone: cnt.preferredPhone || cnt.phone,
                 status: 'New',
                 score: 25,
-                owner: currentUser?.fullName || 'KP Sumanth'
+                owner: currentUser?.fullName || 'peketi balasaraswathi'
               });
               if (res.success && res.data) {
                 const newLead: Lead = {
@@ -10684,7 +10723,7 @@ export default function App() {
                   phone: res.data.phone || '',
                   status: (res.data.status as any) || 'New',
                   score: res.data.score || 25,
-                  owner: res.data.owner || 'KP Sumanth',
+                  owner: res.data.owner || currentUser?.fullName || 'peketi balasaraswathi',
                   activities: []
                 };
                 setLeads(prev => [newLead, ...prev]);
