@@ -371,6 +371,15 @@ export async function createContactAction(data: any, authorName = 'System User')
 
     if (!sErr && createdRow) {
       const mapped = mapContactFromSupabase(createdRow);
+      try {
+        await supabase.from('audit_logs').insert([{
+          user: data.owner || authorName || 'CRM User',
+          action: 'Contact Created',
+          entity: `Contact: ${data.name} (${data.company || 'Direct'})`,
+          before_state: 'None',
+          after_state: JSON.stringify({ name: data.name, company: data.company, phone: preferredPhone, email: data.email })
+        }]);
+      } catch (e) {}
       return { success: true, contact: mapped };
     }
   } catch (sEx) {
@@ -428,6 +437,16 @@ export async function createContactAction(data: any, authorName = 'System User')
       } catch (e) {}
     }
 
+    try {
+      await supabase.from('audit_logs').insert([{
+        user: data.owner || authorName || 'CRM User',
+        action: 'Contact Created',
+        entity: `Contact: ${data.name} (${data.company || 'Direct'})`,
+        before_state: 'None',
+        after_state: JSON.stringify({ name: data.name, company: data.company, phone: preferredPhone, email: data.email })
+      }]);
+    } catch (e) {}
+
     return { success: true, contact: created };
   } catch (error: any) {
     console.warn('Prisma DB write bypassed in createContactAction (using fallback contact):', error);
@@ -475,6 +494,14 @@ export async function updateContactAction(contactId: string, updates: any, autho
     if (updates.convertedLeadId) supaUpdates.converted_lead_id = updates.convertedLeadId;
 
     await supabase.from('contacts').update(supaUpdates).eq('id', contactId);
+    
+    await supabase.from('audit_logs').insert([{
+      user: authorName || 'CRM User',
+      action: 'Contact Updated',
+      entity: `Contact: ${updates.name || contactId}`,
+      before_state: 'Updated',
+      after_state: JSON.stringify(updates)
+    }]);
   } catch (sEx) {
     console.warn('Supabase updateContactAction error:', sEx);
   }
@@ -500,6 +527,14 @@ export async function deleteContactAction(contactId: string, authorName = 'Syste
     await supabase.from('communications').delete().eq('contact_id', contactId);
     await supabase.from('contact_merge_logs').delete().eq('primary_contact_id', contactId);
     await supabase.from('contacts').delete().eq('id', contactId);
+    
+    await supabase.from('audit_logs').insert([{
+      user: authorName || 'CRM User',
+      action: 'Contact Deleted',
+      entity: `Contact ID: ${contactId}`,
+      before_state: 'Active',
+      after_state: 'Deleted'
+    }]);
   } catch (sEx) {
     console.warn('Supabase deleteContactAction error:', sEx);
   }
@@ -580,7 +615,18 @@ export async function mergeContactsAction({
         fieldOverrides: fieldOverrides as any,
         mergedBy: authorName
       }
-    }).catch(() => {});
+    });
+
+    // 3. Log to Supabase Audit Logs
+    try {
+      await supabase.from('audit_logs').insert([{
+        user: authorName || 'CRM User',
+        action: 'Contacts Merged',
+        entity: `Merged: "${secondary.name}" into "${primary.name}"`,
+        before_state: JSON.stringify({ primaryName: primary.name, secondaryName: secondary.name }),
+        after_state: JSON.stringify({ updatedId: primaryId, finalName: mergedContact.name })
+      }]);
+    } catch (aErr) {}
 
     // 3. Re-link secondary communications to primary
     await prisma.communication.updateMany({
