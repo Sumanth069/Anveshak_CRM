@@ -1167,10 +1167,12 @@ export async function deleteQuoteAction(id: string) {
 
 export async function createAuditLogAction(log: any) {
   try {
-    const userVal = String(log.user || 'System').trim();
+    const userVal = String(log.user || 'System User').trim();
     const actionVal = String(log.action || 'Updated').trim();
     const entityVal = String(log.entity || '').trim();
     const tsVal = log.timestamp ? new Date(log.timestamp).toISOString() : new Date().toISOString();
+    const beforeVal = log.beforeState ? String(log.beforeState) : null;
+    const afterVal = log.afterState ? String(log.afterState) : null;
 
     // 1. Direct Supabase Query (Primary)
     try {
@@ -1180,7 +1182,9 @@ export async function createAuditLogAction(log: any) {
           user: userVal,
           action: actionVal,
           entity: entityVal,
-          timestamp: tsVal
+          timestamp: tsVal,
+          before_state: beforeVal,
+          after_state: afterVal
         }])
         .select()
         .single();
@@ -1193,7 +1197,9 @@ export async function createAuditLogAction(log: any) {
             user: data.user,
             action: data.action,
             entity: data.entity,
-            timestamp: data.timestamp
+            timestamp: data.timestamp,
+            beforeState: data.before_state,
+            afterState: data.after_state
           }
         };
       }
@@ -1211,7 +1217,9 @@ export async function createAuditLogAction(log: any) {
           user: userVal,
           action: actionVal,
           entity: entityVal,
-          timestamp: new Date(tsVal)
+          timestamp: new Date(tsVal),
+          beforeState: beforeVal,
+          afterState: afterVal
         }
       });
       return {
@@ -1221,7 +1229,9 @@ export async function createAuditLogAction(log: any) {
           user: created.user,
           action: created.action,
           entity: created.entity,
-          timestamp: created.timestamp ? created.timestamp.toISOString() : tsVal
+          timestamp: created.timestamp ? created.timestamp.toISOString() : tsVal,
+          beforeState: created.beforeState,
+          afterState: created.afterState
         }
       };
     } catch (pEx) {
@@ -1235,7 +1245,9 @@ export async function createAuditLogAction(log: any) {
         user: userVal,
         action: actionVal,
         entity: entityVal,
-        timestamp: tsVal
+        timestamp: tsVal,
+        beforeState: beforeVal,
+        afterState: afterVal
       }
     };
   } catch (err: any) {
@@ -1394,97 +1406,115 @@ export async function scanVisitingCardVisionAction(imageDataBase64: string) {
     const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
     const base64Data = imageDataBase64.replace(/^data:image\/[a-zA-Z0-9.+_-]+;base64,/, '').replace(/\s/g, '');
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
+    const candidateModels = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+    let lastError = '';
+
+    for (const model of candidateModels) {
+      try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [
               {
-                text: `You are an expert AI visiting card reader with 100% precision. Analyze the provided visiting / business card image carefully. Extract all text and map it accurately into the following JSON schema:
+                parts: [
+                  {
+                    text: `You are an expert AI visiting card reader with 100% precision. The image contains a business / visiting card, which may be photographed on a table, desk, surface, or at an angle.
+INSTRUCTIONS:
+1. Locate the visiting card in the photo and ignore any surrounding background, wood grain, desk texture, or clutter.
+2. Read all text printed on the card regardless of card angle, orientation, or multi-column layout.
+3. Accurately map the information into this exact JSON structure:
 {
   "firstName": "First name of the person (or empty string)",
   "lastName": "Last name / surname of the person (or empty string)",
   "fullName": "Full name of the person",
-  "company": "Company / Organization / Enterprise name",
-  "designation": "Job title / Designation / Role",
-  "phone": "Primary contact number with country code (e.g. +91 98450 12345)",
-  "email": "Official work email address",
-  "website": "Company website or URL (e.g. https://example.com)",
-  "linkedin": "LinkedIn profile URL or handle",
-  "address": "Street address or office location",
-  "city": "City name",
-  "pincode": "Postal code / PIN code"
+  "company": "Company / Organization / University / Institution name",
+  "designation": "Job title / Designation / Domain Lead / Officer / Role",
+  "phone": "Primary contact mobile number with country code (e.g. +91 9019660037)",
+  "email": "Official work or academic email address (e.g. user@domain.com)",
+  "website": "Company website URL (e.g. https://example.com)",
+  "linkedin": "LinkedIn profile URL or handle (or empty string)",
+  "address": "Office or campus address",
+  "city": "City name (e.g. Bangalore, Hyderabad, Pilani)",
+  "pincode": "Postal / PIN code (e.g. 560001)"
 }
-Ensure names, company, phone, email, and designation are identified correctly even if formatted in stylized fonts, multiple columns, or Indian business card formats. Return ONLY valid JSON.`
-              },
-              {
-                inline_data: {
-                  mime_type: mimeType,
-                  data: base64Data
-                }
+Ensure names, company, phone (+91 format), email, and designation are identified correctly even if formatted in stylized fonts, multiple columns, or Indian business card formats. Return ONLY valid JSON.`
+                  },
+                  {
+                    inline_data: {
+                      mime_type: mimeType,
+                      data: base64Data
+                    }
+                  }
+                ]
               }
-            ]
-          }
-        ],
-        generationConfig: {
-          response_mime_type: 'application/json',
-          temperature: 0.1
+            ],
+            generationConfig: {
+              response_mime_type: 'application/json',
+              temperature: 0.1
+            }
+          })
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          console.warn(`Gemini model ${model} returned status ${response.status}:`, errText);
+          lastError = `Gemini API (${model}) status ${response.status}`;
+          continue; // Try next fallback model
         }
-      })
-    });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('Gemini Vision API error response:', response.status, errText);
-      return { success: false, error: `Gemini API returned status ${response.status}` };
-    }
+        const data = await response.json();
+        const parts = data.candidates?.[0]?.content?.parts || [];
+        let candidateText = '';
+        for (const p of parts) {
+          if (p.text) candidateText += p.text;
+        }
 
-    const data = await response.json();
-    const parts = data.candidates?.[0]?.content?.parts || [];
-    let candidateText = '';
-    for (const p of parts) {
-      if (p.text) candidateText += p.text;
-    }
+        const jsonMatch = candidateText.match(/\{[\s\S]*\}/);
+        const cleanJson = jsonMatch ? jsonMatch[0] : candidateText.replace(/```json/gi, '').replace(/```/g, '').trim();
+        if (!cleanJson) {
+          lastError = 'No structured text could be extracted from image.';
+          continue;
+        }
 
-    const jsonMatch = candidateText.match(/\{[\s\S]*\}/);
-    const cleanJson = jsonMatch ? jsonMatch[0] : candidateText.replace(/```json/gi, '').replace(/```/g, '').trim();
-    if (!cleanJson) {
-      return { success: false, error: 'No structured text could be extracted from image.' };
-    }
+        const parsed = JSON.parse(cleanJson);
 
-    const parsed = JSON.parse(cleanJson);
+        const fName = (parsed.firstName || '').trim();
+        const lName = (parsed.lastName || '').trim();
+        let computedFullName = (parsed.fullName || '').trim();
+        if (!computedFullName && (fName || lName)) {
+          computedFullName = `${fName} ${lName}`.trim();
+        }
+        if (computedFullName && !fName && !lName) {
+          const nameParts = computedFullName.split(' ');
+          parsed.firstName = nameParts[0] || '';
+          parsed.lastName = nameParts.slice(1).join(' ') || '';
+        }
 
-    const fName = (parsed.firstName || '').trim();
-    const lName = (parsed.lastName || '').trim();
-    let computedFullName = (parsed.fullName || '').trim();
-    if (!computedFullName && (fName || lName)) {
-      computedFullName = `${fName} ${lName}`.trim();
-    }
-    if (computedFullName && !fName && !lName) {
-      const nameParts = computedFullName.split(' ');
-      parsed.firstName = nameParts[0] || '';
-      parsed.lastName = nameParts.slice(1).join(' ') || '';
-    }
-
-    return {
-      success: true,
-      data: {
-        firstName: parsed.firstName || fName || '',
-        lastName: parsed.lastName || lName || '',
-        fullName: computedFullName,
-        company: (parsed.company || '').trim(),
-        designation: (parsed.designation || '').trim(),
-        phone: (parsed.phone || '').trim(),
-        email: (parsed.email || '').trim(),
-        website: (parsed.website || '').trim(),
-        linkedin: (parsed.linkedin || '').trim(),
-        address: (parsed.address || '').trim(),
-        city: (parsed.city || '').trim(),
-        pincode: (parsed.pincode || '').trim()
+        return {
+          success: true,
+          data: {
+            firstName: parsed.firstName || fName || '',
+            lastName: parsed.lastName || lName || '',
+            fullName: computedFullName,
+            company: (parsed.company || '').trim(),
+            designation: (parsed.designation || '').trim(),
+            phone: (parsed.phone || '').trim(),
+            email: (parsed.email || '').trim(),
+            website: (parsed.website || '').trim(),
+            linkedin: (parsed.linkedin || '').trim(),
+            address: (parsed.address || '').trim(),
+            city: (parsed.city || '').trim(),
+            pincode: (parsed.pincode || '').trim()
+          }
+        };
+      } catch (mErr: any) {
+        lastError = mErr.message;
+        console.warn(`Error running Gemini model ${model}:`, mErr);
       }
-    };
+    }
+
+    return { success: false, error: lastError || 'Failed to scan visiting card.' };
   } catch (err: any) {
     console.error('scanVisitingCardVisionAction error:', err);
     return { success: false, error: err.message };
