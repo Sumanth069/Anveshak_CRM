@@ -25,6 +25,10 @@ export interface Deal {
   owner: string;
   lostReason?: string;
   daysInStage: number;
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  designation?: string;
 }
 
 interface KanbanBoardProps {
@@ -99,6 +103,10 @@ export default function KanbanBoard({
     probability: number;
     expectedClose: string;
     lostReason?: string;
+    contactName?: string;
+    contactEmail?: string;
+    contactPhone?: string;
+    designation?: string;
   }>({
     name: '',
     company: '',
@@ -106,7 +114,11 @@ export default function KanbanBoard({
     stage: 'New',
     probability: 10,
     expectedClose: new Date().toISOString().slice(0, 10),
-    lostReason: ''
+    lostReason: '',
+    contactName: '',
+    contactEmail: '',
+    contactPhone: '',
+    designation: ''
   });
   const [showLostModalFor, setShowLostModalFor] = useState<string | null>(null);
   const [lostReasonText, setLostReasonText] = useState<string>('Budget constraints / competitor chosen');
@@ -178,7 +190,11 @@ export default function KanbanBoard({
       stage: deal.stage,
       probability: deal.probability,
       expectedClose: deal.expectedClose || new Date().toISOString().slice(0, 10),
-      lostReason: deal.lostReason || ''
+      lostReason: deal.lostReason || '',
+      contactName: deal.contactName || '',
+      contactEmail: deal.contactEmail || '',
+      contactPhone: deal.contactPhone || '',
+      designation: deal.designation || ''
     });
   };
 
@@ -194,7 +210,11 @@ export default function KanbanBoard({
         stage: editForm.stage,
         probability: editForm.probability,
         expectedClose: editForm.expectedClose,
-        lostReason: editForm.stage === 'Lost' ? editForm.lostReason : undefined
+        lostReason: editForm.stage === 'Lost' ? editForm.lostReason : undefined,
+        contactName: editForm.contactName?.trim() || undefined,
+        contactEmail: editForm.contactEmail?.trim() || undefined,
+        contactPhone: editForm.contactPhone?.trim() || undefined,
+        designation: editForm.designation?.trim() || undefined
       });
     }
     setEditingDeal(null);
@@ -688,6 +708,48 @@ export default function KanbanBoard({
                   value={editForm.company}
                   onChange={(e) => setEditForm({ ...editForm, company: e.target.value })}
                 />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="form-group">
+                  <label>Contact Person (Auto-saved to Contacts Directory)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Ramesh Patel"
+                    value={editForm.contactName || ''}
+                    onChange={(e) => setEditForm({ ...editForm, contactName: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Contact Email</label>
+                  <input
+                    type="email"
+                    placeholder="e.g. ramesh@company.com"
+                    value={editForm.contactEmail || ''}
+                    onChange={(e) => setEditForm({ ...editForm, contactEmail: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="form-group">
+                  <label>Contact Phone</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. +91 98450 12345"
+                    value={editForm.contactPhone || ''}
+                    onChange={(e) => setEditForm({ ...editForm, contactPhone: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Contact Designation</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Managing Director"
+                    value={editForm.designation || ''}
+                    onChange={(e) => setEditForm({ ...editForm, designation: e.target.value })}
+                  />
+                </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
