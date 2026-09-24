@@ -86,12 +86,27 @@ export default function Contact360Modal({
   const [editForm, setEditForm] = useState<any>(initialContact || {});
   const [isSaving, setIsSaving] = useState(false);
 
+  const normalizeContactForEdit = (c: any) => {
+    if (!c) return {};
+    const altPhones = Array.isArray(c.alternatePhones) ? c.alternatePhones : [];
+    return {
+      ...c,
+      prefix: c.prefix || c.customFields?.prefix || '',
+      preferredPhone: c.preferredPhone || c.phone || '',
+      phone: c.preferredPhone || c.phone || '',
+      alternatePhone: c.alternatePhone || altPhones[0] || '',
+      workPhone: c.workPhone || altPhones[1] || '',
+      tags: Array.isArray(c.tags) ? c.tags : []
+    };
+  };
+
   const loadData = async () => {
     try {
       const res = await fetchContact360Action(contactId);
       if (res.success && res.data) {
-        setContactData(res.data.contact);
-        setEditForm(res.data.contact);
+        const normalized = normalizeContactForEdit(res.data.contact);
+        setContactData(normalized);
+        setEditForm(normalized);
         if (res.data.communications && res.data.communications.length > 0) {
           setCommunications(res.data.communications);
         }
@@ -114,8 +129,9 @@ export default function Contact360Modal({
 
   useEffect(() => {
     if (initialContact) {
-      setContactData(initialContact);
-      setEditForm(initialContact);
+      const normalized = normalizeContactForEdit(initialContact);
+      setContactData(normalized);
+      setEditForm(normalized);
       setLoading(false);
     }
     if (contactId) {
@@ -141,23 +157,47 @@ export default function Contact360Modal({
     }
     setIsSaving(true);
     try {
+      // Auto-retain any typed tag if user forgot to click "+ Add"
+      let currentTags = Array.isArray(editForm.tags) ? [...editForm.tags] : [];
+      const pendingTag = (editForm.tagInput || '').trim();
+      if (pendingTag && !currentTags.includes(pendingTag)) {
+        currentTags.push(pendingTag);
+      }
+
+      const p1 = (editForm.preferredPhone || editForm.phone || '').trim();
+      const p2 = (editForm.alternatePhone || '').trim();
+      const p3 = (editForm.workPhone || '').trim();
+      const altPhones = [p2, p3].filter(Boolean);
+      const prefix = (editForm.prefix || '').trim();
+
       const payload = {
         ...editForm,
+        prefix,
         name: editForm.name.trim(),
-        phone: editForm.preferredPhone || editForm.phone,
-        preferredPhone: editForm.preferredPhone || editForm.phone,
+        phone: p1,
+        preferredPhone: p1,
+        alternatePhone: p2,
+        workPhone: p3,
+        alternatePhones: altPhones,
         email: editForm.email?.trim() || null,
         company: editForm.company?.trim() || null,
-        tags: Array.isArray(editForm.tags) ? editForm.tags : []
+        tags: currentTags,
+        customFields: {
+          ...(editForm.customFields || {}),
+          prefix,
+          alternatePhone: p2,
+          workPhone: p3
+        }
       };
       delete payload.tagInput;
       const res = await updateContactAction(contactId, payload, currentUser?.fullName || 'CRM User');
       if (res.success && res.contact) {
-        setContactData(res.contact);
-        setEditForm(res.contact);
-        onContactUpdated(res.contact);
+        const normalizedSaved = normalizeContactForEdit(res.contact);
+        setContactData(normalizedSaved);
+        setEditForm(normalizedSaved);
+        onContactUpdated(normalizedSaved);
         setIsEditing(false);
-        if (triggerToast) triggerToast('Contact profile updated successfully!', 'success');
+        if (triggerToast) triggerToast('Contact profile & tags updated successfully!', 'success');
       } else {
         alert((res as any).error || 'Failed to update contact.');
       }

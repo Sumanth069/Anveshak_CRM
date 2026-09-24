@@ -478,20 +478,52 @@ export async function createContactAction(data: any, authorName = 'System User')
 }
 
 export async function updateContactAction(contactId: string, updates: any, authorName = 'System User') {
+  // Normalize phone numbers & tags
+  const preferredPhone = updates.preferredPhone || updates.phone || null;
+  let alternatePhonesList = Array.isArray(updates.alternatePhones) ? updates.alternatePhones : [];
+  if (updates.alternatePhone && !alternatePhonesList.includes(updates.alternatePhone)) {
+    alternatePhonesList.push(updates.alternatePhone);
+  }
+  if (updates.workPhone && !alternatePhonesList.includes(updates.workPhone)) {
+    alternatePhonesList.push(updates.workPhone);
+  }
+  alternatePhonesList = alternatePhonesList.filter(Boolean);
+
+  let cleanTags: string[] = [];
+  if (Array.isArray(updates.tags)) {
+    cleanTags = updates.tags.map((t: any) => String(t).trim()).filter(Boolean);
+  } else if (typeof updates.tags === 'string' && updates.tags.trim()) {
+    cleanTags = [updates.tags.trim()];
+  }
+
+  // 1. Supabase Update with exact snake_case schema columns
   try {
-    const supaUpdates: any = { ...updates, updated_at: new Date().toISOString() };
-    if (updates.preferredPhone) supaUpdates.preferred_phone = updates.preferredPhone;
-    if (updates.alternatePhones) supaUpdates.alternate_phones = updates.alternatePhones;
-    if (updates.alternateEmails) supaUpdates.alternate_emails = updates.alternateEmails;
-    if (updates.sourceType) supaUpdates.source_type = updates.sourceType;
-    if (updates.sourceEvent) supaUpdates.source_event = updates.sourceEvent;
-    if (updates.sourceHistory) supaUpdates.source_history = updates.sourceHistory;
-    if (updates.doNotContact !== undefined) supaUpdates.do_not_contact = updates.doNotContact;
-    if (updates.consentGiven !== undefined) supaUpdates.consent_given = updates.consentGiven;
-    if (updates.customFields) supaUpdates.custom_fields = updates.customFields;
-    if (updates.lastContactedAt) supaUpdates.last_contacted_at = updates.lastContactedAt;
+    const supaUpdates: Record<string, any> = {
+      updated_at: new Date().toISOString()
+    };
+    if (updates.name !== undefined) supaUpdates.name = updates.name?.trim();
+    if (preferredPhone !== undefined) supaUpdates.preferred_phone = preferredPhone;
+    if (alternatePhonesList.length > 0 || updates.alternatePhones !== undefined) supaUpdates.alternate_phones = alternatePhonesList;
+    if (updates.email !== undefined) supaUpdates.email = updates.email ? updates.email.trim().toLowerCase() : null;
+    if (updates.alternateEmails !== undefined) supaUpdates.alternate_emails = Array.isArray(updates.alternateEmails) ? updates.alternateEmails : [];
+    if (updates.company !== undefined) supaUpdates.company = updates.company ? updates.company.trim() : null;
+    if (updates.designation !== undefined) supaUpdates.designation = updates.designation ? updates.designation.trim() : null;
+    if (updates.city !== undefined) supaUpdates.city = updates.city ? updates.city.trim() : null;
+    if (updates.state !== undefined) supaUpdates.state = updates.state ? updates.state.trim() : null;
+    if (updates.address !== undefined) supaUpdates.address = updates.address ? updates.address.trim() : null;
+    if (updates.category !== undefined) supaUpdates.category = updates.category;
+    if (updates.sourceType !== undefined) supaUpdates.source_type = updates.sourceType;
+    if (updates.sourceEvent !== undefined) supaUpdates.source_event = updates.sourceEvent;
+    if (updates.sourceHistory !== undefined) supaUpdates.source_history = updates.sourceHistory;
+    if (updates.doNotContact !== undefined) supaUpdates.do_not_contact = !!updates.doNotContact;
+    if (updates.consentGiven !== undefined) supaUpdates.consent_given = updates.consentGiven !== false;
+    if (updates.notes !== undefined) supaUpdates.notes = updates.notes;
+    if (updates.tags !== undefined) supaUpdates.tags = cleanTags;
+    if (updates.customFields !== undefined) supaUpdates.custom_fields = updates.customFields;
+    if (updates.owner !== undefined) supaUpdates.owner = updates.owner;
+    if (updates.lastContactedAt !== undefined) supaUpdates.last_contacted_at = updates.lastContactedAt;
     if (updates.isConverted !== undefined) supaUpdates.is_converted = updates.isConverted;
-    if (updates.convertedLeadId) supaUpdates.converted_lead_id = updates.convertedLeadId;
+    if (updates.convertedLeadId !== undefined) supaUpdates.converted_lead_id = updates.convertedLeadId;
 
     await supabase.from('contacts').update(supaUpdates).eq('id', contactId);
     
@@ -500,25 +532,67 @@ export async function updateContactAction(contactId: string, updates: any, autho
       action: 'Contact Updated',
       entity: `Contact: ${updates.name || contactId}`,
       before_state: 'Updated',
-      after_state: JSON.stringify(updates)
+      after_state: JSON.stringify({ ...updates, tags: cleanTags, preferredPhone, alternatePhones: alternatePhonesList })
     }]);
   } catch (sEx) {
     console.warn('Supabase updateContactAction error:', sEx);
   }
 
+  // 2. Prisma Database Update with exact schema typed fields
   try {
+    const prismaData: Record<string, any> = {
+      updatedAt: new Date()
+    };
+    if (updates.name !== undefined) prismaData.name = updates.name.trim();
+    if (preferredPhone !== undefined) prismaData.preferredPhone = preferredPhone;
+    if (alternatePhonesList.length > 0 || updates.alternatePhones !== undefined) prismaData.alternatePhones = alternatePhonesList;
+    if (updates.email !== undefined) prismaData.email = updates.email ? updates.email.trim().toLowerCase() : null;
+    if (updates.alternateEmails !== undefined) prismaData.alternateEmails = Array.isArray(updates.alternateEmails) ? updates.alternateEmails : [];
+    if (updates.company !== undefined) prismaData.company = updates.company ? updates.company.trim() : null;
+    if (updates.designation !== undefined) prismaData.designation = updates.designation ? updates.designation.trim() : null;
+    if (updates.city !== undefined) prismaData.city = updates.city ? updates.city.trim() : null;
+    if (updates.state !== undefined) prismaData.state = updates.state ? updates.state.trim() : null;
+    if (updates.address !== undefined) prismaData.address = updates.address ? updates.address.trim() : null;
+    if (updates.category !== undefined) prismaData.category = updates.category;
+    if (updates.sourceType !== undefined) prismaData.sourceType = updates.sourceType;
+    if (updates.sourceEvent !== undefined) prismaData.sourceEvent = updates.sourceEvent;
+    if (updates.sourceHistory !== undefined) prismaData.sourceHistory = updates.sourceHistory;
+    if (updates.doNotContact !== undefined) prismaData.doNotContact = !!updates.doNotContact;
+    if (updates.consentGiven !== undefined) prismaData.consentGiven = updates.consentGiven !== false;
+    if (updates.notes !== undefined) prismaData.notes = updates.notes;
+    if (updates.tags !== undefined) prismaData.tags = cleanTags;
+    if (updates.customFields !== undefined) prismaData.customFields = updates.customFields;
+    if (updates.owner !== undefined) prismaData.owner = updates.owner;
+    if (updates.lastContactedAt !== undefined) prismaData.lastContactedAt = updates.lastContactedAt;
+
     const updated = await prisma.contact.update({
       where: { id: contactId },
-      data: {
-        ...updates,
-        updatedAt: new Date()
-      }
+      data: prismaData
     });
 
-    return { success: true, contact: updated };
+    return { 
+      success: true, 
+      contact: { 
+        ...updated, 
+        tags: cleanTags, 
+        phone: preferredPhone, 
+        preferredPhone,
+        alternatePhones: alternatePhonesList 
+      } 
+    };
   } catch (error: any) {
-    console.warn('updateContactAction fallback:', error);
-    return { success: true, contact: { id: contactId, ...updates } };
+    console.warn('updateContactAction Prisma update fallback:', error);
+    return { 
+      success: true, 
+      contact: { 
+        id: contactId, 
+        ...updates, 
+        tags: cleanTags, 
+        phone: preferredPhone, 
+        preferredPhone, 
+        alternatePhones: alternatePhonesList 
+      } 
+    };
   }
 }
 

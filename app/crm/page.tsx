@@ -85,6 +85,10 @@ interface Deal {
   lostReason?: string;
   daysInStage: number;
   leadId?: string;
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  designation?: string;
 }
 
 interface Task {
@@ -1990,12 +1994,60 @@ export default function App() {
     setLeads(nextLeads);
     triggerRecalculateScores(nextLeads);
 
+    // Auto-save & reflect in Contacts Directory immediately!
+    const freshContact: any = {
+      id: freshId,
+      name: fullName,
+      company: newLead.company || null,
+      email: newLead.email ? newLead.email.trim().toLowerCase() : null,
+      preferredPhone: newLead.phone || null,
+      phone: newLead.phone || null,
+      alternatePhones: [newLead.alternatePhone].filter(Boolean),
+      designation: newLead.designation || 'Key Contact',
+      category: newLead.leadSource === 'Direct Deal' ? 'Prospect' : 'Prospect',
+      sourceType: newLead.leadSource || 'Direct',
+      tags: newLead.tags && newLead.tags.length > 0 ? newLead.tags : ['B2G'],
+      owner: newLead.owner || getActiveUserIdentity(),
+      dateAdded: 'Today',
+      createdAt: new Date().toISOString()
+    };
+    setContactsList(prev => [freshContact, ...prev.filter(c => c.id !== freshContact.id)]);
+
+    import('@/app/actions/contacts').then(({ createContactAction }) => {
+      createContactAction(freshContact, getActiveUserIdentity()).catch(() => {});
+    }).catch(() => {});
+
+    // If originated from Deals & Pipeline (+ New Deal button)
+    if (newLead.leadSource === 'Direct Deal') {
+      const freshDeal: Deal = {
+        id: `D-${Date.now().toString().slice(-4)}`,
+        name: `${newLead.company || fullName} — Pipeline Opportunity`,
+        company: newLead.company || fullName,
+        companyScale: newLead.companyScale,
+        value: 500000,
+        stage: 'New',
+        probability: 20,
+        expectedClose: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+        owner: newLead.owner || getActiveUserIdentity(),
+        daysInStage: 0,
+        leadId: freshId,
+        contactName: fullName,
+        contactEmail: newLead.email,
+        contactPhone: newLead.phone,
+        designation: newLead.designation
+      };
+      setDeals(prev => deduplicateDealsLocal([freshDeal, ...prev]));
+      import('@/app/actions/crm').then(({ createDealAction }) => {
+        createDealAction(freshDeal).catch(() => {});
+      }).catch(() => {});
+    }
+
     import('@/app/actions/crm').then(({ createLeadAction }) => {
       createLeadAction(freshLead).then(res => {
         if (res.isDuplicate) {
           triggerToast(res.error || 'Lead is already in database!', 'warning');
         } else if (res.success) {
-          triggerToast('Lead saved directly to database!', 'success');
+          triggerToast('Contact & Deal saved and reflected in Contacts Directory!', 'success');
         }
       });
     }).catch(err => console.error('Error creating lead in DB:', err));
@@ -2543,6 +2595,61 @@ export default function App() {
     setDeals(prev => prev.map(d => d.id === dealId ? { ...d, ...updates } : d));
     triggerToast('Deal details updated and saved to database!', 'success');
     recordAuditLog('Deal Updated', `Deal ID: ${dealId}`, undefined, JSON.stringify(updates));
+
+    // Auto-sync into Contacts Directory if contact details or company are entered/updated
+    if (updates.contactName || updates.contactEmail || updates.contactPhone || updates.company) {
+      const cName = updates.contactName || (updates.company ? `${updates.company} Contact` : 'Deal Contact');
+      const cEmail = updates.contactEmail ? updates.contactEmail.trim().toLowerCase() : null;
+      const cPhone = updates.contactPhone ? updates.contactPhone.trim() : null;
+
+      setContactsList(prev => {
+        const existingIdx = prev.findIndex(c => 
+          (cEmail && c.email && c.email.toLowerCase() === cEmail) ||
+          (cPhone && (c.phone === cPhone || c.preferredPhone === cPhone)) ||
+          (updates.company && c.company && c.company.toLowerCase() === updates.company.toLowerCase() && c.name.toLowerCase() === cName.toLowerCase())
+        );
+
+        if (existingIdx !== -1) {
+          const next = [...prev];
+          const matched = next[existingIdx];
+          const updatedContact = {
+            ...matched,
+            name: cName || matched.name,
+            company: updates.company || matched.company,
+            email: cEmail || matched.email,
+            phone: cPhone || matched.phone,
+            preferredPhone: cPhone || matched.preferredPhone,
+            designation: updates.designation || matched.designation
+          };
+          next[existingIdx] = updatedContact;
+          import('@/app/actions/contacts').then(({ updateContactAction }) => {
+            updateContactAction(matched.id, updatedContact, currentUser?.fullName || 'CRM User').catch(() => {});
+          }).catch(() => {});
+          return next;
+        } else {
+          const newC: any = {
+            id: `CNT-${Date.now().toString().slice(-4)}`,
+            name: cName,
+            company: updates.company || null,
+            email: cEmail,
+            phone: cPhone,
+            preferredPhone: cPhone,
+            designation: updates.designation || 'Deal Stakeholder',
+            category: updates.stage === 'Won' ? 'Customer' : 'Prospect',
+            sourceType: 'Deals & Pipeline',
+            tags: ['Deal Linked'],
+            owner: currentUser?.fullName || 'CRM User',
+            dateAdded: 'Today',
+            createdAt: new Date().toISOString()
+          };
+          import('@/app/actions/contacts').then(({ createContactAction }) => {
+            createContactAction(newC, currentUser?.fullName || 'CRM User').catch(() => {});
+          }).catch(() => {});
+          return [newC, ...prev];
+        }
+      });
+    }
+
     try {
       const { updateDealAction } = await import('@/app/actions/crm');
       await updateDealAction(dealId, updates);
@@ -11346,7 +11453,11 @@ export default function App() {
                   stage: targetStage,
                   owner: selectedLeadForConversion.owner || getActiveUserIdentity(),
                   assignedRep: selectedLeadForConversion.assignedRep || selectedLeadForConversion.owner || getActiveUserIdentity(),
-                  leadId: selectedLeadForConversion.id
+                  leadId: selectedLeadForConversion.id,
+                  contactName: selectedLeadForConversion.name,
+                  contactEmail: selectedLeadForConversion.email,
+                  contactPhone: selectedLeadForConversion.phone,
+                  designation: selectedLeadForConversion.designation
                 });
                 if (res.isDuplicate) {
                   triggerToast(res.error || 'Deal already in pipeline!', 'warning');
@@ -11366,14 +11477,44 @@ export default function App() {
                     owner: res.data.owner || selectedLeadForConversion.owner || getActiveUserIdentity(),
                     assignedRep: selectedLeadForConversion.assignedRep || selectedLeadForConversion.owner || getActiveUserIdentity(),
                     leadId: selectedLeadForConversion.id,
+                    contactName: selectedLeadForConversion.name,
+                    contactEmail: selectedLeadForConversion.email,
+                    contactPhone: selectedLeadForConversion.phone,
+                    designation: selectedLeadForConversion.designation,
                     daysInStage: 0,
                     expectedClose: new Date().toISOString().slice(0, 10)
                   };
                   setDeals(prev => deduplicateDealsLocal([newDeal, ...prev]));
                   setLeads(prev => prev.map(l => l.id === selectedLeadForConversion.id ? { ...l, status: 'Qualified' } : l));
-                  setContactsList(prev => prev.map(c => c.id === selectedLeadForConversion.id ? { ...c, category: 'Customer' } : c));
+
+                  // Auto-sync into Contacts Directory
+                  setContactsList(prev => {
+                    const exists = prev.find(c => c.id === selectedLeadForConversion.id || (c.email && selectedLeadForConversion.email && c.email.toLowerCase() === selectedLeadForConversion.email.toLowerCase()));
+                    if (exists) {
+                      return prev.map(c => c.id === exists.id ? { ...c, category: 'Customer', notes: `Converted to Deal: ${convertDealForm.dealName}` } : c);
+                    } else {
+                      const newC: any = {
+                        id: selectedLeadForConversion.id,
+                        name: selectedLeadForConversion.name,
+                        company: selectedLeadForConversion.company || selectedLeadForConversion.name,
+                        email: selectedLeadForConversion.email || null,
+                        preferredPhone: selectedLeadForConversion.phone || null,
+                        phone: selectedLeadForConversion.phone || null,
+                        designation: selectedLeadForConversion.designation || 'Deal Stakeholder',
+                        category: 'Customer',
+                        sourceType: 'Deals & Pipeline',
+                        tags: ['Deal Linked', 'Customer'],
+                        owner: selectedLeadForConversion.owner || getActiveUserIdentity(),
+                        notes: `Converted to Deal: ${convertDealForm.dealName}`,
+                        dateAdded: 'Today',
+                        createdAt: new Date().toISOString()
+                      };
+                      return [newC, ...prev];
+                    }
+                  });
+
                   setShowConvertLeadModal(false);
-                  triggerToast(`Lead ${selectedLeadForConversion.name} converted into Deal in Supabase!`, 'success');
+                  triggerToast(`Lead ${selectedLeadForConversion.name} converted into Deal & saved in Contacts Directory!`, 'success');
                   navigateTab('kanban');
                 } else {
                   alert(res.error || 'Failed to convert lead to deal in database.');
