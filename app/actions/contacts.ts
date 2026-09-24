@@ -266,6 +266,11 @@ export async function fetchContact360Action(contactId: string) {
   }
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+function isValidUUID(val: any): boolean {
+  return typeof val === 'string' && UUID_REGEX.test(val);
+}
+
 export async function createContactAction(data: any, authorName = 'System User') {
   const normPhone = data.preferredPhone ? normalizePhone(data.preferredPhone) : null;
   const preferredPhone = normPhone?.isValid ? normPhone.e164 : (data.preferredPhone || null);
@@ -328,9 +333,9 @@ export async function createContactAction(data: any, authorName = 'System User')
       tags: Array.isArray(data.tags) ? data.tags : [],
       custom_fields: data.customFields || {},
       owner: data.owner || authorName,
-      import_batch_id: data.importBatchId || null
+      import_batch_id: (data.importBatchId && isValidUUID(data.importBatchId)) ? data.importBatchId : null
     };
-    if (data.id) supaPayload.id = data.id;
+    if (data.id && isValidUUID(data.id)) supaPayload.id = data.id;
 
     const { data: createdRow, error: sErr } = await supabase
       .from('contacts')
@@ -363,13 +368,47 @@ export async function createContactAction(data: any, authorName = 'System User')
             contactsCount: 1,
             totalDealValue: 0
           }
-        });
+        }).catch(() => {});
       } catch (cSyncErr) {
         console.warn('Company auto-upsert warning:', cSyncErr);
       }
     }
 
     if (!sErr && createdRow) {
+      // Sync to Prisma in background with the real generated ID
+      try {
+        await prisma.contact.create({
+          data: {
+            id: createdRow.id,
+            name: name,
+            preferredPhone,
+            alternatePhones: Array.isArray(data.alternatePhones) ? data.alternatePhones : [],
+            email,
+            alternateEmails: Array.isArray(data.alternateEmails) ? data.alternateEmails : [],
+            company: company || null,
+            designation: data.designation ? data.designation.trim() : null,
+            city: data.city ? data.city.trim() : null,
+            state: data.state ? data.state.trim() : null,
+            address: data.address ? data.address.trim() : null,
+            category: data.category || 'Prospect',
+            sourceType: data.sourceType || 'Direct',
+            sourceEvent: data.sourceEvent || null,
+            sourceHistory: data.sourceHistory || (data.sourceType ? [{
+              sourceType: data.sourceType,
+              sourceEvent: data.sourceEvent || null,
+              createdAt: new Date().toISOString()
+            }] : []),
+            doNotContact: !!data.doNotContact,
+            consentGiven: data.consentGiven !== false,
+            notes: data.notes || null,
+            tags: Array.isArray(data.tags) ? data.tags : [],
+            customFields: data.customFields || {},
+            owner: data.owner || authorName,
+            importBatchId: (data.importBatchId && isValidUUID(data.importBatchId)) ? data.importBatchId : null
+          }
+        }).catch(() => {});
+      } catch (e) {}
+
       const mapped = mapContactFromSupabase(createdRow);
       try {
         await supabase.from('audit_logs').insert([{
@@ -381,6 +420,8 @@ export async function createContactAction(data: any, authorName = 'System User')
         }]);
       } catch (e) {}
       return { success: true, contact: mapped };
+    } else if (sErr) {
+      console.warn('Supabase createContactAction error, falling back to Prisma:', sErr);
     }
   } catch (sEx) {
     console.warn('Supabase createContactAction fallback:', sEx);
@@ -390,7 +431,7 @@ export async function createContactAction(data: any, authorName = 'System User')
   try {
     const created = await prisma.contact.create({
       data: {
-        id: data.id || undefined,
+        id: (data.id && isValidUUID(data.id)) ? data.id : undefined,
         name: data.name.trim(),
         preferredPhone,
         alternatePhones: Array.isArray(data.alternatePhones) ? data.alternatePhones : [],
@@ -415,7 +456,7 @@ export async function createContactAction(data: any, authorName = 'System User')
         tags: Array.isArray(data.tags) ? data.tags : [],
         customFields: data.customFields || {},
         owner: data.owner || authorName,
-        importBatchId: data.importBatchId || null
+        importBatchId: (data.importBatchId && isValidUUID(data.importBatchId)) ? data.importBatchId : null
       }
     });
 
