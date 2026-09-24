@@ -4,6 +4,11 @@ import { prisma } from '@/lib/prisma';
 import { supabase } from '@/lib/supabase';
 import { normalizePhone } from '@/lib/phone';
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+function isValidUUID(val: any): boolean {
+  return typeof val === 'string' && UUID_REGEX.test(val);
+}
+
 function normalizeDealStage(stage?: string): string {
   if (!stage) return 'New';
   const s = stage.trim().toLowerCase();
@@ -420,40 +425,60 @@ export async function createLeadAction(lead: any) {
           });
         } catch (e) {}
 
-        // Auto-sync into Unified Centralized Contacts Pool & Companies
+        // Auto-sync into Unified Centralized Contacts Pool, Companies, and Deals & Pipeline
         try {
           const normPhone = phone ? normalizePhone(phone) : null;
           const cleanPhone = normPhone?.isValid ? normPhone.e164 : (phone || null);
 
-          const contactPayload = {
+          // 1. Sync Contact into contacts table
+          const contactPayload: any = {
             name: name,
             company: lead.company || null,
             email: email || null,
             preferred_phone: cleanPhone,
-            phone: cleanPhone,
             category: 'Lead',
             source_type: 'Lead Capture',
             tags: ['Lead'],
             owner: lead.owner || null,
             notes: `Lead in Pipeline (Status: ${lead.status || 'New'})`
           };
+          if (lead.designation) {
+            contactPayload.designation = lead.designation;
+          }
+          if (lead.alternatePhone) {
+            contactPayload.alternate_phones = [lead.alternatePhone];
+          }
 
-          await supabase.from('contacts').insert([contactPayload]);
+          let existingContact = null;
+          if (cleanPhone || email) {
+            let chk = supabase.from('contacts').select('id');
+            if (cleanPhone) chk = chk.eq('preferred_phone', cleanPhone);
+            else if (email) chk = chk.eq('email', email);
+            const { data: extRows } = await chk.limit(1);
+            if (extRows && extRows.length > 0) existingContact = extRows[0];
+          }
 
-          await prisma.contact.create({
-            data: {
-              name: name,
-              company: lead.company || null,
-              email: email || null,
-              preferredPhone: cleanPhone,
-              category: 'Lead',
-              sourceType: 'Lead Capture',
-              tags: ['Lead'],
-              owner: lead.owner || null,
-              notes: `Lead in Pipeline (Status: ${lead.status || 'New'})`
-            }
-          }).catch(() => {});
+          if (!existingContact) {
+            const { data: cRow } = await supabase.from('contacts').insert([contactPayload]).select().single();
+            await prisma.contact.create({
+              data: {
+                id: cRow?.id,
+                name: name,
+                company: lead.company || null,
+                email: email || null,
+                preferredPhone: cleanPhone,
+                alternatePhones: lead.alternatePhone ? [lead.alternatePhone] : [],
+                designation: lead.designation || null,
+                category: 'Lead',
+                sourceType: 'Lead Capture',
+                tags: ['Lead'],
+                owner: lead.owner || null,
+                notes: `Lead in Pipeline (Status: ${lead.status || 'New'})`
+              }
+            }).catch(() => {});
+          }
 
+          // 2. Sync Company into companies table
           if (lead.company) {
             const compPayload = {
               name: lead.company,
@@ -461,7 +486,7 @@ export async function createLeadAction(lead: any) {
               city: 'Bangalore',
               state: 'Karnataka',
               contacts_count: 1,
-              total_deal_value: 0
+              total_deal_value: 500000
             };
             await supabase.from('companies').upsert([compPayload], { onConflict: 'name' });
             await prisma.company.upsert({
@@ -473,12 +498,47 @@ export async function createLeadAction(lead: any) {
                 city: 'Bangalore',
                 state: 'Karnataka',
                 contactsCount: 1,
-                totalDealValue: 0
+                totalDealValue: 500000
+              }
+            }).catch(() => {});
+          }
+
+          // 3. Auto-sync Opportunity Deal into deals table
+          const dealCompany = lead.company || name;
+          const dealName = `${dealCompany} — Pipeline Opportunity`;
+          let existingDeal = null;
+          if (dealCompany) {
+            const { data: extDeals } = await supabase.from('deals')
+              .select('id')
+              .ilike('company', dealCompany)
+              .limit(1);
+            if (extDeals && extDeals.length > 0) existingDeal = extDeals[0];
+          }
+
+          if (!existingDeal) {
+            const dealPayload: any = {
+              name: dealName,
+              company: dealCompany,
+              value: 500000,
+              stage: 'New',
+              probability: 20,
+              owner: lead.owner || null
+            };
+            const { data: supaDeal } = await supabase.from('deals').insert([dealPayload]).select().single();
+            await prisma.deal.create({
+              data: {
+                id: supaDeal?.id,
+                name: dealName,
+                company: dealCompany,
+                value: 500000,
+                stage: 'New',
+                probability: 20,
+                owner: lead.owner || null
               }
             }).catch(() => {});
           }
         } catch (syncEx) {
-          console.warn('Lead to Contacts/Companies pool sync warning:', syncEx);
+          console.warn('Lead to Contacts/Companies/Deals sync warning:', syncEx);
         }
 
         return { success: true, data: sCreated };
@@ -491,7 +551,7 @@ export async function createLeadAction(lead: any) {
     try {
       const created = await prisma.lead.create({
         data: {
-          id: lead.id || undefined,
+          id: (lead.id && isValidUUID(lead.id)) ? lead.id : undefined,
           name: name,
           company: lead.company || null,
           email: email || null,
@@ -504,7 +564,7 @@ export async function createLeadAction(lead: any) {
         }
       });
 
-      // Auto-sync into Unified Centralized Contacts Pool
+      // Auto-sync into Unified Centralized Contacts Pool & Deals in Prisma fallback
       try {
         const normPhone = phone ? normalizePhone(phone) : null;
         const cleanPhone = normPhone?.isValid ? normPhone.e164 : (phone || null);
@@ -514,11 +574,26 @@ export async function createLeadAction(lead: any) {
             company: lead.company || null,
             email: email || null,
             preferredPhone: cleanPhone,
+            alternatePhones: lead.alternatePhone ? [lead.alternatePhone] : [],
+            designation: lead.designation || null,
             category: 'Lead',
             sourceType: 'Lead Capture',
             tags: ['Lead'],
             owner: lead.owner || null,
             notes: `Lead in Pipeline (Status: ${lead.status || 'New'})`
+          }
+        }).catch(() => {});
+
+        const dealCompany = lead.company || name;
+        const dealName = `${dealCompany} — Pipeline Opportunity`;
+        await prisma.deal.create({
+          data: {
+            name: dealName,
+            company: dealCompany,
+            value: 500000,
+            stage: 'New',
+            probability: 20,
+            owner: lead.owner || null
           }
         }).catch(() => {});
       } catch (e) {}
@@ -695,9 +770,10 @@ export async function createDealAction(deal: any) {
       console.warn('Supabase duplicate deal check fallback:', sErr);
     }
 
+    const validDealId = (deal.id && isValidUUID(deal.id)) ? deal.id : undefined;
     const created = await prisma.deal.create({
       data: {
-        id: deal.id || undefined,
+        id: validDealId,
         name: name,
         company: company || null,
         value: Number(deal.value) || 0,
@@ -709,6 +785,22 @@ export async function createDealAction(deal: any) {
         daysInStage: Number(deal.daysInStage) || 0
       }
     });
+
+    // Also mirror into Supabase
+    try {
+      await supabase.from('deals').insert([{
+        id: created.id,
+        name: name,
+        company: company || null,
+        value: Number(deal.value) || 0,
+        probability: Number(deal.probability) || 0,
+        stage: normalizedStage,
+        owner: deal.owner || null,
+        expected_close: deal.expectedClose || null,
+        lost_reason: deal.lostReason || null,
+        days_in_stage: Number(deal.daysInStage) || 0
+      }]);
+    } catch (e) {}
     // Auto-sync contact details to Contacts Directory
     let syncedContact: any = null;
     try {
@@ -764,8 +856,10 @@ export async function createDealAction(deal: any) {
   } catch (err: any) {
     // If Prisma fails, try inserting to Supabase directly
     try {
+      const validDealId = (deal.id && isValidUUID(deal.id)) ? deal.id : undefined;
       const normalizedStage = normalizeDealStage(deal.stage);
       const { data: sCreated, error: sErr } = await supabase.from('deals').insert([{
+        ...(validDealId ? { id: validDealId } : {}),
         name: (deal.name || '').trim(),
         company: (deal.company || '').trim() || null,
         value: Number(deal.value) || 0,

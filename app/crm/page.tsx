@@ -1994,7 +1994,7 @@ export default function App() {
     setLeads(nextLeads);
     triggerRecalculateScores(nextLeads);
 
-    // Auto-save & reflect in Contacts Directory immediately!
+    // 1. Auto-save & reflect in Contacts Directory immediately!
     const freshContact: any = {
       id: freshId,
       name: fullName,
@@ -2004,7 +2004,7 @@ export default function App() {
       phone: newLead.phone || null,
       alternatePhones: [newLead.alternatePhone].filter(Boolean),
       designation: newLead.designation || 'Key Contact',
-      category: newLead.leadSource === 'Direct Deal' ? 'Prospect' : 'Prospect',
+      category: 'Prospect',
       sourceType: newLead.leadSource || 'Direct',
       tags: newLead.tags && newLead.tags.length > 0 ? newLead.tags : ['B2G'],
       owner: newLead.owner || getActiveUserIdentity(),
@@ -2017,37 +2017,66 @@ export default function App() {
       createContactAction(freshContact, getActiveUserIdentity()).catch(() => {});
     }).catch(() => {});
 
-    // If originated from Deals & Pipeline (+ New Deal button)
-    if (newLead.leadSource === 'Direct Deal') {
-      const freshDeal: Deal = {
-        id: `D-${Date.now().toString().slice(-4)}`,
-        name: `${newLead.company || fullName} — Pipeline Opportunity`,
-        company: newLead.company || fullName,
-        companyScale: newLead.companyScale,
-        value: 500000,
-        stage: 'New',
-        probability: 20,
-        expectedClose: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-        owner: newLead.owner || getActiveUserIdentity(),
-        daysInStage: 0,
-        leadId: freshId,
-        contactName: fullName,
-        contactEmail: newLead.email,
-        contactPhone: newLead.phone,
-        designation: newLead.designation
-      };
-      setDeals(prev => deduplicateDealsLocal([freshDeal, ...prev]));
-      import('@/app/actions/crm').then(({ createDealAction }) => {
-        createDealAction(freshDeal).catch(() => {});
-      }).catch(() => {});
+    // 2. Auto-save & reflect in Deals & Pipeline immediately!
+    const dealId = crypto.randomUUID();
+    const freshDeal: Deal = {
+      id: dealId,
+      name: `${newLead.company || fullName} — Pipeline Opportunity`,
+      company: newLead.company || fullName,
+      companyScale: newLead.companyScale,
+      value: 500000,
+      stage: 'New',
+      probability: 20,
+      expectedClose: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+      owner: newLead.owner || getActiveUserIdentity(),
+      daysInStage: 0,
+      leadId: freshId,
+      contactName: fullName,
+      contactEmail: newLead.email,
+      contactPhone: newLead.phone,
+      designation: newLead.designation
+    };
+    setDeals(prev => deduplicateDealsLocal([freshDeal, ...prev]));
+    import('@/app/actions/crm').then(({ createDealAction }) => {
+      createDealAction(freshDeal).catch(() => {});
+    }).catch(() => {});
+
+    // 3. Auto-save & reflect in Companies & Accounts immediately!
+    if (newLead.company) {
+      const compName = newLead.company.trim();
+      setCompanies(prev => {
+        const compLower = compName.toLowerCase();
+        const existing = prev.find(c => (c.name || '').toLowerCase() === compLower);
+        if (existing) {
+          return prev.map(c => c.id === existing.id ? {
+            ...c,
+            contactsCount: (c.contactsCount || 0) + 1,
+            totalDealValue: (Number(c.totalDealValue) || 0) + 500000
+          } : c);
+        } else {
+          return [{
+            id: crypto.randomUUID(),
+            name: compName,
+            industry: 'Manufacturing / B2G',
+            website: '',
+            city: newLead.city || 'Bangalore',
+            state: newLead.state || 'Karnataka',
+            address: '',
+            contactsCount: 1,
+            totalDealValue: 500000,
+            createdAt: new Date().toISOString()
+          }, ...prev];
+        }
+      });
     }
 
+    // 4. Save Lead in database
     import('@/app/actions/crm').then(({ createLeadAction }) => {
       createLeadAction(freshLead).then(res => {
         if (res.isDuplicate) {
           triggerToast(res.error || 'Lead is already in database!', 'warning');
         } else if (res.success) {
-          triggerToast('Contact & Deal saved and reflected in Contacts Directory!', 'success');
+          triggerToast('Lead, Contact & Deal saved and reflected across CRM!', 'success');
         }
       });
     }).catch(err => console.error('Error creating lead in DB:', err));
@@ -2628,7 +2657,7 @@ export default function App() {
           return next;
         } else {
           const newC: any = {
-            id: `CNT-${Date.now().toString().slice(-4)}`,
+            id: crypto.randomUUID(),
             name: cName,
             company: updates.company || null,
             email: cEmail,
